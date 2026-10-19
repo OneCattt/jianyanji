@@ -1,0 +1,21 @@
+[Unit]
+Description=清欣简妍肌 Java API
+After=network.target
+
+[Service]
+Type=simple
+User=jianyanji
+Group=jianyanji
+WorkingDirectory=/opt/jianyanji/backend
+EnvironmentFile=/etc/jianyanji.env
+# /opt/java8 必须指向经过 java -version 确认的 JDK 8。
+ExecStart=/opt/java8/bin/java -Xms256m -Xmx512m -jar /opt/jianyanji/backend/jianyanji-api-0.1.0.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

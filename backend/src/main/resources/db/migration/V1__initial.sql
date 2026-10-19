@@ -1,0 +1,702 @@
+-- 首期 MySQL 8 初始化。金额使用 BIGINT 分，历史业务时间保留 ISO UTC，审计时间为 DATETIME(3)。
+
+-- 活跃唯一键采用条件生成列；逻辑删除后可重复创建，历史记录仍保留。
+
+CREATE TABLE `users` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `openid` VARCHAR(191) NOT NULL COMMENT '微信用户唯一标识',
+  `nickname` VARCHAR(191) NOT NULL DEFAULT '微信用户' COMMENT '用户昵称',
+  `phone` VARCHAR(191) NOT NULL DEFAULT '' COMMENT '联系电话',
+  `identity` VARCHAR(191) NOT NULL DEFAULT 'D'  COMMENT '代理身份 B：主理人 C：店主 D：游客',
+  `identity_valid_until` VARCHAR(191)  COMMENT '身份有效期，ISO UTC，可空',
+  `inviter_id` BIGINT  COMMENT '直接邀请人编号，可空',
+  `principal_id` BIGINT  COMMENT '归属主理人编号，可空',
+  `onboarding_id` BIGINT  COMMENT '入驻申请编号，可空',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_users_openid_active` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `users_openid_active` (`openid`,`_active_users_openid_active`),
+  CHECK(identity IN ('B','C','D'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='购买用户业务记录';
+
+CREATE TABLE `staff` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `username` VARCHAR(191) NOT NULL COMMENT '工作人员登录账号',
+  `display_name` VARCHAR(191) NOT NULL COMMENT '工作人员姓名',
+  `password_hash` VARCHAR(191) NOT NULL COMMENT '加盐密码摘要',
+  `permissions` LONGTEXT NOT NULL DEFAULT ('[]') COMMENT '授权功能 JSON 数组',
+  `enabled` BIGINT NOT NULL DEFAULT 1  COMMENT '启用状态 0：停用 1：启用',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_staff_username_active` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `staff_username_active` (`username`,`_active_staff_username_active`),
+  CHECK(enabled IN (0,1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='工作人员业务记录';
+
+CREATE TABLE `sessions` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `token_hash` VARCHAR(191) NOT NULL UNIQUE COMMENT '会话令牌 SHA256 摘要',
+  `kind` VARCHAR(191) NOT NULL  COMMENT '业务类型，取值按所属业务约定',
+  `subject_id` BIGINT NOT NULL COMMENT '会话所属用户编号',
+  `expires_at` VARCHAR(191) NOT NULL COMMENT '到期时间，ISO UTC',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  CHECK(kind IN ('user','staff'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='登录会话业务记录';
+
+CREATE TABLE `audit_events` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `actor_kind` VARCHAR(191) NOT NULL COMMENT '操作者类型 user、staff 或 system',
+  `actor_id` BIGINT NOT NULL COMMENT '操作者编号，系统为0',
+  `action` VARCHAR(191) NOT NULL COMMENT '操作类型',
+  `object_type` VARCHAR(191) NOT NULL COMMENT '业务对象类型',
+  `object_id` VARCHAR(191) NOT NULL COMMENT '业务对象编号',
+  `result` VARCHAR(191) NOT NULL COMMENT '处理结果',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  `request_id` VARCHAR(191) NOT NULL COMMENT '请求追踪编号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  INDEX `audit_object` (`object_type`,`object_id`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='操作审计业务记录';
+
+CREATE TABLE `settings` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `key` VARCHAR(191) NOT NULL COMMENT '业务配置键',
+  `value` LONGTEXT NOT NULL COMMENT '业务配置 JSON 内容',
+  `version` BIGINT NOT NULL DEFAULT 1 COMMENT '数据版本号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_setting_active` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `setting_active` (`key`,`_active_setting_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='经营配置业务记录';
+
+CREATE TABLE `categories` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `name` VARCHAR(191) NOT NULL COMMENT '名称',
+  `sort` BIGINT NOT NULL DEFAULT 0 COMMENT '显示顺序，越小越靠前',
+  `active` BIGINT NOT NULL DEFAULT 1 COMMENT '有效状态 0：无效 1：有效',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='商品分类业务记录';
+
+CREATE TABLE `products` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `category_id` BIGINT NOT NULL  COMMENT '商品分类编号',
+  `name` VARCHAR(191) NOT NULL COMMENT '名称',
+  `subtitle` VARCHAR(191) NOT NULL COMMENT '商品副标题',
+  `description` LONGTEXT NOT NULL COMMENT '商品说明',
+  `image` VARCHAR(191) NOT NULL COMMENT '列表图片地址',
+  `detail_image` VARCHAR(191) NOT NULL COMMENT '详情图片地址',
+  `active` BIGINT NOT NULL DEFAULT 0 COMMENT '有效状态 0：无效 1：有效',
+  `featured` BIGINT NOT NULL DEFAULT 0 COMMENT '首页臻选 0：否 1：是',
+  `version` BIGINT NOT NULL DEFAULT 1 COMMENT '数据版本号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='商品业务记录';
+
+CREATE TABLE `skus` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `product_id` BIGINT NOT NULL  COMMENT '商品编号',
+  `name` VARCHAR(191) NOT NULL COMMENT '名称',
+  `unit` VARCHAR(191) NOT NULL COMMENT '商品计量单位',
+  `retail_cents` BIGINT  COMMENT '游客单价，单位分，空表示不可购买',
+  `store_cents` BIGINT  COMMENT '店主单价，单位分，空表示不可购买',
+  `principal_cents` BIGINT  COMMENT '主理人单价，单位分，空表示不可购买',
+  `stock` BIGINT NOT NULL  COMMENT '总库存数量',
+  `reserved` BIGINT NOT NULL DEFAULT 0  COMMENT '未付款订单占用数量',
+  `active` BIGINT NOT NULL COMMENT '有效状态 0：无效 1：有效',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
+  CHECK(stock>=0),
+  CHECK(reserved>=0 AND reserved<=stock)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='商品规格业务记录';
+
+CREATE TABLE `addresses` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `recipient` VARCHAR(191) NOT NULL COMMENT '实际收件人或收款人',
+  `phone` VARCHAR(191) NOT NULL COMMENT '联系电话',
+  `province` VARCHAR(191) NOT NULL COMMENT '省份',
+  `city` VARCHAR(191) NOT NULL COMMENT '城市',
+  `district` VARCHAR(191) NOT NULL COMMENT '区县',
+  `detail` VARCHAR(2000) NOT NULL COMMENT '详细地址或处理详情',
+  `is_default` BIGINT NOT NULL DEFAULT 0 COMMENT '默认地址 0：否 1：是',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='addresses业务记录';
+
+CREATE TABLE `cart_items` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `sku_id` BIGINT NOT NULL  COMMENT '商品规格编号',
+  `quantity` BIGINT NOT NULL  COMMENT '商品数量',
+  `selected` BIGINT NOT NULL DEFAULT 1 COMMENT '是否选中 0：否 1：是',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_cart_active` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `cart_active` (`user_id`,`sku_id`,`_active_cart_active`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  FOREIGN KEY (`sku_id`) REFERENCES `skus` (`id`),
+  CHECK(quantity>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='cart_items业务记录';
+
+CREATE TABLE `quotes` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `snapshot` LONGTEXT NOT NULL COMMENT '不可变业务 JSON 快照',
+  `expires_at` VARCHAR(191) NOT NULL COMMENT '到期时间，ISO UTC',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='quotes业务记录';
+
+CREATE TABLE `orders` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `number` VARCHAR(191) NOT NULL UNIQUE COMMENT '业务单号',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `kind` VARCHAR(191) NOT NULL DEFAULT 'goods' COMMENT '业务类型，取值按所属业务约定',
+  `status` VARCHAR(191) NOT NULL DEFAULT 'pending' COMMENT '业务处理状态，取值见对应接口说明',
+  `payment_method` VARCHAR(191)  COMMENT '支付方式 wechat、points 或 company，可空',
+  `payment_state` VARCHAR(191) NOT NULL DEFAULT 'unpaid' COMMENT '支付核查状态',
+  `total_cents` BIGINT NOT NULL COMMENT '总金额，单位分',
+  `goods_cents` BIGINT NOT NULL COMMENT '商品货款，单位分',
+  `shipping_cents` BIGINT NOT NULL COMMENT '运费，单位分',
+  `snapshot` LONGTEXT NOT NULL COMMENT '不可变业务 JSON 快照',
+  `expires_at` VARCHAR(191) NOT NULL COMMENT '到期时间，ISO UTC',
+  `received_at` VARCHAR(191)  COMMENT '实际收货或到账时间，ISO UTC',
+  `request_key` VARCHAR(191) NOT NULL COMMENT '请求幂等键',
+  `quote_id` BIGINT  COMMENT '报价记录编号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_orders_request_active` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `orders_request_active` (`user_id`,`request_key`,`_active_orders_request_active`),
+  INDEX `orders_user` (`user_id`,`id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='商品订单业务记录';
+
+CREATE TABLE `order_lines` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `order_id` BIGINT NOT NULL  COMMENT '订单编号',
+  `sku_id` BIGINT NOT NULL  COMMENT '商品规格编号',
+  `quantity` BIGINT NOT NULL COMMENT '商品数量',
+  `unit_cents` BIGINT NOT NULL COMMENT '成交单价，单位分',
+  `principal_cents` BIGINT  COMMENT '主理人单价，单位分，空表示不可购买',
+  `shipped_qty` BIGINT NOT NULL DEFAULT 0 COMMENT '累计已发货数量',
+  `received_qty` BIGINT NOT NULL DEFAULT 0 COMMENT '累计已收货数量',
+  `refunded_qty` BIGINT NOT NULL DEFAULT 0 COMMENT '累计已退款数量',
+  `refund_held` BIGINT NOT NULL DEFAULT 0 COMMENT '办理中售后占用数量',
+  `refunded_unshipped` BIGINT NOT NULL DEFAULT 0 COMMENT '累计未发货退款数量',
+  `held_unshipped` BIGINT NOT NULL DEFAULT 0 COMMENT '办理中未发货售后占用数量',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`),
+  FOREIGN KEY (`sku_id`) REFERENCES `skus` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='order_lines业务记录';
+
+CREATE TABLE `shipments` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `order_id` BIGINT NOT NULL  COMMENT '订单编号',
+  `carrier` VARCHAR(191) NOT NULL COMMENT '物流公司',
+  `tracking` VARCHAR(191) NOT NULL COMMENT '物流单号',
+  `lines` LONGTEXT NOT NULL COMMENT '商品明细 JSON 快照',
+  `shipped_at` VARCHAR(191) NOT NULL COMMENT '发货时间，ISO UTC',
+  `received_at` VARCHAR(191)  COMMENT '实际收货或到账时间，ISO UTC',
+  `request_key` VARCHAR(191)  COMMENT '请求幂等键',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_shipment_request` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 AND request_key IS NOT NULL THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `shipment_request` (`order_id`,`request_key`,`_active_shipment_request`),
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='shipments业务记录';
+
+CREATE TABLE `refunds` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `order_id` BIGINT NOT NULL  COMMENT '订单编号',
+  `number` VARCHAR(191) NOT NULL UNIQUE COMMENT '业务单号',
+  `kind` VARCHAR(191) NOT NULL COMMENT '业务类型，取值按所属业务约定',
+  `status` VARCHAR(191) NOT NULL DEFAULT 'requested' COMMENT '业务处理状态，取值见对应接口说明',
+  `goods_cents` BIGINT NOT NULL COMMENT '商品货款，单位分',
+  `shipping_cents` BIGINT NOT NULL COMMENT '运费，单位分',
+  `total_cents` BIGINT NOT NULL COMMENT '总金额，单位分',
+  `lines` LONGTEXT NOT NULL COMMENT '商品明细 JSON 快照',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  `policy_snapshot` LONGTEXT NOT NULL COMMENT '交易时售后政策快照',
+  `returned_at` VARCHAR(191)  COMMENT '实际退货验收时间，ISO UTC，可空',
+  `inspection` VARCHAR(2000)  COMMENT '实际验货记录',
+  `channel_ref` VARCHAR(191)  COMMENT '渠道退款编号，可空',
+  `completed_at` VARCHAR(191)  COMMENT '处理完成时间，ISO UTC，可空',
+  `request_key` VARCHAR(191) NOT NULL COMMENT '请求幂等键',
+  `request_id` VARCHAR(191) NOT NULL COMMENT '请求追踪编号',
+  `identity_decision` VARCHAR(191)  COMMENT '产品包部分退款的身份处理决定，可空',
+  `recipient` VARCHAR(191)  COMMENT '实际收件人或收款人',
+  `paid_at` VARCHAR(191)  COMMENT '实际支付时间，ISO UTC，可空',
+  `proof` VARCHAR(2000)  COMMENT '实际付款或核查凭证',
+  `channel_token` VARCHAR(191)  COMMENT '渠道操作租约令牌，可空',
+  `channel_until` VARCHAR(191)  COMMENT '渠道操作租约到期时间，ISO UTC，可空',
+  `last_error` VARCHAR(2000) NOT NULL DEFAULT '' COMMENT '最近一次失败原因',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_refunds_request_active` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `refunds_request_active` (`request_key`,`_active_refunds_request_active`),
+  INDEX `refunds_order` (`order_id`,`id`),
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='refunds业务记录';
+
+CREATE TABLE `returned_inventory` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `refund_id` BIGINT NOT NULL  COMMENT '商品售后编号',
+  `line_id` BIGINT NOT NULL  COMMENT '订单明细编号',
+  `quantity` BIGINT NOT NULL COMMENT '商品数量',
+  `restocked` BIGINT NOT NULL DEFAULT 0 COMMENT '是否回补库存 0：否 1：是',
+  `inspection` VARCHAR(2000) NOT NULL COMMENT '实际验货记录',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_returned_inventory_active` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `returned_inventory_active` (`refund_id`,`line_id`,`_active_returned_inventory_active`),
+  FOREIGN KEY (`refund_id`) REFERENCES `refunds` (`id`),
+  FOREIGN KEY (`line_id`) REFERENCES `order_lines` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='returned_inventory业务记录';
+
+CREATE TABLE `payment_attempts` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `order_id` BIGINT NOT NULL  COMMENT '订单编号',
+  `number` VARCHAR(191) NOT NULL UNIQUE COMMENT '业务单号',
+  `state` VARCHAR(191) NOT NULL COMMENT '渠道交易状态',
+  `app_id` VARCHAR(191) NOT NULL COMMENT '交易时微信小程序标识',
+  `mch_id` VARCHAR(191) NOT NULL COMMENT '交易时微信商户号',
+  `cents` BIGINT NOT NULL COMMENT '渠道交易金额，单位分',
+  `openid` VARCHAR(191) NOT NULL COMMENT '微信用户唯一标识',
+  `prepay` LONGTEXT  COMMENT '微信预支付参数 JSON，可空',
+  `transaction_id` VARCHAR(191)  COMMENT '原支付交易流水号',
+  `verified_trade` LONGTEXT  COMMENT '验签后渠道交易 JSON，可空',
+  `close_requested` BIGINT NOT NULL DEFAULT 0 COMMENT '是否要求关闭原交易 0：否 1：是',
+  `lease_token` VARCHAR(191)  COMMENT '业务租约令牌，可空',
+  `lease_until` VARCHAR(191)  COMMENT '业务租约到期时间，ISO UTC，可空',
+  `last_error` VARCHAR(2000) NOT NULL DEFAULT '' COMMENT '最近一次失败原因',
+  `last_request_id` VARCHAR(191) NOT NULL DEFAULT '' COMMENT '最近一次核查请求编号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_payment_active_order` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 AND state!='closed' THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `payment_active_order` (`order_id`,`_active_payment_active_order`),
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='payment_attempts业务记录';
+
+CREATE TABLE `payments` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `order_id` BIGINT NOT NULL  COMMENT '订单编号',
+  `method` VARCHAR(191) NOT NULL COMMENT '支付渠道',
+  `transaction_id` VARCHAR(191) NOT NULL COMMENT '原支付交易流水号',
+  `out_trade_no` VARCHAR(191)  COMMENT '原微信商户单号，可空',
+  `cents` BIGINT NOT NULL COMMENT '渠道交易金额，单位分',
+  `paid_at` VARCHAR(191) NOT NULL COMMENT '实际支付时间，ISO UTC，可空',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_receipt_order` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `receipt_order` (`order_id`,`_active_receipt_order`),
+  `_active_receipt_channel_transaction` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `receipt_channel_transaction` (`method`,`transaction_id`,`_active_receipt_channel_transaction`),
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='payments业务记录';
+
+CREATE TABLE `payment_events` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `order_id` BIGINT  COMMENT '订单编号',
+  `attempt_id` BIGINT  COMMENT '微信支付尝试编号，可空',
+  `action` VARCHAR(191) NOT NULL COMMENT '操作类型',
+  `result` VARCHAR(191) NOT NULL COMMENT '处理结果',
+  `detail` VARCHAR(2000) NOT NULL COMMENT '详细地址或处理详情',
+  `request_id` VARCHAR(191) NOT NULL COMMENT '请求追踪编号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  INDEX `payment_events_order` (`order_id`,`id`),
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`),
+  FOREIGN KEY (`attempt_id`) REFERENCES `payment_attempts` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='payment_events业务记录';
+
+CREATE TABLE `shipment_corrections` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `shipment_id` BIGINT NOT NULL  COMMENT '发货记录编号',
+  `old_carrier` VARCHAR(191) NOT NULL COMMENT '纠正前物流公司',
+  `old_tracking` VARCHAR(191) NOT NULL COMMENT '纠正前物流单号',
+  `carrier` VARCHAR(191) NOT NULL COMMENT '物流公司',
+  `tracking` VARCHAR(191) NOT NULL COMMENT '物流单号',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  `request_id` VARCHAR(191) NOT NULL COMMENT '请求追踪编号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  FOREIGN KEY (`shipment_id`) REFERENCES `shipments` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='shipment_corrections业务记录';
+
+CREATE TABLE `reward_settings` (
+  `id` BIGINT NOT NULL PRIMARY KEY COMMENT '主键',
+  `value` LONGTEXT NOT NULL COMMENT '业务配置 JSON 内容',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='reward_settings业务记录';
+
+CREATE TABLE `rewards` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `order_id` BIGINT NOT NULL  COMMENT '订单编号',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `kind` VARCHAR(191) NOT NULL  COMMENT '业务类型，取值按所属业务约定',
+  `amount_cents` BIGINT NOT NULL  COMMENT '业务金额，单位分',
+  `reversed_cents` BIGINT NOT NULL DEFAULT 0 COMMENT '累计奖励冲回金额，单位分',
+  `settled_cents` BIGINT NOT NULL DEFAULT 0 COMMENT '累计已结算奖励，单位分',
+  `snapshot` LONGTEXT NOT NULL COMMENT '不可变业务 JSON 快照',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  `request_id` VARCHAR(191) NOT NULL COMMENT '请求追踪编号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_reward_source_active` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `reward_source_active` (`order_id`,`kind`,`_active_reward_source_active`),
+  INDEX `reward_owner` (`user_id`,`id`),
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  CHECK(kind IN ('onboarding','margin')),
+  CHECK(amount_cents>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='rewards业务记录';
+
+CREATE TABLE `reward_reversals` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `reward_id` BIGINT NOT NULL  COMMENT '原奖励编号',
+  `refund_id` BIGINT NOT NULL COMMENT '商品售后编号',
+  `amount_cents` BIGINT NOT NULL  COMMENT '业务金额，单位分',
+  `debt_cents` BIGINT NOT NULL  COMMENT '已付奖励待抵扣或追回金额，单位分',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  `request_id` VARCHAR(191) NOT NULL COMMENT '请求追踪编号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_reward_refund_active` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `reward_refund_active` (`reward_id`,`refund_id`,`_active_reward_refund_active`),
+  FOREIGN KEY (`reward_id`) REFERENCES `rewards` (`id`),
+  CHECK(amount_cents>=0),
+  CHECK(debt_cents>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='reward_reversals业务记录';
+
+CREATE TABLE `reward_settlements` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `month` VARCHAR(191) NOT NULL COMMENT '结算月份，YYYY-MM',
+  `payee` VARCHAR(191) NOT NULL COMMENT '核实的实际收款人',
+  `status` VARCHAR(191) NOT NULL  COMMENT '业务处理状态，取值见对应接口说明',
+  `gross_cents` BIGINT NOT NULL COMMENT '结算前奖励，单位分',
+  `offset_cents` BIGINT NOT NULL COMMENT '抵扣奖励，单位分',
+  `net_cents` BIGINT NOT NULL COMMENT '实际应付金额，单位分',
+  `plan` LONGTEXT NOT NULL COMMENT '月结分配及抵扣 JSON 快照',
+  `paid_at` VARCHAR(191)  COMMENT '实际支付时间，ISO UTC，可空',
+  `proof` VARCHAR(2000)  COMMENT '实际付款或核查凭证',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  `request_key` VARCHAR(191) NOT NULL COMMENT '请求幂等键',
+  `request_id` VARCHAR(191) NOT NULL COMMENT '请求追踪编号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_reward_month_active` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 AND status!='cancelled' THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `reward_month_active` (`user_id`,`month`,`_active_reward_month_active`),
+  `_active_reward_settlement_key` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `reward_settlement_key` (`request_key`,`_active_reward_settlement_key`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  CHECK(status IN ('pending','failed','unknown','paid','cancelled'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='reward_settlements业务记录';
+
+CREATE TABLE `reward_offsets` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `reversal_id` BIGINT NOT NULL  COMMENT '奖励冲回编号',
+  `settlement_id` BIGINT NOT NULL  COMMENT '奖励月结编号',
+  `reward_id` BIGINT NOT NULL  COMMENT '原奖励编号',
+  `amount_cents` BIGINT NOT NULL  COMMENT '业务金额，单位分',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  FOREIGN KEY (`reversal_id`) REFERENCES `reward_reversals` (`id`),
+  FOREIGN KEY (`settlement_id`) REFERENCES `reward_settlements` (`id`),
+  FOREIGN KEY (`reward_id`) REFERENCES `rewards` (`id`),
+  CHECK(amount_cents>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='reward_offsets业务记录';
+
+CREATE TABLE `reward_recoveries` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `reversal_id` BIGINT NOT NULL  COMMENT '奖励冲回编号',
+  `amount_cents` BIGINT NOT NULL  COMMENT '业务金额，单位分',
+  `received_at` VARCHAR(191) NOT NULL COMMENT '实际收货或到账时间，ISO UTC',
+  `proof` VARCHAR(2000) NOT NULL COMMENT '实际付款或核查凭证',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  `request_key` VARCHAR(191) NOT NULL COMMENT '请求幂等键',
+  `request_id` VARCHAR(191) NOT NULL COMMENT '请求追踪编号',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_reward_recovery_key` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `reward_recovery_key` (`request_key`,`_active_reward_recovery_key`),
+  FOREIGN KEY (`reversal_id`) REFERENCES `reward_reversals` (`id`),
+  CHECK(amount_cents>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='reward_recoveries业务记录';
+
+CREATE TABLE `company_receipts` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `purpose` VARCHAR(191) NOT NULL  COMMENT '收款用途 package：产品包 points：订货积分',
+  `onboarding_id` BIGINT  COMMENT '入驻申请编号，可空',
+  `source_channel` VARCHAR(191) NOT NULL  COMMENT '收款渠道 bank 或 wechat_company',
+  `account_ref` VARCHAR(191) NOT NULL COMMENT '公司收款账户标识',
+  `external_transaction_id` VARCHAR(191) NOT NULL COMMENT '原公司收款流水号',
+  `amount_cents` BIGINT NOT NULL  COMMENT '业务金额，单位分',
+  `received_at` VARCHAR(191) NOT NULL COMMENT '实际收货或到账时间，ISO UTC',
+  `evidence` VARCHAR(2000) NOT NULL COMMENT '原始到账凭证或归档编号',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  `confirmed_by` BIGINT NOT NULL COMMENT '核款工作人员编号',
+  `confirmed_at` VARCHAR(191) NOT NULL COMMENT '实际核款时间，ISO UTC',
+  `cash_refunded_cents` BIGINT NOT NULL DEFAULT 0  COMMENT '累计已退现金，单位分',
+  `cash_held_cents` BIGINT NOT NULL DEFAULT 0  COMMENT '办理中现金退款占用，单位分',
+  CHECK(cash_refunded_cents+cash_held_cents<=amount_cents),
+  UNIQUE(source_channel,account_ref,external_transaction_id),
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  INDEX `receipts_user` (`user_id`,`id`),
+  INDEX `receipts_reference` (`external_transaction_id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  CHECK(purpose IN ('package','points')),
+  CHECK(source_channel IN ('bank','wechat_company')),
+  CHECK(amount_cents>0),
+  CHECK(cash_refunded_cents>=0),
+  CHECK(cash_held_cents>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='公司收款业务记录';
+
+CREATE TABLE `onboardings` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `target_identity` VARCHAR(191) NOT NULL  COMMENT '申请身份 B：主理人 C：店主',
+  `status` VARCHAR(191) NOT NULL DEFAULT 'submitted'  COMMENT '业务处理状态，取值见对应接口说明',
+  `package_snapshot` LONGTEXT NOT NULL COMMENT '申请时产品包快照 JSON',
+  `requested_inviter_id` BIGINT  COMMENT '申请人提交的直接邀请人编号，可空',
+  `inviter_id` BIGINT  COMMENT '直接邀请人编号，可空',
+  `principal_id` BIGINT  COMMENT '归属主理人编号，可空',
+  `receipt_id` BIGINT UNIQUE  COMMENT '原公司收款编号',
+  `order_id` BIGINT UNIQUE  COMMENT '订单编号',
+  `reward_cents` BIGINT NOT NULL  COMMENT '申请时固定入驻奖励，单位分',
+  `after_sales_days` BIGINT NOT NULL  COMMENT '交易时售后天数',
+  `qualification_snapshot` VARCHAR(191)  COMMENT '身份条件核对快照 JSON',
+  `approved_at` VARCHAR(191)  COMMENT '入驻身份批准时间，ISO UTC，可空',
+  `reviewed_by` BIGINT  COMMENT '身份审核工作人员编号，可空',
+  `review_reason` VARCHAR(191) NOT NULL DEFAULT '' COMMENT '身份审核原因',
+  `request_key` VARCHAR(191) NOT NULL COMMENT '请求幂等键',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  `_active_onboarding_request` TINYINT GENERATED ALWAYS AS (CASE WHEN is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `onboarding_request` (`user_id`,`request_key`,`_active_onboarding_request`),
+  `_active_onboarding_pending` TINYINT GENERATED ALWAYS AS (CASE WHEN status='submitted' AND is_deleted=0 THEN 1 ELSE NULL END) STORED COMMENT '活跃记录唯一约束',
+  UNIQUE INDEX `onboarding_pending` (`user_id`,`_active_onboarding_pending`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  FOREIGN KEY (`requested_inviter_id`) REFERENCES `users` (`id`),
+  FOREIGN KEY (`inviter_id`) REFERENCES `users` (`id`),
+  FOREIGN KEY (`principal_id`) REFERENCES `users` (`id`),
+  FOREIGN KEY (`receipt_id`) REFERENCES `company_receipts` (`id`),
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`),
+  CHECK(target_identity IN ('B','C')),
+  CHECK(status IN ('submitted','approved','rejected','revoked')),
+  CHECK(reward_cents>=0),
+  CHECK(after_sales_days>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='onboardings业务记录';
+
+CREATE TABLE `onboarding_identity_events` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `onboarding_id` BIGINT NOT NULL  COMMENT '入驻申请编号，可空',
+  `order_id` BIGINT NOT NULL  COMMENT '订单编号',
+  `prior_status` VARCHAR(191) NOT NULL COMMENT '退款前身份申请状态',
+  `decision` VARCHAR(191) NOT NULL COMMENT '身份处理决定',
+  `full_refund` BIGINT NOT NULL COMMENT '是否整包退款 0：否 1：是',
+  `refunded_cents` BIGINT NOT NULL COMMENT '累计退回积分或退款金额，单位为百分之一积分或分',
+  `user_snapshot` LONGTEXT NOT NULL COMMENT '身份处理前用户 JSON 快照',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  UNIQUE(onboarding_id,refunded_cents),
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  FOREIGN KEY (`onboarding_id`) REFERENCES `onboardings` (`id`),
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='onboarding_identity_events业务记录';
+
+CREATE TABLE `wallet_lots` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `receipt_id` BIGINT NOT NULL UNIQUE  COMMENT '原公司收款编号',
+  `issued_cents` BIGINT NOT NULL  COMMENT '原批次发放积分，单位为百分之一积分',
+  `remaining_cents` BIGINT NOT NULL COMMENT '批次剩余积分，单位为百分之一积分',
+  `held_cents` BIGINT NOT NULL DEFAULT 0 COMMENT '办理中占用积分，单位为百分之一积分',
+  CHECK(remaining_cents>=0 AND remaining_cents<=issued_cents),
+  CHECK(held_cents>=0 AND held_cents<=remaining_cents),
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  INDEX `lots_user` (`user_id`,`id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  FOREIGN KEY (`receipt_id`) REFERENCES `company_receipts` (`id`),
+  CHECK(issued_cents>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='积分批次业务记录';
+
+CREATE TABLE `wallet_spend_allocations` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `order_id` BIGINT NOT NULL  COMMENT '订单编号',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `lot_id` BIGINT NOT NULL  COMMENT '积分批次编号',
+  `receipt_id` BIGINT NOT NULL  COMMENT '原公司收款编号',
+  `spent_cents` BIGINT NOT NULL  COMMENT '订单分摊消耗积分，单位为百分之一积分',
+  `refunded_cents` BIGINT NOT NULL DEFAULT 0 COMMENT '累计退回积分或退款金额，单位为百分之一积分或分',
+  CHECK(refunded_cents>=0 AND refunded_cents<=spent_cents),
+  UNIQUE(order_id,lot_id),
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  FOREIGN KEY (`lot_id`) REFERENCES `wallet_lots` (`id`),
+  FOREIGN KEY (`receipt_id`) REFERENCES `company_receipts` (`id`),
+  CHECK(spent_cents>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='wallet_spend_allocations业务记录';
+
+CREATE TABLE `wallet_ledger` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `receipt_id` BIGINT NOT NULL  COMMENT '原公司收款编号',
+  `lot_id` BIGINT NOT NULL  COMMENT '积分批次编号',
+  `order_id` BIGINT  COMMENT '订单编号',
+  `kind` VARCHAR(191) NOT NULL  COMMENT '业务类型，取值按所属业务约定',
+  `delta_cents` BIGINT NOT NULL  COMMENT '积分变动，正数增加负数扣减，单位为百分之一积分',
+  `reference` VARCHAR(191) NOT NULL COMMENT '业务来源说明',
+  `idempotency_key` VARCHAR(191) NOT NULL UNIQUE COMMENT '业务变动唯一幂等键',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  INDEX `ledger_user` (`user_id`,`id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  FOREIGN KEY (`receipt_id`) REFERENCES `company_receipts` (`id`),
+  FOREIGN KEY (`lot_id`) REFERENCES `wallet_lots` (`id`),
+  FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`),
+  CHECK(kind IN ('credit','spend','order_refund','cash_refund','correction')),
+  CHECK(delta_cents!=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='wallet_ledger业务记录';
+
+CREATE TABLE `cash_refunds` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `number` VARCHAR(191) NOT NULL UNIQUE COMMENT '业务单号',
+  `user_id` BIGINT NOT NULL  COMMENT '业务所属用户编号',
+  `receipt_id` BIGINT NOT NULL  COMMENT '原公司收款编号',
+  `lot_id` BIGINT NOT NULL  COMMENT '积分批次编号',
+  `amount_cents` BIGINT NOT NULL  COMMENT '业务金额，单位分',
+  `status` VARCHAR(191) NOT NULL DEFAULT 'processing' COMMENT '业务处理状态，取值见对应接口说明',
+  `reason` VARCHAR(2000) NOT NULL COMMENT '业务处理原因或核实依据',
+  `request_key` VARCHAR(191) NOT NULL UNIQUE COMMENT '请求幂等键',
+  `request_id` VARCHAR(191) NOT NULL COMMENT '请求追踪编号',
+  `recipient` VARCHAR(191)  COMMENT '实际收件人或收款人',
+  `paid_at` VARCHAR(191)  COMMENT '实际支付时间，ISO UTC，可空',
+  `proof` VARCHAR(2000)  COMMENT '实际付款或核查凭证',
+  `last_error` VARCHAR(2000) NOT NULL DEFAULT '' COMMENT '最近一次失败原因',
+  `completed_at` VARCHAR(191)  COMMENT '处理完成时间，ISO UTC，可空',
+  `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID',
+  `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID',
+  `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+  `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除',
+  INDEX `cash_refunds_user` (`user_id`,`id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  FOREIGN KEY (`receipt_id`) REFERENCES `company_receipts` (`id`),
+  FOREIGN KEY (`lot_id`) REFERENCES `wallet_lots` (`id`),
+  CHECK(amount_cents>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='cash_refunds业务记录';
+
+CREATE TABLE `business_mutex` (`id` BIGINT NOT NULL COMMENT '主键', `update_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '修改用户ID', `create_user_id` BIGINT UNSIGNED DEFAULT '0' COMMENT '新增用户ID', `create_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间', `update_time` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间', `is_deleted` TINYINT UNSIGNED NOT NULL DEFAULT '0' COMMENT '删除标记 0：未删除 1：删除', PRIMARY KEY(id)) ENGINE=InnoDB COMMENT='首期业务写事务互斥锁';
+
+INSERT INTO business_mutex(id) VALUES(1);

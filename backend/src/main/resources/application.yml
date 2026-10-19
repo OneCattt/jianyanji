@@ -1,0 +1,42 @@
+server:
+  port: ${PORT:3100}
+  address: ${HOST:127.0.0.1}
+  max-http-header-size: 16KB
+  error:
+    include-message: never
+spring:
+  application:
+    name: jianyanji-api
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/jianyanji?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC}
+    username: ${MYSQL_USER:jianyanji}
+    password: ${MYSQL_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 1
+      connection-timeout: 10000
+      connection-init-sql: SET time_zone = '+00:00'
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    time-zone: UTC
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+logging:
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{requestId}] %logger{36} - %msg%n'
+jianyanji:
+  production: ${APP_PRODUCTION:false}
+  dev-auth: ${DEV_AUTH:false}
+  web-dir: ${WEB_DIST:../dist}
+  assets-dir: ${ASSETS_DIR:../miniprogram/assets}
+  bootstrap-admin: ${BOOTSTRAP_ADMIN:false}
+  seed-demo: ${SEED_DEMO:false}
+  admin-username: ${ADMIN_USERNAME:}
+  admin-password: ${ADMIN_PASSWORD:}
+  wechat-app-id: ${WECHAT_APP_ID:}
+  wechat-app-secret: ${WECHAT_APP_SECRET:}

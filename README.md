@@ -4,21 +4,26 @@
 
 ## 本地启动
 
-推荐 Node.js 24 LTS，最低 22.13。无需 Java 或独立数据库服务。
+使用 **JDK 8、Maven 3.6+、MySQL 8**。Node.js 22.13+ 仅用于前端构建和开发命令；生产由 Java JAR 提供 API 和静态页面。
 
 ```bash
+# 必须先显式选择 Java 8，macOS 示例：
+export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
+java -version
 npm ci
 cp .env.example .env
+# 先修改 deploy/mysql.sql 的密码并用 MySQL 管理员执行；
+# 再将 .env 中 MYSQL_URL、MYSQL_USER、MYSQL_PASSWORD 改为实际连接。
 npm run seed:demo
 npm run dev
 ```
 
-- 浏览器体验：<http://127.0.0.1:5173/>。
-- 品牌方后台：<http://127.0.0.1:5173/admin>。
-- API：<http://127.0.0.1:3100/api>。
-- 本地后台演示账号：`admin`（全部首期业务权限）、`operator`（只查看用户）。本地密码均为 `Jianyanji-Local-2026!`。
-- 浏览器底部“本地调试账号”可选择游客、已存在的店主或主理人。只有显式运行演示数据初始化才会创建这两类代理；选择一个不存在的调试账号仍然只创建游客。
-- `.env`、SQLite 数据、构建产物、截图均不纳入 Git。演示初始化幂等，不覆盖已有账号、密码或身份；会补齐本地演示管理员的新业务权限。仅生成演示账号，不自动填入价格、收款资料或资金记录。
+- 购买体验：<http://127.0.0.1:5173/>；管理后台：<http://127.0.0.1:5173/admin>；API：<http://127.0.0.1:3100/api>。
+- 本地后台演示账号：`admin`（全部权限）、`operator`（只查看用户），密码均为 `Jianyanji-Local-2026!`。只有显式运行 `seed:demo` 才创建，已有账号、密码和权限不会被覆盖。
+- `seed:demo` 创建游客、店主和主理人体验账号，不填入商品价格、公司收款或资金数据。开发登录一个不存在的账号只会创建游客。
+- 若使用本项目已配置的独立本地 MySQL 实例，重启电脑后先在一个终端运行 `npm run dev:db`，再在另一终端运行 `npm run dev`；外部数据库服务无需此命令。
+- Flyway 自动建立、升级 MySQL 表。数据库必须预先创建；`.env`、数据库、截图、构建产物不进入 Git。不要把测试库作为正式业务库。
+- 如机器配置了企业 Maven 镜像，可通过 `MAVEN_SETTINGS` 指定个人 settings.xml；构建脚本不会强制项目镜像。`JAVA8_HOME` 可显式指定 JDK 8。
 
 ## 微信原生小程序
 
@@ -40,20 +45,21 @@ npm run bootstrap:admin
 
 仅在没有启用的账号管理员时初始化，不覆盖现有管理员。之后由后台新增工作人员、分配权限、启停或移除账号。密码用随机盐 scrypt 摘要保存；后台使用 HttpOnly、SameSite=Strict 的 cookie 会话，生产环境增加 Secure。移除仅逻辑删除并保留历史，重新创建同名账号获得新的编号。
 
-正式运行使用独立数据库文件，并配置 `NODE_ENV=production`、`DEV_AUTH=false`、实际微信参数及 HTTPS 同源入口；生产环境开启调试登录会拒绝启动。反向代理须保留外部 Host 和 Origin，后台写入校验同源。首次构建后可由同一服务托管页面：
+正式部署见 [服务器部署说明](docs/development/java-deployment.md)，包含 MySQL、JAR、systemd、Nginx 和旧数据迁移。生产设置 `APP_PRODUCTION=true`、`NODE_ENV=production`、`DEV_AUTH=false`，通过 HTTPS 同源访问。
 
 ```bash
-npm run build
-npm start
+npm run build       # Vue 静态页面
+npm run build:api   # Java 测试并打包
+npm start           # 本地用 JDK 8 运行已打包 JAR
 ```
 
-构建模式页面入口为服务端的 `/`、`/admin`，默认端口 3100。不要把本地演示数据库用作正式业务库。
+生产可直接使用 `java -jar`，无需安装 Node、tsx 或 Vite。前端构建目录、原型素材和 JAR 一起部署，路径见部署说明。
 
 ## 技术与权限约定
 
-- TypeScript + Express 5 服务端；Vue 3 + Vite 提供后台和浏览器购买端；微信端使用原生 JS/WXML/WXSS。
-- SQLite 使用 Node 内置驱动，数据库默认 `data/jianyanji.sqlite`；结构初始化可重复执行，数据跨重启保留。当前交付不要求独立 MySQL 实例；未来实际使用 MySQL 时采用项目规定的审计字段与毫秒时间格式。
-- 业务表均包含创建修改用户、创建修改时间和逻辑删除标记；正常查询过滤已删除记录，生效中的登录名和微信身份使用部分唯一索引，允许逻辑删除后重新创建。
+- Java 8 + Spring Boot 2.7.18 + JdbcTemplate 服务端；Vue 3 + Vite 提供后台和浏览器购买端；微信端使用原生 JS/WXML/WXSS。
+- MySQL 8 + Flyway 管理数据库结构，审计字段采用毫秒时间和逻辑删除。`server/` 下旧 TypeScript 实现仅保留为迁移参考，`npm run test:legacy` 仅验证旧实现，不作为 Java 验收结果。
+- 业务表均包含创建修改用户、创建修改时间和逻辑删除标记；正常查询过滤已删除记录，生效中的登录名和微信身份使用条件生成列唯一索引，允许逻辑删除后重新创建。
 - 购买身份仅为有效的 B 主理人、C 店主、D 游客；品牌方是后台功能授权体系。登录、修改个人资料、后台授权均不会自动授予购买优惠。
 - 购买端只访问本人资料和业务；后台除 `staff:manage`、`users:read`、`audit:read` 外，增加 `content:manage`、`catalog:manage`、`orders:manage`、`onboarding:manage`、`finance:manage`、`rewards:manage`。前端隐藏无权限入口，服务端独立校验。
 - 身份、停用状态和权限在每次请求时读取，避免已有令牌携带过时身份。停用或移除工作人员同时撤销旧会话，重新启用必须重新登录。
@@ -66,13 +72,14 @@ npm start
 
 ```bash
 npm run typecheck
-npm test
+npm test            # Java 单元测试；MySQL 资金合同测试须单独启用
+npm run build:api   # Java verify + 可执行 JAR
 npm run build
 # macOS 安装微信开发者工具后，可额外检查全部原生模板、样式及脚本
 npm run check:miniprogram
 ```
 
-接口测试调用真实应用、真实路由及 SQLite 测试数据库，外部微信登录和支付使用可注入测试渠道。覆盖鉴权、数据隔离、报价快照、库存及积分并发、未知支付核查、部分退款、原批次返还、身份撤销、奖励冲回、月结抵扣和人工追回。
+Java 单元测试验证严格输入、认证摘要、报价、订单、钱包、支付与售后约束。真实 MySQL 集成回归必须使用独立测试库，运行命令和实测边界见部署说明；只运行 `npm test` 时这些环境门控用例会跳过。HTTP 验收脚本为 `scripts/java-api-contract.mjs`，只允许显式指定隔离服务。本轮结果见 [Java 迁移验证记录](docs/development/java-migration-verification.md)。旧 TypeScript 测试结果不代表 Java 服务验证通过。
 
 微信支付 V3 参数见 `.env.example`；私钥、平台公钥 PEM 文件和 API V3 密钥只存服务端。未配置商户时明确提示不可支付，不模拟成功。每 30 秒定时查询未决付款，退款由后台按原交易提交或核查。
 

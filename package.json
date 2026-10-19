@@ -8,16 +8,22 @@
   },
   "scripts": {
     "dev": "concurrently -k -n api,web \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:api": "tsx watch --env-file-if-exists=.env server/index.ts",
+    "dev:api": "node scripts/java.mjs dev",
     "dev:web": "vite --host 127.0.0.1",
-    "seed:demo": "tsx --env-file-if-exists=.env server/seed.ts",
-    "bootstrap:admin": "tsx --env-file-if-exists=.env server/bootstrap.ts",
-    "test": "tsx --test server/*.test.ts",
+    "seed:demo": "node scripts/java.mjs seed",
+    "bootstrap:admin": "node scripts/java.mjs bootstrap",
+    "test": "node scripts/java.mjs test",
     "typecheck": "tsc --noEmit && vue-tsc --noEmit -p tsconfig.web.json",
     "build": "vite build",
     "format:check": "prettier --check server web miniprogram scripts vite.config.ts tsconfig.json tsconfig.web.json package.json",
-    "start": "tsx --env-file-if-exists=.env server/index.ts",
-    "check:miniprogram": "node scripts/check-miniprogram.cjs"
+    "start": "node scripts/java.mjs start",
+    "check:miniprogram": "node scripts/check-miniprogram.cjs",
+    "test:api:mysql": "node scripts/java.mjs integration",
+    "test:legacy": "tsx --test server/*.test.ts",
+    "build:api": "node scripts/java.mjs build",
+    "export:legacy": "node scripts/export-sqlite.mjs",
+    "import:legacy": "node scripts/java.mjs import",
+    "dev:db": "node scripts/local-mysql.mjs"
   },
   "dependencies": {
     "express": "^5.1.0",
