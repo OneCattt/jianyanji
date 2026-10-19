@@ -641,6 +641,10 @@ small {
 .sidebar nav {
   display: grid;
   gap: 9px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
 }
 .sidebar nav button {
   display: flex;
@@ -669,6 +673,7 @@ small {
 }
 .sidebar-bottom {
   margin-top: auto;
+  flex-shrink: 0;
   border-top: 1px solid var(--line);
   padding: 23px 0 0;
   display: flex;
