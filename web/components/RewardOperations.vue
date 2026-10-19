@@ -36,6 +36,8 @@ interface Settlement {
   paid_at: string | null;
   proof: string | null;
 }
+const activeArea = ref("rewards");
+const sourceInput = ref<HTMLInputElement | null>(null);
 const error = ref(""),
   notice = ref(""),
   busy = ref(false),
@@ -244,21 +246,28 @@ function reconcile(id: number) {
 </script>
 <template>
   <section class="reward-operations">
-    <header>
+    <header class="page-header">
       <div>
         <h2>奖励与线下月结</h2>
         <p>人工核算登记 · 公司线下转账 · 与订货积分分别记账</p>
       </div>
-      <button :disabled="busy" @click="act(load)">刷新</button>
+      <button class="secondary" :disabled="busy" @click="act(load)">
+        刷新
+      </button>
     </header>
     <p v-if="error" role="alert" class="message error">{{ error }}</p>
     <p v-if="notice" role="status" class="message success">{{ notice }}</p>
-    <label class="reason"
-      >本次操作原因<input
-        v-model="reason"
-        maxlength="1000"
-        placeholder="填写核对依据，写入操作记录"
-    /></label>
+    <div class="surface operation-context">
+      <label class="reason"
+        >本次操作原因<input
+          v-model="reason"
+          maxlength="1000"
+          placeholder="填写核对依据，写入操作记录"
+      /></label>
+      <p class="hint">
+        保存参数、登记奖励、核实付款或追回前，请填写本次操作原因。
+      </p>
+    </div>
     <details>
       <summary>
         真实奖励档位与结算参数 ·
@@ -294,116 +303,193 @@ function reconcile(id: number) {
         <p>
           仅作用于后续业务；历史来源沿用原快照。具体金额和日期须由品牌方确认。
         </p>
-        <button :disabled="busy || !reason">保存参数</button>
+        <div class="form-actions">
+          <button class="primary" :disabled="busy || !reason">保存参数</button>
+        </div>
       </form>
     </details>
-    <section class="surface">
-      <h3>人工登记来源奖励</h3>
-      <form @submit.prevent="readSource" class="inline">
-        <label
-          >来源订单 ID<input
-            v-model.number="sourceId"
-            type="number"
-            min="1"
-            required /></label
-        ><button :disabled="busy">读取原始核算依据</button>
-      </form>
-      <form v-if="basis" @submit.prevent="register">
-        <p>
-          {{ basis.orderNumber }} ·
-          {{ basis.kind === "onboarding" ? "入驻奖励" : "店主订货收益" }} ·
-          收款代理 #{{ basis.userId }}
+    <nav class="area-nav" aria-label="奖励业务区域">
+      <button
+        type="button"
+        :aria-pressed="activeArea === 'rewards'"
+        @click="activeArea = 'rewards'"
+      >
+        奖励登记与月结 <span>{{ rewards.length }}</span>
+      </button>
+      <button
+        type="button"
+        :aria-pressed="activeArea === 'settlements'"
+        @click="activeArea = 'settlements'"
+      >
+        付款核实 <span>{{ settlements.length }}</span>
+      </button>
+      <button
+        type="button"
+        :aria-pressed="activeArea === 'recovery'"
+        @click="activeArea = 'recovery'"
+      >
+        奖励追回 <span>{{ debts.length }}</span>
+      </button>
+    </nav>
+    <div v-show="activeArea === 'rewards'" class="area-content">
+      <section class="surface">
+        <div class="section-heading">
+          <h3>人工登记来源奖励</h3>
+          <p>先读取订单依据，再核对金额并登记奖励。</p>
+        </div>
+        <form @submit.prevent="readSource" class="inline">
+          <label
+            >来源订单 ID<input
+              ref="sourceInput"
+              v-model.number="sourceId"
+              type="number"
+              min="1"
+              required /></label
+          ><button :disabled="busy">读取原始核算依据</button>
+        </form>
+        <p v-if="!basis" class="empty-hint">
+          输入来源订单 ID，读取原始核算依据后可填写人工核对金额。
         </p>
-        <pre>{{ JSON.stringify(basis.snapshot, null, 2) }}</pre>
-        <label
-          >人工核对金额（元）<input
-            v-model="registrationAmount"
-            required
-            inputmode="decimal"
-        /></label>
-        <p>价差不含运费；入驻奖励归直接邀请人。登记不代表付款。</p>
-        <button :disabled="busy || !reason">确认登记</button>
-      </form>
-    </section>
-    <section class="surface">
-      <h3>奖励来源与到期检查</h3>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>月结选择</th>
-              <th>来源 / 对象</th>
-              <th>原奖励</th>
-              <th>已冲回</th>
-              <th>已结算</th>
-              <th>剩余应付</th>
-              <th>资格</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in rewards" :key="r.id">
-              <td>
-                <input
-                  v-model="selected"
-                  type="checkbox"
-                  :value="r.id"
-                  :disabled="!r.eligible || !r.remainingCents || busy"
-                  :aria-label="'选择奖励' + r.id"
-                />
-              </td>
-              <td>
-                {{ r.orderNumber
-                }}<small>奖励 #{{ r.id }} · 代理 #{{ r.userId }}</small>
-              </td>
-              <td>¥{{ amount(r.amountCents) }}</td>
-              <td>¥{{ amount(r.reversedCents) }}</td>
-              <td>¥{{ amount(r.settledCents) }}</td>
-              <td>¥{{ amount(r.remainingCents) }}</td>
-              <td>
-                {{ statusName(r.status) }}<small>{{ r.reason }}</small>
-              </td>
-              <td>
-                <button :disabled="busy" @click="showDetail(r.id)">明细</button
-                ><button :disabled="busy || !reason" @click="reconcile(r.id)">
-                  核对退款冲回
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!rewards.length">
-              <td colspan="8">尚无人工登记奖励</td>
-            </tr>
-          </tbody>
-        </table>
+        <form v-if="basis" @submit.prevent="register" class="source-basis">
+          <p>
+            {{ basis.orderNumber }} ·
+            {{ basis.kind === "onboarding" ? "入驻奖励" : "店主订货收益" }} ·
+            收款代理 #{{ basis.userId }}
+          </p>
+          <pre>{{ JSON.stringify(basis.snapshot, null, 2) }}</pre>
+          <label
+            >人工核对金额（元）<input
+              v-model="registrationAmount"
+              required
+              inputmode="decimal"
+          /></label>
+          <p>价差不含运费；入驻奖励归直接邀请人。登记不代表付款。</p>
+          <div class="form-actions">
+            <button class="primary" :disabled="busy || !reason">
+              确认登记
+            </button>
+          </div>
+        </form>
+      </section>
+      <section class="surface">
+        <div class="section-heading">
+          <h3>奖励来源与到期检查</h3>
+          <p>勾选同一对象的可结算奖励，在下方创建月结单。</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>月结选择</th>
+                <th>来源 / 对象</th>
+                <th>原奖励</th>
+                <th>已冲回</th>
+                <th>已结算</th>
+                <th>剩余应付</th>
+                <th>资格</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in rewards" :key="r.id">
+                <td>
+                  <input
+                    v-model="selected"
+                    type="checkbox"
+                    :value="r.id"
+                    :disabled="!r.eligible || !r.remainingCents || busy"
+                    :aria-label="'选择奖励' + r.id"
+                  />
+                </td>
+                <td>
+                  {{ r.orderNumber
+                  }}<small>奖励 #{{ r.id }} · 代理 #{{ r.userId }}</small>
+                </td>
+                <td>¥{{ amount(r.amountCents) }}</td>
+                <td>¥{{ amount(r.reversedCents) }}</td>
+                <td>¥{{ amount(r.settledCents) }}</td>
+                <td>¥{{ amount(r.remainingCents) }}</td>
+                <td>
+                  {{ statusName(r.status) }}<small>{{ r.reason }}</small>
+                </td>
+                <td>
+                  <button :disabled="busy" @click="showDetail(r.id)">
+                    明细</button
+                  ><button :disabled="busy || !reason" @click="reconcile(r.id)">
+                    核对退款冲回
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!rewards.length">
+                <td colspan="8" class="empty-state">
+                  <strong>尚无人工登记奖励</strong>
+                  <p>先核对来源订单并登记奖励，再进行月结。</p>
+                  <button
+                    type="button"
+                    class="secondary"
+                    @click="sourceInput?.focus()"
+                  >
+                    填写来源订单
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <form @submit.prevent="plan" class="form-grid settlement-plan">
+          <div class="form-heading">
+            <h4>创建月结单</h4>
+            <p>
+              已选择 {{ selected.length }} 项奖励<span
+                v-if="selectedUser.size > 1"
+                class="selection-warning"
+              >
+                · 请选择同一对象的奖励</span
+              >
+            </p>
+          </div>
+          <label>结算月份<input v-model="month" type="month" required /></label
+          ><label
+            >实际收款人<input v-model="payee" required maxlength="100"
+          /></label>
+          <div class="settlement-totals">
+            <div>
+              <span>应付</span><strong>¥{{ amount(totals.gross) }}</strong>
+            </div>
+            <div>
+              <span>同人抵扣</span><strong>¥{{ amount(totals.offset) }}</strong>
+            </div>
+            <div>
+              <span>净付</span><strong>¥{{ amount(totals.net) }}</strong>
+            </div>
+          </div>
+          <p>
+            集中结算日：{{
+              configured ? `每月 ${settings.settlementDay} 日` : "未配置"
+            }}。抵扣在核实结算后入账。
+          </p>
+          <div class="form-actions">
+            <button
+              class="primary"
+              :disabled="
+                busy ||
+                !configured ||
+                !selected.length ||
+                selectedUser.size !== 1 ||
+                !reason
+              "
+            >
+              创建待付款月结单
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <section v-show="activeArea === 'settlements'" class="surface">
+      <div class="section-heading">
+        <h3>月结与真实付款</h3>
+        <p>公司线下转账后，在此登记付款或全额抵扣的实际结果。</p>
       </div>
-      <form @submit.prevent="plan" class="form-grid">
-        <label>结算月份<input v-model="month" type="month" required /></label
-        ><label
-          >实际收款人<input v-model="payee" required maxlength="100"
-        /></label>
-        <p>
-          应付 ¥{{ amount(totals.gross) }} · 同人抵扣 ¥{{
-            amount(totals.offset)
-          }}
-          · 净付 ¥{{ amount(totals.net) }}<br />集中结算日：{{
-            configured ? `每月 ${settings.settlementDay} 日` : "未配置"
-          }}。抵扣在核实结算后入账。
-        </p>
-        <button
-          :disabled="
-            busy ||
-            !configured ||
-            !selected.length ||
-            selectedUser.size !== 1 ||
-            !reason
-          "
-        >
-          创建待付款月结单
-        </button>
-      </form>
-    </section>
-    <section class="surface">
-      <h3>月结与真实付款</h3>
       <div class="table-wrap">
         <table>
           <thead>
@@ -426,8 +512,13 @@ function reconcile(id: number) {
               <td>¥{{ amount(s.offset_cents) }}</td>
               <td>¥{{ amount(s.net_cents) }}</td>
               <td>
-                {{ statusName(s.status)
-                }}<small>{{ s.paid_at }} {{ s.proof }}</small>
+                <span
+                  class="status"
+                  :class="{
+                    'needs-attention': ['failed', 'unknown'].includes(s.status),
+                  }"
+                  >{{ statusName(s.status) }}</span
+                ><small>{{ s.paid_at }} {{ s.proof }}</small>
               </td>
               <td>
                 <button
@@ -441,10 +532,27 @@ function reconcile(id: number) {
                 </button>
               </td>
             </tr>
+            <tr v-if="!settlements.length">
+              <td colspan="6" class="empty-state">
+                <strong>暂无月结单</strong>
+                <p>先选择同一对象的奖励，创建待付款月结单。</p>
+                <button
+                  type="button"
+                  class="secondary"
+                  @click="activeArea = 'rewards'"
+                >
+                  前往奖励登记与月结
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
-      <form v-if="result.id" @submit.prevent="saveResult" class="form-grid">
+      <form
+        v-if="result.id"
+        @submit.prevent="saveResult"
+        class="form-grid inset-form"
+      >
         <p>核实结算单 #{{ result.id }}；系统不会发起银行转账。</p>
         <label
           >实际结果<select v-model="result.status">
@@ -464,14 +572,22 @@ function reconcile(id: number) {
               v-model="result.proof"
               required
               placeholder="银行流水号、凭证存储地址或抵扣核对依据"
-            /></label></template
-        ><button :disabled="busy || !reason">保存核实结果</button
-        ><button type="button" @click="result.id = 0">关闭</button>
+            /></label
+        ></template>
+        <div class="form-actions">
+          <button class="primary" :disabled="busy || !reason">
+            保存核实结果</button
+          ><button type="button" class="secondary" @click="result.id = 0">
+            关闭
+          </button>
+        </div>
       </form>
     </section>
-    <section class="surface">
-      <h3>持续待收回款</h3>
-      <p>优先抵扣同一人后续可结算奖励；实际到账后才能登记人工追回。</p>
+    <section v-show="activeArea === 'recovery'" class="surface">
+      <div class="section-heading">
+        <h3>持续待收回款</h3>
+        <p>优先抵扣同一人后续可结算奖励；实际到账后才能登记人工追回。</p>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -511,7 +627,18 @@ function reconcile(id: number) {
               </td>
             </tr>
             <tr v-if="!debts.length">
-              <td colspan="6">当前无未收回奖励款</td>
+              <td colspan="6" class="empty-state">
+                <strong>当前无未收回奖励款</strong>
+                <p>如已完成退款冲回核对，可刷新查看最新待收回记录。</p>
+                <button
+                  type="button"
+                  class="secondary"
+                  :disabled="busy"
+                  @click="act(load)"
+                >
+                  刷新记录
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -519,7 +646,7 @@ function reconcile(id: number) {
       <form
         v-if="recovery.reversalId"
         @submit.prevent="recover"
-        class="form-grid"
+        class="form-grid inset-form"
       >
         <p>冲回 #{{ recovery.reversalId }} 的实际到账记录</p>
         <label
@@ -532,9 +659,18 @@ function reconcile(id: number) {
             v-model="recovery.receivedAt"
             type="datetime-local"
             required /></label
-        ><label>到账凭证<textarea v-model="recovery.proof" required /></label
-        ><button :disabled="busy || !reason">核实到账并登记</button
-        ><button type="button" @click="recovery.reversalId = 0">关闭</button>
+        ><label>到账凭证<textarea v-model="recovery.proof" required /></label>
+        <div class="form-actions">
+          <button class="primary" :disabled="busy || !reason">
+            核实到账并登记</button
+          ><button
+            type="button"
+            class="secondary"
+            @click="recovery.reversalId = 0"
+          >
+            关闭
+          </button>
+        </div>
       </form>
     </section>
     <section v-if="detail" class="surface">
@@ -547,122 +683,277 @@ function reconcile(id: number) {
   </section>
 </template>
 <style scoped>
-.reward-operations {
+.reward-operations,
+.area-content {
   display: grid;
-  gap: 20px;
-  color: #251d1a;
+  min-width: 0;
+  gap: 16px;
+  color: var(--admin-ink);
+  font-size: 13px;
 }
+.page-header,
 .reward-operations header,
-.inline {
+.inline,
+.form-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
-.reward-operations h2,
-.reward-operations h3 {
-  margin: 0 0 12px;
+.reward-operations header {
+  justify-content: space-between;
 }
-.reward-operations p {
-  line-height: 1.7;
-  color: #756b63;
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+h2 {
+  font-size: 16px;
+}
+h3 {
+  font-size: 14px;
+}
+h4 {
+  font-size: 13px;
+}
+p,
+small {
+  color: var(--admin-muted);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 .surface,
 details {
-  background: #fffdfa;
-  border: 1px solid #e8e0d7;
-  padding: 20px;
-  border-radius: 12px;
+  min-width: 0;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+.operation-context,
+.section-heading,
+.source-basis {
+  display: grid;
+  gap: 8px;
+}
+.section-heading {
+  margin-bottom: 16px;
 }
 summary {
   cursor: pointer;
+  line-height: 1.6;
 }
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
-  gap: 16px;
-  margin-top: 18px;
+  gap: 12px;
+  margin-top: 16px;
 }
-.form-grid p {
-  grid-column: 1/-1;
+.form-grid p,
+.form-heading,
+.form-actions,
+.settlement-totals {
+  grid-column: 1 / -1;
+}
+.form-heading {
+  display: grid;
+  gap: 4px;
 }
 .reward-operations label {
   display: grid;
-  gap: 8px;
+  min-width: 0;
+  gap: 6px;
 }
 .reward-operations input:not([type="checkbox"]),
 select,
 textarea {
   box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
   max-width: 100%;
-  padding: 10px;
-  border: 1px solid #d6c9bd;
-  background: white;
-  border-radius: 6px;
-  font: inherit;
 }
-.reward-operations button {
-  padding: 9px 14px;
-  border: 1px solid #dacdc2;
-  border-radius: 6px;
-  background: #fffdfa;
-  color: #7b1824;
-  cursor: pointer;
+textarea {
+  resize: vertical;
 }
-.reward-operations button:disabled {
-  opacity: 0.45;
-  cursor: default;
+.inline {
+  justify-content: flex-start;
+  align-items: end;
+}
+.inline label {
+  flex: 1 1 220px;
+  max-width: 360px;
+}
+.area-nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+.area-nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--admin-muted);
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+.area-nav button[aria-pressed="true"] {
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+  border-color: var(--admin-accent);
+  font-weight: 600;
+}
+.area-nav span {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.area-nav button:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
 }
 .table-wrap {
+  min-width: 0;
+  max-width: 100%;
   overflow: auto;
-}
-table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 13px;
 }
 th,
 td {
-  text-align: left;
-  padding: 12px;
-  border-bottom: 1px solid #e9e1d8;
   white-space: nowrap;
+}
+td:last-child button + button {
+  margin-left: 8px;
 }
 small {
   display: block;
-  color: #8e8178;
-  margin-top: 6px;
+  margin-top: 4px;
+  max-width: 340px;
+  white-space: normal;
 }
 pre {
+  min-width: 0;
+  max-width: 100%;
   max-height: 340px;
+  margin: 0;
   overflow: auto;
-  background: #f8f5ee;
-  padding: 14px;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-bg);
   font-size: 12px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.error {
-  color: #a12030 !important;
+.source-basis {
+  margin-top: 16px;
 }
-.success {
-  color: #35724b !important;
+.source-basis label {
+  max-width: 360px;
+}
+.settlement-plan,
+.inset-form {
+  border-top: 1px solid var(--admin-border);
+  padding-top: 16px;
+}
+.settlement-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  background: var(--admin-bg);
+  border-radius: 8px;
+}
+.settlement-totals div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.settlement-totals span {
+  color: var(--admin-muted);
+}
+.settlement-totals strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.settlement-totals div:last-child strong {
+  color: var(--admin-accent);
+}
+.status {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--admin-bg);
+}
+.needs-attention,
+.selection-warning {
+  color: var(--admin-accent);
+  font-weight: 600;
+}
+.needs-attention {
+  background: var(--admin-accent-soft);
 }
 .message {
+  padding: 12px 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+p.error {
+  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+  border-color: var(--admin-accent);
+  font-weight: 600;
+}
+p.success {
+  color: var(--admin-ink);
+  background: #fff;
+}
+.hint {
+  font-size: 12px;
+}
+.empty-hint {
+  margin-top: 12px;
   padding: 12px;
-  background: #f8f5ee;
+  border-radius: 8px;
+  background: var(--admin-bg);
+}
+.empty-state {
+  padding: 24px 12px;
+  text-align: center;
+  white-space: normal;
+}
+.empty-state p {
+  margin: 6px 0 12px;
 }
 .reason {
-  max-width: 650px;
+  max-width: 720px;
 }
 @media (max-width: 650px) {
-  .surface {
-    padding: 14px;
+  .surface,
+  details {
+    padding: 12px;
   }
   .form-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .area-nav button {
+    flex: 1 1 auto;
+  }
+  .inline label {
+    max-width: none;
+  }
+  .inline button {
+    width: 100%;
+  }
+  .settlement-totals {
+    gap: 8px;
   }
 }
 </style>

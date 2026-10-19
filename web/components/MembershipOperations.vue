@@ -245,14 +245,237 @@ async function decide(decision: "approved" | "rejected") {
 onMounted(() => run(load));
 </script>
 <template>
-  <section class="membership-operations">
-    <h2>代理入驻与产品包</h2>
-    <p class="muted">
-      产品包只接受公司转款，用于实际商品交付，不发订货积分。两档入驻奖励从“奖励规则”读取，售后期从统一售后政策读取。
-    </p>
-    <p v-if="error" role="alert" class="error">{{ error }}</p>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <details class="surface">
+  <section class="membership-operations" :aria-busy="busy">
+    <header class="membership-page-heading">
+      <h2>代理入驻与产品包</h2>
+      <p class="muted">
+        产品包只接受公司转款，用于实际商品交付，不发订货积分。两档入驻奖励从“奖励规则”读取，售后期从统一售后政策读取。
+      </p>
+    </header>
+    <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
+    <p v-if="notice" role="status" class="feedback notice">{{ notice }}</p>
+    <section class="surface application-list" aria-label="入驻申请列表">
+      <div class="heading">
+        <div>
+          <h3>入驻申请</h3>
+          <p class="muted">核对公司到账与商品交付，再独立审批代理身份。</p>
+        </div>
+        <button :disabled="busy" @click="run(load)">刷新</button>
+      </div>
+      <div
+        class="table-wrap"
+        tabindex="0"
+        role="region"
+        aria-label="入驻申请，可横向滚动"
+      >
+        <table>
+          <thead>
+            <tr>
+              <th>申请 / 申请人</th>
+              <th>目标身份</th>
+              <th>身份审批</th>
+              <th>核款 / 商品交付</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="a in applications"
+              :key="a.id"
+              :class="{ selected: selected?.id === a.id }"
+            >
+              <td>#{{ a.id }} · {{ a.nickname || "用户 #" + a.user_id }}</td>
+              <td>
+                {{ a.target_identity === "B" ? "调肤主理人" : "调肤店主" }}
+              </td>
+              <td>
+                {{ states[a.status] }}<small>{{ a.review_reason }}</small>
+              </td>
+              <td>
+                {{
+                  a.receipt
+                    ? "到账 ¥" + money(a.receipt.amount_cents)
+                    : "待核实真实到账"
+                }}<small>{{
+                  a.order
+                    ? orderStates[a.order.status] || a.order.status
+                    : "尚未建立交付单"
+                }}</small>
+              </td>
+              <td>
+                <button
+                  :aria-pressed="selected?.id === a.id"
+                  @click="select(a)"
+                >
+                  核款与审核
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-if="busy && !applications.length" class="empty-state" role="status">
+        正在加载入驻申请…
+      </p>
+      <p v-else-if="!error && !applications.length" class="empty-state">
+        暂无入驻申请，收到新的申请后可在此核款与审核。
+      </p>
+    </section>
+    <article v-if="selected" class="surface application-detail">
+      <header class="detail-heading">
+        <h3>
+          入驻申请 #{{ selected.id }} · {{ selected.package_snapshot.name }}
+        </h3>
+        <p>
+          用户 #{{ selected.user_id }} · 货款 ¥{{
+            money(selected.package_snapshot.amountCents)
+          }}
+          · {{ states[selected.status] }}
+        </p>
+        <p class="muted">
+          当次入驻条件：{{ selected.package_snapshot.conditions }}
+        </p>
+        <p>
+          申请直接邀请人：{{
+            selected.requested_inviter_id
+              ? "用户 #" + selected.requested_inviter_id
+              : "无邀请人，归属主理人由品牌方指定"
+          }}
+        </p>
+        <ul>
+          <li v-for="l in selected.package_snapshot.lines" :key="l.skuId">
+            规格 #{{ l.skuId }} × {{ l.quantity }} · 原分摊单价 ¥{{
+              money(l.unitCents)
+            }}
+          </li>
+        </ul>
+      </header>
+      <div class="review-workspace">
+        <section
+          v-if="
+            selected.receipt ||
+            selected.order ||
+            (selected.status === 'submitted' &&
+              props.permissions.includes('finance:manage'))
+          "
+          class="workflow-panel"
+        >
+          <form
+            v-if="
+              selected.status === 'submitted' &&
+              !selected.receipt &&
+              props.permissions.includes('finance:manage')
+            "
+            class="grid"
+            @submit.prevent="collect"
+          >
+            <h4 class="wide">核实真实到账并安排实物交付</h4>
+            <label
+              >到账货款（元）<input
+                v-model="receipt.amount"
+                required
+                inputmode="decimal" /></label
+            ><label
+              >收款渠道<select v-model="receipt.sourceChannel">
+                <option value="bank">公司银行账户</option>
+                <option value="wechat_company">公司微信收款</option>
+              </select></label
+            ><label
+              >收款账户标识<input
+                v-model="receipt.accountRef"
+                required
+                maxlength="200" /></label
+            ><label
+              >原始流水号<input
+                v-model="receipt.externalTransactionId"
+                required
+                maxlength="200" /></label
+            ><label
+              >实际到账时间<input
+                v-model="receipt.receivedAt"
+                required
+                type="datetime-local" /></label
+            ><label
+              >凭证地址 / 归档编号<input
+                v-model="receipt.evidence"
+                required
+                maxlength="1000" /></label
+            ><label
+              >核实说明<input
+                v-model="receipt.reason"
+                required
+                maxlength="200" /></label
+            ><label class="check"
+              ><input
+                v-model="receipt.verified"
+                type="checkbox"
+                required
+              />我已核实公司实际到账</label
+            ><button class="primary" :disabled="busy">
+              确认收款并建立交付单
+            </button>
+          </form>
+          <p v-if="selected.receipt">
+            原收款 #{{ selected.receipt.id }} ·
+            {{ selected.receipt.external_transaction_id }}
+          </p>
+          <p v-if="selected.order">
+            商品交付订单 {{ selected.order.number }} ·
+            {{
+              orderStates[selected.order.status] || selected.order.status
+            }}（请在订单与交付中安排发货）
+          </p>
+        </section>
+        <form
+          v-if="selected.status === 'submitted'"
+          class="grid workflow-panel review"
+          @submit.prevent="decide('approved')"
+        >
+          <h4 class="wide">独立审批身份与邀请归属</h4>
+          <p v-if="!selected.receipt" class="muted wide">
+            通过身份审批前，须先完成公司到账核实。
+          </p>
+          <label
+            >确认直接邀请人编号（无邀请人留空）<input
+              v-model="review.inviterId"
+              type="number"
+              min="1" /></label
+          ><label
+            >品牌方确认归属主理人编号<input
+              v-model="review.principalId"
+              type="number"
+              min="1"
+              required /></label
+          ><label class="check"
+            ><input
+              v-model="review.conditionsMet"
+              type="checkbox"
+              required
+            />入驻资格已核实符合当次条件</label
+          ><label class="check"
+            ><input
+              v-model="review.relationshipsConfirmed"
+              type="checkbox"
+              required
+            />邀请人和归属主理人已分别确认</label
+          ><label class="wide"
+            >审批原因<input v-model="review.reason" required maxlength="200"
+          /></label>
+          <div class="inline wide">
+            <button class="primary" :disabled="busy || !selected.receipt">
+              通过并启用身份</button
+            ><button
+              type="button"
+              :disabled="busy || !review.reason"
+              @click="decide('rejected')"
+            >
+              驳回并记录原因</button
+            ><button type="button" @click="selected = null">关闭</button>
+          </div>
+        </form>
+      </div>
+    </article>
+    <details class="surface package-settings">
       <summary>维护两类身份权益与入驻产品包</summary>
       <form class="settings" @submit.prevent="save">
         <fieldset v-for="p in packages" :key="p.targetIdentity">
@@ -351,292 +574,237 @@ onMounted(() => run(load));
         ><button class="primary" :disabled="busy">保存两类产品包</button>
       </form>
     </details>
-    <div class="heading">
-      <h3>入驻申请</h3>
-      <button :disabled="busy" @click="run(load)">刷新</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>申请 / 申请人</th>
-            <th>目标身份</th>
-            <th>身份审批</th>
-            <th>核款 / 商品交付</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="a in applications" :key="a.id">
-            <td>#{{ a.id }} · {{ a.nickname || "用户 #" + a.user_id }}</td>
-            <td>{{ a.target_identity === "B" ? "调肤主理人" : "调肤店主" }}</td>
-            <td>
-              {{ states[a.status] }}<small>{{ a.review_reason }}</small>
-            </td>
-            <td>
-              {{
-                a.receipt
-                  ? "到账 ¥" + money(a.receipt.amount_cents)
-                  : "待核实真实到账"
-              }}<small>{{
-                a.order
-                  ? orderStates[a.order.status] || a.order.status
-                  : "尚未建立交付单"
-              }}</small>
-            </td>
-            <td><button @click="select(a)">核款与审核</button></td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-if="!applications.length">暂无入驻申请</p>
-    </div>
-    <article v-if="selected" class="surface">
-      <h3>
-        入驻申请 #{{ selected.id }} · {{ selected.package_snapshot.name }}
-      </h3>
-      <p>
-        用户 #{{ selected.user_id }} · 货款 ¥{{
-          money(selected.package_snapshot.amountCents)
-        }}
-        · {{ states[selected.status] }}
-      </p>
-      <p class="muted">
-        当次入驻条件：{{ selected.package_snapshot.conditions }}
-      </p>
-      <p>
-        申请直接邀请人：{{
-          selected.requested_inviter_id
-            ? "用户 #" + selected.requested_inviter_id
-            : "无邀请人，归属主理人由品牌方指定"
-        }}
-      </p>
-      <ul>
-        <li v-for="l in selected.package_snapshot.lines" :key="l.skuId">
-          规格 #{{ l.skuId }} × {{ l.quantity }} · 原分摊单价 ¥{{
-            money(l.unitCents)
-          }}
-        </li>
-      </ul>
-      <form
-        v-if="
-          selected.status === 'submitted' &&
-          !selected.receipt &&
-          props.permissions.includes('finance:manage')
-        "
-        class="grid"
-        @submit.prevent="collect"
-      >
-        <h4 class="wide">核实真实到账并安排实物交付</h4>
-        <label
-          >到账货款（元）<input
-            v-model="receipt.amount"
-            required
-            inputmode="decimal" /></label
-        ><label
-          >收款渠道<select v-model="receipt.sourceChannel">
-            <option value="bank">公司银行账户</option>
-            <option value="wechat_company">公司微信收款</option>
-          </select></label
-        ><label
-          >收款账户标识<input
-            v-model="receipt.accountRef"
-            required
-            maxlength="200" /></label
-        ><label
-          >原始流水号<input
-            v-model="receipt.externalTransactionId"
-            required
-            maxlength="200" /></label
-        ><label
-          >实际到账时间<input
-            v-model="receipt.receivedAt"
-            required
-            type="datetime-local" /></label
-        ><label
-          >凭证地址 / 归档编号<input
-            v-model="receipt.evidence"
-            required
-            maxlength="1000" /></label
-        ><label
-          >核实说明<input
-            v-model="receipt.reason"
-            required
-            maxlength="200" /></label
-        ><label class="check"
-          ><input
-            v-model="receipt.verified"
-            type="checkbox"
-            required
-          />我已核实公司实际到账</label
-        ><button class="primary" :disabled="busy">确认收款并建立交付单</button>
-      </form>
-      <p v-if="selected.receipt">
-        原收款 #{{ selected.receipt.id }} ·
-        {{ selected.receipt.external_transaction_id }}
-      </p>
-      <p v-if="selected.order">
-        商品交付订单 {{ selected.order.number }} ·
-        {{
-          orderStates[selected.order.status] || selected.order.status
-        }}（请在订单与交付中安排发货）
-      </p>
-      <form
-        v-if="selected.status === 'submitted'"
-        class="grid review"
-        @submit.prevent="decide('approved')"
-      >
-        <h4 class="wide">独立审批身份与邀请归属</h4>
-        <label
-          >确认直接邀请人编号（无邀请人留空）<input
-            v-model="review.inviterId"
-            type="number"
-            min="1" /></label
-        ><label
-          >品牌方确认归属主理人编号<input
-            v-model="review.principalId"
-            type="number"
-            min="1"
-            required /></label
-        ><label class="check"
-          ><input
-            v-model="review.conditionsMet"
-            type="checkbox"
-            required
-          />入驻资格已核实符合当次条件</label
-        ><label class="check"
-          ><input
-            v-model="review.relationshipsConfirmed"
-            type="checkbox"
-            required
-          />邀请人和归属主理人已分别确认</label
-        ><label class="wide"
-          >审批原因<input v-model="review.reason" required maxlength="200"
-        /></label>
-        <div class="inline wide">
-          <button class="primary" :disabled="busy || !selected.receipt">
-            通过并启用身份</button
-          ><button
-            type="button"
-            :disabled="busy || !review.reason"
-            @click="decide('rejected')"
-          >
-            驳回并记录原因</button
-          ><button type="button" @click="selected = null">关闭</button>
-        </div>
-      </form>
-    </article>
   </section>
 </template>
 <style scoped>
 .membership-operations {
-  max-width: 1120px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  color: var(--admin-ink);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.membership-page-heading,
+.detail-heading {
+  display: grid;
+  gap: 6px;
+}
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+h2 {
+  font-size: 18px;
+}
+h3 {
+  font-size: 15px;
+}
+h4 {
+  font-size: 13px;
 }
 .surface {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
   background: #fff;
-  padding: 24px;
-  border: 1px solid #e5e0da;
-  margin: 20px 0;
+}
+.heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.heading > div {
+  min-width: 0;
 }
 .settings {
   display: grid;
-  gap: 22px;
-  margin-top: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+  margin-top: 16px;
+}
+.settings > label,
+.settings > button {
+  grid-column: 1 / -1;
+}
+.settings > button {
+  justify-self: start;
 }
 fieldset {
-  border: 1px solid #ded6cc;
-  padding: 20px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+legend {
+  padding: 0 6px;
+  font-weight: 600;
 }
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 12px;
 }
 .wide {
-  grid-column: 1/-1;
+  grid-column: 1 / -1;
 }
 label {
   display: grid;
-  gap: 8px;
+  min-width: 0;
+  gap: 5px;
   font-size: 13px;
 }
 input,
 select,
 textarea {
   min-width: 0;
+  max-width: 100%;
   width: 100%;
   box-sizing: border-box;
-  padding: 11px;
-  border: 1px solid #d7ddd7;
-  background: white;
-  border-radius: 5px;
-  font: inherit;
 }
 textarea {
-  min-height: 100px;
+  min-height: 80px;
+  resize: vertical;
 }
 .check {
   display: flex;
-  align-items: center;
-  margin: 16px 0;
+  align-items: flex-start;
+  gap: 8px;
+}
+fieldset > .check {
+  margin: 12px 0;
 }
 .check input {
-  width: 18px;
-  height: 18px;
-}
-.inline,
-.heading {
-  display: flex;
-  gap: 18px;
-  align-items: end;
-  flex-wrap: wrap;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--admin-accent);
 }
 .inline {
-  margin: 14px 0;
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.heading {
-  justify-content: space-between;
-  align-items: center;
+fieldset > .inline {
+  margin: 12px 0;
+}
+.inline > label {
+  flex: 1 1 100px;
+}
+.grid > button {
+  justify-self: start;
 }
 .muted,
 small {
-  color: #74675f;
-  line-height: 1.8;
+  color: var(--admin-muted);
 }
 small {
   display: block;
-  margin-top: 5px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.feedback {
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+.error,
+.notice {
+  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
 }
 .error {
-  color: #a32332;
+  border-color: var(--admin-accent);
 }
-.review {
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid #e5e0da;
+.application-detail {
+  display: grid;
+  gap: 16px;
+}
+.detail-heading ul {
+  margin: 2px 0 0;
+  padding-left: 20px;
+}
+.review-workspace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+.workflow-panel {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+.workflow-panel:only-child {
+  grid-column: 1 / -1;
+}
+.workflow-panel > p + p {
+  margin-top: 8px;
 }
 .table-wrap {
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
 }
+td {
+  white-space: normal;
+}
 table {
-  width: 100%;
+  min-width: 680px;
 }
-td,
-th {
-  padding: 14px;
-  text-align: left;
-  border-bottom: 1px solid #e9e1da;
+tr.selected {
+  background: var(--admin-accent-soft);
 }
-button,
+.empty-state {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--admin-muted);
+}
 summary {
   cursor: pointer;
+  color: var(--admin-ink);
+  font-weight: 600;
+}
+summary::marker {
+  color: var(--admin-accent);
+}
+summary:focus-visible,
+.table-wrap:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 3px;
+}
+@media (max-width: 1100px) {
+  .settings,
+  .review-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 @media (max-width: 650px) {
   .grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
-  .surface,
-  fieldset {
-    padding: 16px;
+  .surface {
+    padding: 12px;
+  }
+  fieldset,
+  .workflow-panel {
+    padding: 10px;
+  }
+  .inline > label {
+    flex-basis: 100%;
   }
 }
 </style>

@@ -574,75 +574,83 @@ async function saveShipping() {
       </article>
     </template>
     <template v-else>
-      <form class="order-filters surface" @submit.prevent>
-        <label
-          >搜索订单 / 购买者<input
-            v-model="search"
-            type="search"
-            placeholder="订单号、用户 ID、收货人或电话" /></label
-        ><label
-          >订单状态<select v-model="status">
-            <option value="">全部状态</option>
-            <option v-for="value in states" :key="value" :value="value">
-              {{ orderStates[value] ?? value }}
-            </option>
-          </select></label
-        ><label
-          >支付状态<select v-model="paymentState">
-            <option value="">全部状态</option>
-            <option v-for="value in paymentOptions" :key="value" :value="value">
-              {{ paymentStates[value] ?? value }}
-            </option>
-          </select></label
-        >
-      </form>
-      <p class="list-caption">
-        当前读取最新 {{ orders.length }} 笔（接口最多返回 200 笔），筛选后
-        {{ filtered.length }} 笔。
-      </p>
-      <div class="table-wrap surface order-table">
-        <table>
-          <thead>
-            <tr>
-              <th>订单号 / 时间</th>
-              <th>购买者 / 类型</th>
-              <th>收货人</th>
-              <th>订单状态</th>
-              <th>支付状态</th>
-              <th>订单金额</th>
-              <th>详情</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="order in filtered" :key="order.id">
-              <td>
-                {{ order.number }}<small>{{ time(order.create_time) }}</small>
-              </td>
-              <td>
-                {{ order.user_id }}<small>{{ kindName(order.kind) }}</small>
-              </td>
-              <td>{{ order.snapshot.address?.recipient ?? "—" }}</td>
-              <td>
-                <span class="state">{{
-                  orderStates[order.status] ?? order.status
-                }}</span>
-              </td>
-              <td>
-                {{ paymentStates[order.payment_state] ?? order.payment_state }}
-              </td>
-              <td>{{ money(order.total_cents) }}</td>
-              <td>
-                <button class="detail-button" @click="selectedId = order.id">
-                  查看详情
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-if="!filtered.length" class="empty">
-          {{ orders.length ? "没有符合条件的订单。" : "暂无订单记录。" }}
+      <section class="surface order-list">
+        <form class="order-filters" @submit.prevent>
+          <label
+            >搜索订单 / 购买者<input
+              v-model="search"
+              type="search"
+              placeholder="订单号、用户 ID、收货人或电话" /></label
+          ><label
+            >订单状态<select v-model="status">
+              <option value="">全部状态</option>
+              <option v-for="value in states" :key="value" :value="value">
+                {{ orderStates[value] ?? value }}
+              </option>
+            </select></label
+          ><label
+            >支付状态<select v-model="paymentState">
+              <option value="">全部状态</option>
+              <option
+                v-for="value in paymentOptions"
+                :key="value"
+                :value="value"
+              >
+                {{ paymentStates[value] ?? value }}
+              </option>
+            </select></label
+          >
+        </form>
+        <p class="list-caption">
+          当前读取最新 {{ orders.length }} 笔（接口最多返回 200 笔），筛选后
+          {{ filtered.length }} 笔。
         </p>
-      </div>
+        <div class="table-wrap order-table">
+          <table>
+            <thead>
+              <tr>
+                <th>订单号 / 时间</th>
+                <th>购买者 / 类型</th>
+                <th>收货人</th>
+                <th>订单状态</th>
+                <th>支付状态</th>
+                <th>订单金额</th>
+                <th>详情</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="order in filtered" :key="order.id">
+                <td>
+                  {{ order.number }}<small>{{ time(order.create_time) }}</small>
+                </td>
+                <td>
+                  {{ order.user_id }}<small>{{ kindName(order.kind) }}</small>
+                </td>
+                <td>{{ order.snapshot.address?.recipient ?? "—" }}</td>
+                <td>
+                  <span class="state">{{
+                    orderStates[order.status] ?? order.status
+                  }}</span>
+                </td>
+                <td>
+                  {{
+                    paymentStates[order.payment_state] ?? order.payment_state
+                  }}
+                </td>
+                <td>{{ money(order.total_cents) }}</td>
+                <td>
+                  <button class="detail-button" @click="selectedId = order.id">
+                    查看详情
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-if="!filtered.length" class="empty">
+            {{ orders.length ? "没有符合条件的订单。" : "暂无订单记录。" }}
+          </p>
+        </div>
+      </section>
     </template>
   </section>
 </template>
@@ -651,25 +659,28 @@ async function saveShipping() {
 .order-operations {
   min-width: 0;
   max-width: 100%;
+  color: var(--admin-ink);
+  font-size: 13px;
 }
 .order-operations *,
-.order-operations *::before {
+.order-operations *::before,
+.order-operations *::after {
   box-sizing: border-box;
 }
 .operation-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 22px;
-  border-bottom: 1px solid #e4ebe7;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--admin-border);
 }
 .operation-tabs button {
-  padding: 12px 18px;
+  padding: 8px 12px;
   border-bottom: 2px solid transparent;
 }
 .operation-tabs button[aria-current] {
-  color: #12665c;
-  border-color: #12665c;
+  color: var(--admin-accent);
+  border-bottom-color: var(--admin-accent);
   font-weight: 600;
 }
 .section-heading,
@@ -677,228 +688,220 @@ async function saveShipping() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 .section-heading h2 {
-  font-size: 20px;
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.5;
 }
 .section-heading p {
-  color: #76867f;
+  margin: 4px 0 0;
+  color: var(--admin-muted);
   font-size: 12px;
-  margin-top: 7px;
 }
 .surface {
-  padding: 24px;
-  border: 1px solid #e4ebe7;
-  border-radius: 10px;
-  background: white;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #fff;
 }
-.shipping-form {
-  max-width: 850px;
+.shipping-form,
+.shipping-form fieldset {
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
 .shipping-form fieldset {
-  border: 0;
-  padding: 0;
-  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   min-width: 0;
-  display: grid;
-  gap: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 .shipping-form label,
 .order-filters label {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  font-size: 13px;
 }
 .order-operations input,
 .order-operations select,
 .order-operations textarea {
   min-width: 0;
   max-width: 100%;
-  padding: 12px;
   width: 100%;
-  border: 1px solid #d9e3de;
-  border-radius: 6px;
-  background: #fff;
-  color: #233d38;
-  font: inherit;
 }
 .order-operations textarea {
   resize: vertical;
 }
 .order-operations small {
-  color: #76867f;
-  font-size: 11px;
+  color: var(--admin-muted);
+  font-size: 12px;
   font-weight: 400;
-  line-height: 1.8;
+  line-height: 1.5;
 }
 .shipping-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 12px;
 }
 .save-shipping {
   justify-self: start;
 }
 .unconfigured {
-  padding: 14px;
-  background: #fff5df;
-  color: #81622d;
-  font-size: 13px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+  line-height: 1.6;
 }
 .loading,
 .empty {
-  color: #76867f;
-  padding: 34px 15px;
+  padding: 24px 12px;
+  color: var(--admin-muted);
   text-align: center;
 }
 .order-filters {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
-  gap: 16px;
+  gap: 12px;
 }
 .list-caption {
+  margin: 12px 0;
+  color: var(--admin-muted);
   font-size: 12px;
-  color: #76867f;
-  margin: 15px 0;
 }
 .table-wrap {
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
-.order-table {
-  padding: 0;
+.table-wrap table {
+  min-width: 640px;
 }
-.order-operations table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-  text-align: left;
-}
-.order-operations th {
-  color: #76867f;
-  background: #f7f9f8;
-  font-weight: 500;
-}
-.order-operations th,
-.order-operations td {
-  padding: 15px;
-  border-bottom: 1px solid #e4ebe7;
-  white-space: nowrap;
+.order-table table {
+  min-width: 800px;
 }
 .order-operations td small {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 .detail-button {
-  color: #12665c;
-  min-height: 36px;
+  color: var(--admin-accent);
 }
 .state {
   display: inline-block;
-  background: #e7f1ed;
-  color: #12665c;
-  padding: 4px 9px;
-  border-radius: 5px;
-  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+  font-size: 12px;
 }
 .back-orders {
-  margin-bottom: 15px;
-  padding: 8px 0;
+  margin-bottom: 12px;
 }
 .detail-heading h3 {
-  margin: 6px 0 0;
-  font-size: 17px;
+  margin: 4px 0 0;
+  font-size: 15px;
   overflow-wrap: anywhere;
 }
+.section-heading > div,
 .detail-heading > div {
   min-width: 0;
 }
 .facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
-  margin: 24px 0;
+  gap: 16px;
+  margin: 16px 0;
 }
 .facts dt,
 .totals dt {
-  color: #76867f;
+  color: var(--admin-muted);
   font-size: 12px;
 }
 .facts dd {
-  margin: 8px 0 0;
-  font-size: 13px;
+  margin: 4px 0 0;
   overflow-wrap: anywhere;
 }
 .snapshot-section {
-  border-top: 1px solid #e4ebe7;
-  padding-top: 20px;
-  margin-top: 24px;
   min-width: 0;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border);
 }
 .snapshot-section h3 {
+  margin: 0 0 12px;
   font-size: 14px;
-  margin: 0 0 15px;
 }
 .snapshot-section p {
-  color: #5d7168;
-  font-size: 13px;
+  margin: 8px 0;
+  color: var(--admin-muted);
+  line-height: 1.6;
   overflow-wrap: anywhere;
 }
 .totals {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   max-width: 320px;
-  margin: 24px 0 0 auto;
+  margin: 16px 0 0 auto;
 }
 .totals > div {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
 }
 .totals dd {
   margin: 0;
-  font-size: 14px;
 }
 .totals > :last-child {
   padding-top: 12px;
-  border-top: 1px solid #e4ebe7;
+  border-top: 1px solid var(--admin-border);
+  color: var(--admin-accent);
   font-weight: 600;
-  color: #12665c;
 }
 .preserve-lines {
   white-space: pre-line;
 }
 .shipment {
-  padding: 14px 0;
-  border-bottom: 1px solid #e4ebe7;
-  font-size: 13px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--admin-border);
 }
 .snapshot-section summary {
-  color: #12665c;
+  color: var(--admin-accent);
   cursor: pointer;
-  font-size: 13px;
 }
 .snapshot-section pre {
-  background: #f7f9f8;
-  padding: 16px;
+  max-width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--admin-bg);
+  font-size: 12px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 11px;
-  max-width: 100%;
 }
 .order-operations .message {
   overflow-wrap: anywhere;
 }
+.order-operations button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .shipping-form fieldset {
+    grid-template-columns: 1fr;
+  }
+}
 @media (max-width: 650px) {
   .surface {
-    padding: 18px;
+    padding: 12px;
   }
   .shipping-fields,
   .order-filters {
@@ -906,19 +909,7 @@ async function saveShipping() {
   }
   .facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px;
-  }
-  .order-table {
-    padding: 0;
-  }
-  .section-heading h2 {
-    font-size: 18px;
-  }
-  .operation-tabs button {
-    padding: 10px 12px;
-  }
-  .order-detail {
-    padding: 16px;
+    gap: 12px;
   }
 }
 </style>

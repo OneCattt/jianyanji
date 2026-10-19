@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { api } from "../client";
+const userInput = ref<HTMLInputElement | null>(null);
 const rows = ref<any[]>([]),
   receipts = ref<any[]>([]),
   wallet = ref<any>(null),
@@ -108,148 +109,522 @@ async function resolve() {
 </script>
 <template>
   <section class="cash-refunds">
+    <header class="page-header">
+      <div>
+        <h2>未用积分退现金</h2>
+        <p>核实原公司收款，受理后占用积分，实际退款后登记结果。</p>
+      </div>
+      <button
+        type="button"
+        class="secondary"
+        :disabled="busy"
+        @click="run(load, false)"
+      >
+        刷新记录
+      </button>
+    </header>
     <p v-if="error" class="message error" role="alert">{{ error }}</p>
     <p v-if="notice" class="message success" role="status">{{ notice }}</p>
-    <form class="surface" @submit.prevent="query">
-      <h3>核实原收款与未用积分</h3>
-      <label
-        >用户编号<input
-          v-model.number="userId"
-          type="number"
-          min="1"
-          required /></label
-      ><button :disabled="busy">查询原收款及积分</button>
-      <p v-if="wallet">
-        可用 {{ money(wallet.availableCents) }}，占用
-        {{ money(wallet.heldCents) }}（1元=1积分）
-      </p>
-    </form>
-    <form v-if="wallet" class="surface" @submit.prevent="create">
-      <h3>人工受理未用积分退现金</h3>
-      <p>
-        产品包款、已消费积分和其他人的收款不能作为退款来源。办理时先占用，实际退款后才扣回积分。
-      </p>
-      <label
-        >原公司订货收款<select v-model.number="receiptId" required>
-          <option :value="0" disabled>请选择原收款</option>
-          <option
-            v-for="r in receipts.filter((r) => r.purpose === 'points')"
-            :key="r.id"
-            :value="r.id"
-          >
-            #{{ r.id }} · {{ r.external_transaction_id }} · 原收{{
-              money(r.amount_cents)
-            }}
-            已退{{ money(r.cash_refunded_cents) }}
-          </option>
-        </select></label
-      ><label
-        >本次退款（元）<input
-          v-model="amount"
-          inputmode="decimal"
-          required /></label
-      ><label>申请原因<input v-model="reason" required maxlength="200" /></label
-      ><button class="primary" :disabled="busy || !receiptId">
-        确认受理并占用积分
-      </button>
-    </form>
-    <form v-if="selected" class="surface" @submit.prevent="resolve">
-      <h3>登记实际处理结果 · {{ selected.number }}</h3>
-      <p>本次金额 {{ money(selected.amount_cents) }}</p>
-      <label
-        >结果<select v-model="outcome">
-          <option value="success">实际已退款成功</option>
-          <option value="unknown">结果待核查，保留占用</option>
-          <option value="failed">核实退款失败，释放占用</option>
-          <option value="rejected">驳回未付款申请，释放占用</option>
-        </select></label
-      ><label
-        >实际收款人<input
-          v-model="recipient"
-          :required="outcome === 'success'" /></label
-      ><label
-        >实际付款时间<input
-          v-model="paidAt"
-          type="datetime-local"
-          :required="outcome === 'success'" /></label
-      ><label
-        >实际转账或核查凭证<input
-          v-model="proof"
-          :required="
-            outcome === 'success' ||
-            (selected.status === 'unknown' &&
-              ['failed', 'rejected'].includes(outcome))
-          " /></label
-      ><label
-        ><input v-model="confirmed" type="checkbox" />确认已经实际退现金</label
-      ><label
-        ><input
-          v-model="confirmedNoPayment"
-          type="checkbox"
-        />已核实款项未退，允许释放积分占用</label
-      ><label>处理原因<input v-model="reason" required maxlength="200" /></label
-      ><button class="primary" :disabled="busy">保存实际处理结果</button
-      ><button type="button" @click="selected = null">取消</button>
-    </form>
-    <section class="surface">
-      <h3>积分余额退款记录</h3>
-      <article v-for="r in rows" :key="r.id">
-        <strong>{{ names[r.status] }} · {{ money(r.amount_cents) }}</strong>
-        <p>
-          {{ r.number }} · 用户 #{{ r.user_id }} · 原收款 #{{ r.receipt_id }}
+    <ol class="process-guide" aria-label="退现金办理流程">
+      <li>
+        <span class="step-number">1</span>
+        <div>
+          <strong>核实来源</strong>
+          <p>查询原收款和未用积分</p>
+        </div>
+      </li>
+      <li>
+        <span class="step-number">2</span>
+        <div>
+          <strong>受理申请</strong>
+          <p>填写金额并占用积分</p>
+        </div>
+      </li>
+      <li>
+        <span class="step-number">3</span>
+        <div>
+          <strong>登记实际结果</strong>
+          <p>核实线下退款，保存凭证</p>
+        </div>
+      </li>
+    </ol>
+    <div class="application-grid" :class="{ 'has-wallet': wallet }">
+      <form class="surface query-form" @submit.prevent="query">
+        <div class="section-heading">
+          <h3>核实原收款与未用积分</h3>
+          <p>输入申请人的用户编号，核对可退款来源。</p>
+        </div>
+        <label
+          >用户编号<input
+            ref="userInput"
+            v-model.number="userId"
+            type="number"
+            min="1"
+            required
+        /></label>
+        <div class="form-actions">
+          <button class="secondary" :disabled="busy">查询原收款及积分</button>
+        </div>
+        <div v-if="wallet" class="wallet-summary">
+          <div>
+            <span>可用积分</span
+            ><strong>{{ money(wallet.availableCents) }}</strong>
+          </div>
+          <div>
+            <span>占用积分</span><strong>{{ money(wallet.heldCents) }}</strong>
+          </div>
+          <p>1元 = 1积分</p>
+        </div>
+        <p v-else class="empty-hint">
+          查询后可查看积分余额，并选择原公司订货收款办理退现金。
         </p>
-        <p>{{ r.reason }}</p>
-        <p v-if="r.last_error">{{ r.last_error }}</p>
-        <button
-          v-if="['processing', 'unknown'].includes(r.status)"
-          @click="open(r)"
+      </form>
+      <form
+        v-if="wallet"
+        class="surface application-form"
+        @submit.prevent="create"
+      >
+        <div class="section-heading">
+          <h3>人工受理未用积分退现金</h3>
+          <p>
+            产品包款、已消费积分和其他人的收款不能作为退款来源。办理时先占用，实际退款后才扣回积分。
+          </p>
+        </div>
+        <label
+          >原公司订货收款<select v-model.number="receiptId" required>
+            <option :value="0" disabled>请选择原收款</option>
+            <option
+              v-for="r in receipts.filter((r) => r.purpose === 'points')"
+              :key="r.id"
+              :value="r.id"
+            >
+              #{{ r.id }} · {{ r.external_transaction_id }} · 原收{{
+                money(r.amount_cents)
+              }}
+              已退{{ money(r.cash_refunded_cents) }}
+            </option>
+          </select></label
         >
-          登记实际处理结果
+        <p
+          v-if="!receipts.some((r) => r.purpose === 'points')"
+          class="empty-hint"
+        >
+          该用户暂无原公司订货收款可选。请核对用户编号和原收款记录后重新查询。
+        </p>
+        <label
+          >本次退款（元）<input v-model="amount" inputmode="decimal" required
+        /></label>
+        <label
+          >申请原因<input v-model="reason" required maxlength="200"
+        /></label>
+        <div class="form-actions">
+          <button class="primary" :disabled="busy || !receiptId">
+            确认受理并占用积分
+          </button>
+        </div>
+      </form>
+    </div>
+    <form v-if="selected" class="surface result-form" @submit.prevent="resolve">
+      <div class="section-heading">
+        <h3>登记实际处理结果 · {{ selected.number }}</h3>
+        <p>
+          本次金额
+          <strong class="refund-amount">{{
+            money(selected.amount_cents)
+          }}</strong>
+        </p>
+      </div>
+      <div class="result-fields">
+        <label
+          >结果<select v-model="outcome">
+            <option value="success">实际已退款成功</option>
+            <option value="unknown">结果待核查，保留占用</option>
+            <option value="failed">核实退款失败，释放占用</option>
+            <option value="rejected">驳回未付款申请，释放占用</option>
+          </select></label
+        >
+        <label
+          >实际收款人<input
+            v-model="recipient"
+            :required="outcome === 'success'"
+        /></label>
+        <label
+          >实际付款时间<input
+            v-model="paidAt"
+            type="datetime-local"
+            :required="outcome === 'success'"
+        /></label>
+        <label
+          >实际转账或核查凭证<input
+            v-model="proof"
+            :required="
+              outcome === 'success' ||
+              (selected.status === 'unknown' &&
+                ['failed', 'rejected'].includes(outcome))
+            "
+        /></label>
+        <div class="confirmations">
+          <label class="check-label"
+            ><input
+              v-model="confirmed"
+              type="checkbox"
+            />确认已经实际退现金</label
+          >
+          <label class="check-label"
+            ><input
+              v-model="confirmedNoPayment"
+              type="checkbox"
+            />已核实款项未退，允许释放积分占用</label
+          >
+        </div>
+        <label class="full-width"
+          >处理原因<input v-model="reason" required maxlength="200"
+        /></label>
+      </div>
+      <div class="form-actions">
+        <button class="primary" :disabled="busy">保存实际处理结果</button
+        ><button type="button" class="secondary" @click="selected = null">
+          取消
         </button>
-      </article>
-      <p v-if="!rows.length">暂无记录</p>
+      </div>
+    </form>
+    <section class="surface records">
+      <div class="section-heading">
+        <h3>积分余额退款记录</h3>
+        <p>办理中或结果未明的记录，可继续登记实际处理结果。</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>状态 / 金额</th>
+              <th>退款单 / 来源</th>
+              <th>原因 / 异常</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in rows" :key="r.id">
+              <td>
+                <span
+                  class="status"
+                  :class="{
+                    'needs-attention': [
+                      'unknown',
+                      'failed',
+                      'rejected',
+                    ].includes(r.status),
+                  }"
+                  >{{ names[r.status] }}</span
+                ><strong class="record-amount">{{
+                  money(r.amount_cents)
+                }}</strong>
+              </td>
+              <td>
+                {{ r.number
+                }}<small
+                  >用户 #{{ r.user_id }} · 原收款 #{{ r.receipt_id }}</small
+                >
+              </td>
+              <td class="record-context">
+                <p>{{ r.reason }}</p>
+                <p v-if="r.last_error" class="record-error">
+                  <strong>异常：</strong>{{ r.last_error }}
+                </p>
+              </td>
+              <td>
+                <button
+                  v-if="['processing', 'unknown'].includes(r.status)"
+                  class="secondary"
+                  @click="open(r)"
+                >
+                  登记实际处理结果</button
+                ><span v-else class="record-complete">已完成处理</span>
+              </td>
+            </tr>
+            <tr v-if="!rows.length">
+              <td colspan="4" class="empty-state">
+                <strong>暂无积分余额退款记录</strong>
+                <p>从用户编号查询原公司收款和未用积分，核实后办理退款。</p>
+                <button
+                  type="button"
+                  class="secondary"
+                  @click="userInput?.focus()"
+                >
+                  填写用户编号
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
   </section>
 </template>
 <style scoped>
+.cash-refunds {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  color: var(--admin-ink);
+  font-size: 13px;
+}
+h2,
+h3,
+p {
+  margin: 0;
+}
+h2 {
+  font-size: 16px;
+}
+h3 {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+p,
+small {
+  color: var(--admin-muted);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.page-header,
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-header {
+  justify-content: space-between;
+}
 .surface {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
   background: #fff;
-  padding: 24px;
-  border: 1px solid #e0e5df;
-  margin-bottom: 20px;
+}
+.section-heading {
+  display: grid;
+  gap: 6px;
+}
+.process-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 16px;
+  margin: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #fff;
+  list-style: none;
+}
+.process-guide li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.process-guide strong {
+  font-size: 13px;
+}
+.process-guide p {
+  font-size: 12px;
+}
+.step-number {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+  font-weight: 600;
+}
+.application-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  min-width: 0;
+}
+.application-grid.has-wallet {
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
+}
+.query-form {
+  grid-column: 1;
+}
+.query-form > label {
+  max-width: 360px;
 }
 form {
   display: grid;
-  gap: 16px;
-  max-width: 850px;
+  gap: 12px;
 }
 label {
   display: grid;
-  gap: 7px;
+  min-width: 0;
+  gap: 6px;
   font-size: 13px;
 }
-input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-}
+input:not([type="checkbox"]),
 select {
-  padding: 12px;
-  border: 1px solid #d7ddd7;
-  border-radius: 6px;
-  font: inherit;
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
-p {
-  font-size: 13px;
-  color: #738076;
-  line-height: 1.8;
+.wallet-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--admin-bg);
+}
+.wallet-summary div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+.wallet-summary span {
+  color: var(--admin-muted);
+}
+.wallet-summary strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-article {
-  padding: 18px 0;
-  border-top: 1px solid #e4e8e2;
+.wallet-summary p {
+  grid-column: 1 / -1;
+  font-size: 12px;
 }
-button {
-  cursor: pointer;
+.result-form {
+  border-top: 3px solid var(--admin-accent);
+}
+.result-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.full-width,
+.confirmations {
+  grid-column: 1 / -1;
+}
+.confirmations {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-bg);
+}
+.check-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.6;
+}
+.check-label input {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.refund-amount {
+  color: var(--admin-accent);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.table-wrap {
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 16px;
+  overflow: auto;
+}
+th,
+td {
+  white-space: nowrap;
+}
+small,
+.record-amount {
+  display: block;
+  margin-top: 6px;
+}
+.record-amount {
+  font-variant-numeric: tabular-nums;
+}
+.record-context {
+  min-width: 200px;
+  max-width: 360px;
+  white-space: normal;
+}
+.status {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--admin-bg);
+}
+.needs-attention {
+  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+  font-weight: 600;
+}
+p.record-error {
+  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+  border-left: 3px solid var(--admin-accent);
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 0 8px 8px 0;
+}
+.record-complete {
+  color: var(--admin-muted);
+}
+.message {
+  padding: 12px 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+p.error {
+  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+  border-color: var(--admin-accent);
+  font-weight: 600;
+}
+p.success {
+  color: var(--admin-ink);
+  background: #fff;
+}
+.empty-hint {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--admin-bg);
+}
+.empty-state {
+  padding: 24px 12px;
+  text-align: center;
+  white-space: normal;
+}
+.empty-state p {
+  margin: 6px 0 12px;
+}
+@media (max-width: 850px) {
+  .application-grid.has-wallet {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 650px) {
+  .surface {
+    padding: 12px;
+  }
+  .process-guide {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+  .result-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .form-actions > button {
+    flex: 1 1 auto;
+  }
 }
 </style>

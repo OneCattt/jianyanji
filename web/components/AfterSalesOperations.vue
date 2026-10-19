@@ -141,97 +141,126 @@ async function submit() {
 }
 </script>
 <template>
-  <section class="aftersales">
+  <section class="aftersales" :aria-busy="busy">
     <p v-if="error" class="message error" role="alert">{{ error }}</p>
     <p v-if="notice" class="message success" role="status">{{ notice }}</p>
-    <form
-      class="surface"
-      @submit.prevent="
-        run(async () => {
-          await api('/admin/aftersales-settings', {
-            method: 'PUT',
-            body: { ...policy, reason },
-          });
-        })
-      "
-    >
-      <h3>售后政策</h3>
-      <label
-        >收货后售后天数<input
-          v-model.number="policy.days"
-          type="number"
-          min="0"
-          max="365"
-          required /></label
-      ><label
-        >实际售后政策<textarea
-          v-model="policy.policy"
-          rows="4"
-          required
-        /></label
-      ><label>修改原因<input v-model="reason" required /></label
-      ><button class="primary" :disabled="busy">保存政策</button>
-      <p>新政策只用于新交易；历史订单保留购买时的政策。</p>
-    </form>
-    <form class="surface" @submit.prevent="create">
-      <h3>客服受理商品售后</h3>
-      <label
-        >原订单<select
-          v-model.number="selectedOrderId"
-          required
-          @change="quantities = {}"
+    <div class="setup-panels">
+      <details class="surface setup-panel">
+        <summary>
+          <span class="summary-copy">
+            <strong>售后政策</strong>
+            <small>配置新交易适用的售后期限与说明</small>
+          </span>
+        </summary>
+        <form
+          class="form-grid setup-form"
+          @submit.prevent="
+            run(async () => {
+              await api('/admin/aftersales-settings', {
+                method: 'PUT',
+                body: { ...policy, reason },
+              });
+            })
+          "
         >
-          <option :value="0" disabled>选择已付款订单</option>
-          <option
-            v-for="o in orders.filter((o) => o.payment_state === 'paid')"
-            :key="o.id"
-            :value="o.id"
-          >
-            {{ o.number }} · 用户{{ o.user_id }} · {{ money(o.total_cents) }}
-          </option>
-        </select></label
-      ><template v-if="current"
-        ><div v-for="l in current.lines" :key="l.id" class="line">
-          <span
-            >{{
-              current.snapshot.lines.find((i: any) => i.skuId === l.sku_id)
-                ?.name
-            }}
-            · 已发{{ l.shipped_qty }} 已退{{ l.refunded_qty }} 办理中{{
-              l.refund_held
-            }}</span
-          ><label
-            >本次退货数量<input
-              v-model.number="quantities[l.id]"
+          <label
+            >收货后售后天数<input
+              v-model.number="policy.days"
               type="number"
               min="0"
-              :max="l.quantity - l.refunded_qty - l.refund_held"
-              placeholder="0"
-          /></label></div></template
-      ><label
-        >退运费（元）<input
-          v-model="shipping"
-          inputmode="decimal"
-          required /></label
-      ><label>受理原因<input v-model="reason" required maxlength="200" /></label
-      ><template v-if="props.canFinance"
-        ><label class="exception-check"
-          ><input
-            v-model="exceptionApproved"
-            type="checkbox"
-          />品牌方确认按特殊原因受理超期售后</label
-        ><label v-if="exceptionApproved"
-          >特批依据及原因<input
-            v-model="exceptionReason"
-            required
-            maxlength="200" /></label></template
-      ><button class="primary" :disabled="busy || !current">
-        登记售后并占用可退数量
-      </button>
-    </form>
-    <section v-if="selected && action" class="surface">
-      <h3>处理售后 {{ selected.number }}</h3>
-      <form @submit.prevent="submit">
+              max="365"
+              required /></label
+          ><label class="wide-field"
+            >实际售后政策<textarea
+              v-model="policy.policy"
+              rows="4"
+              required
+            /></label
+          ><label class="wide-field"
+            >修改原因<input v-model="reason" required /></label
+          ><button class="primary form-submit" :disabled="busy">
+            保存政策
+          </button>
+          <p class="wide-field">
+            新政策只用于新交易；历史订单保留购买时的政策。
+          </p>
+        </form>
+      </details>
+      <details class="surface setup-panel">
+        <summary>
+          <span class="summary-copy">
+            <strong>客服受理商品售后</strong>
+            <small>选择原订单，登记退款商品与受理原因</small>
+          </span>
+        </summary>
+        <form class="form-grid setup-form" @submit.prevent="create">
+          <label class="wide-field"
+            >原订单<select
+              v-model.number="selectedOrderId"
+              required
+              @change="quantities = {}"
+            >
+              <option :value="0" disabled>选择已付款订单</option>
+              <option
+                v-for="o in orders.filter((o) => o.payment_state === 'paid')"
+                :key="o.id"
+                :value="o.id"
+              >
+                {{ o.number }} · 用户{{ o.user_id }} ·
+                {{ money(o.total_cents) }}
+              </option>
+            </select></label
+          ><template v-if="current"
+            ><div
+              v-for="l in current.lines"
+              :key="l.id"
+              class="line return-line wide-field"
+            >
+              <span
+                >{{
+                  current.snapshot.lines.find((i: any) => i.skuId === l.sku_id)
+                    ?.name
+                }}
+                · 已发{{ l.shipped_qty }} 已退{{ l.refunded_qty }} 办理中{{
+                  l.refund_held
+                }}</span
+              ><label
+                >本次退货数量<input
+                  v-model.number="quantities[l.id]"
+                  type="number"
+                  min="0"
+                  :max="l.quantity - l.refunded_qty - l.refund_held"
+                  placeholder="0"
+              /></label></div></template
+          ><label
+            >退运费（元）<input
+              v-model="shipping"
+              inputmode="decimal"
+              required /></label
+          ><label
+            >受理原因<input v-model="reason" required maxlength="200" /></label
+          ><template v-if="props.canFinance"
+            ><label class="check-field wide-field"
+              ><input
+                v-model="exceptionApproved"
+                type="checkbox"
+              />品牌方确认按特殊原因受理超期售后</label
+            ><label v-if="exceptionApproved" class="wide-field"
+              >特批依据及原因<input
+                v-model="exceptionReason"
+                required
+                maxlength="200" /></label></template
+          ><button class="primary form-submit" :disabled="busy || !current">
+            登记售后并占用可退数量
+          </button>
+        </form>
+      </details>
+    </div>
+    <section v-if="selected && action" class="surface handling-panel">
+      <header class="section-heading">
+        <h3>处理售后 {{ selected.number }}</h3>
+      </header>
+      <form class="form-grid" @submit.prevent="submit">
         <template
           v-if="
             ['approve', 'reject'].includes(action) &&
@@ -250,7 +279,7 @@ async function submit() {
               type="datetime-local"
               required /></label
           ><label>验货依据<textarea v-model="inspection" required /></label
-          ><label
+          ><label class="check-field wide-field"
             ><input
               v-model="restock"
               type="checkbox"
@@ -264,25 +293,34 @@ async function submit() {
               type="datetime-local"
               required /></label
           ><label>实际转账凭证<input v-model="proof" required /></label
-          ><label
+          ><label class="check-field wide-field"
             ><input
               v-model="confirmed"
               type="checkbox"
               required
             />公司已实际退款，资料核实无误</label
           ></template
-        ><label
-          >处理原因<input v-model="reason" required maxlength="200" /></label
-        ><button class="primary" :disabled="busy">确认处理</button
-        ><button type="button" @click="action = ''">取消</button>
+        ><label class="wide-field"
+          >处理原因<input v-model="reason" required maxlength="200"
+        /></label>
+        <div class="actions wide-field">
+          <button class="primary" :disabled="busy">确认处理</button
+          ><button type="button" @click="action = ''">取消</button>
+        </div>
       </form>
     </section>
-    <section class="surface">
-      <h3>售后处理记录</h3>
-      <article v-for="r in refunds" :key="r.id">
-        <div class="line">
+    <section class="surface refund-list">
+      <header class="section-heading">
+        <h3>售后处理记录</h3>
+        <span class="list-count">{{ refunds.length }} 笔记录</span>
+      </header>
+      <p v-if="busy" class="loading" role="status">正在读取或处理售后…</p>
+      <article v-for="r in refunds" :key="r.id" class="refund-record">
+        <div class="line record-heading">
           <strong>{{ r.number }}</strong
-          ><span>{{ names[r.status] }} · {{ money(r.total_cents) }}</span>
+          ><span class="state"
+            >{{ names[r.status] }} · {{ money(r.total_cents) }}</span
+          >
         </div>
         <p>原订单 #{{ r.order_id }} · {{ r.reason }}</p>
         <p v-if="r.policy.exceptionReason">
@@ -327,64 +365,213 @@ async function submit() {
           </button>
         </div>
       </article>
-      <p v-if="!refunds.length">暂无售后记录</p>
+      <p v-if="!busy && !refunds.length" class="empty">暂无售后记录</p>
     </section>
   </section>
 </template>
 <style scoped>
-.surface {
-  background: white;
-  padding: 24px;
-  border: 1px solid #e0e5df;
-  margin-bottom: 20px;
-}
-form {
+.aftersales {
   display: grid;
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--admin-ink);
+  font-size: 13px;
+}
+.aftersales *,
+.aftersales *::before,
+.aftersales *::after {
+  box-sizing: border-box;
+}
+.surface {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #fff;
+}
+.setup-panels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+  min-width: 0;
+}
+.setup-panel summary {
+  color: var(--admin-accent);
+  cursor: pointer;
+}
+.summary-copy {
+  display: inline-grid;
+  gap: 4px;
+  max-width: calc(100% - 24px);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.summary-copy strong {
+  color: var(--admin-ink);
+  font-size: 14px;
+}
+.summary-copy small,
+.list-count {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.setup-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border);
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
 }
 label {
   display: grid;
-  gap: 7px;
-  font-size: 13px;
+  gap: 6px;
+  min-width: 0;
+  line-height: 1.5;
 }
+input,
 textarea,
 select {
-  padding: 12px;
-  border: 1px solid #d7ddd7;
-  border-radius: 6px;
-  font: inherit;
+  min-width: 0;
+  max-width: 100%;
+}
+label > input:not([type="checkbox"]),
+label > textarea,
+label > select {
   width: 100%;
 }
-input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
+textarea {
+  resize: vertical;
 }
-.line {
+.wide-field,
+.form-submit {
+  grid-column: 1 / -1;
+}
+.form-submit {
+  justify-self: start;
+}
+.check-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.check-field input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 2px 0 0;
+}
+.line,
+.section-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
   flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
 }
-article {
-  padding: 20px 0;
-  border-top: 1px solid #e4e8e2;
+.section-heading {
+  margin-bottom: 16px;
+}
+h3 {
+  min-width: 0;
+  margin: 0;
+  color: var(--admin-ink);
+  font-size: 15px;
+  line-height: 1.5;
   overflow-wrap: anywhere;
+}
+.return-line {
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-bg);
+}
+.return-line > span {
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.return-line label {
+  flex: 0 1 140px;
+}
+.handling-panel {
+  border-color: var(--admin-accent);
+}
+.refund-list > .section-heading {
+  margin-bottom: 0;
+}
+.refund-record {
+  min-width: 0;
+  padding: 16px 0;
+  border-top: 1px solid var(--admin-border);
+  overflow-wrap: anywhere;
+}
+.refund-record:first-of-type {
+  margin-top: 12px;
+}
+.refund-record:last-of-type {
+  padding-bottom: 0;
+}
+.record-heading strong {
+  color: var(--admin-ink);
+}
+.state {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+  font-size: 12px;
 }
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
-p {
-  color: #738076;
-  font-size: 13px;
-  line-height: 1.8;
+.refund-record .actions {
+  margin-top: 12px;
 }
 button {
-  cursor: pointer;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
-.line label {
-  max-width: 150px;
+p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+p:not(.message) {
+  color: var(--admin-muted);
+}
+.setup-form p {
+  margin: 0;
+}
+.aftersales > .message {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.loading,
+.empty {
+  padding: 16px 12px;
+  text-align: center;
+}
+@media (max-width: 900px) {
+  .setup-panels {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 650px) {
+  .surface {
+    padding: 12px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

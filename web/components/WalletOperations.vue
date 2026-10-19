@@ -150,287 +150,460 @@ async function correct() {
 onMounted(() => run(refresh));
 </script>
 <template>
-  <section class="wallet-operations">
-    <h2>公司订货收款与积分钱包</h2>
-    <p class="muted">
-      仅登记品牌方已经核实的真实到账。1 元对应 1
-      积分，不赠送、不过期；产品包款请到入驻申请核款。
-    </p>
-    <p v-if="error" role="alert" class="error">{{ error }}</p>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <form class="surface fields" @submit.prevent="confirmReceipt">
-      <h3>核实订货到账并发积分</h3>
-      <label
-        >代理用户编号<input
-          v-model="form.userId"
-          type="number"
-          min="1"
-          required
-      /></label>
-      <label
-        >实际到账（元）<input
-          v-model="form.amount"
-          inputmode="decimal"
-          required
-          placeholder="1000.00"
-      /></label>
-      <label
-        >实际收款渠道<select v-model="form.sourceChannel">
-          <option value="bank">公司银行账户</option>
-          <option value="wechat_company">公司微信收款</option>
-        </select></label
-      >
-      <label
-        >收款账户标识<input v-model="form.accountRef" maxlength="200" required
-      /></label>
-      <label
-        >原银行 / 公司微信流水<input
-          v-model="form.externalTransactionId"
-          maxlength="200"
-          required
-      /></label>
-      <label
-        >实际到账时间<input
-          v-model="form.receivedAt"
-          type="datetime-local"
-          required
-      /></label>
-      <label
-        >原始凭证地址或归档编号<input
-          v-model="form.evidence"
-          maxlength="1000"
-          required
-      /></label>
-      <label
-        >核实说明<input v-model="form.reason" maxlength="200" required
-      /></label>
-      <label class="check"
-        ><input
-          v-model="form.verified"
-          type="checkbox"
-          required
-        />我已核实公司真实到账、收款人和原流水，非仅核对转款截图</label
-      >
-      <button class="primary" :disabled="busy">确认到账并发积分</button>
-    </form>
-    <form class="inline" @submit.prevent="run(refresh)">
-      <label
-        >按代理编号追查<input v-model="userId" type="number" min="1" /></label
-      ><label
-        >原收款编号<input v-model="receiptId" type="number" min="1" /></label
-      ><label
-        >原银行 / 公司微信流水<input
-          v-model="externalTransactionId"
-          maxlength="200" /></label
-      ><button :disabled="busy">查询钱包和收款</button>
-    </form>
-    <div v-if="wallet" class="surface">
-      <div class="balances">
-        <p>
-          积分余额<strong>{{ money(wallet.balanceCents) }}</strong>
-        </p>
-        <p>
-          可用积分<strong>{{ money(wallet.availableCents) }}</strong>
-        </p>
-        <p>
-          办理中占用<strong>{{ money(wallet.heldCents) }}</strong>
-        </p>
-      </div>
-      <h3>原收款积分批次</h3>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>批次 / 原收款</th>
-              <th>原始积分</th>
-              <th>剩余 / 占用</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="lot in wallet.lots" :key="lot.id">
-              <td>
-                #{{ lot.id }} / #{{ lot.receipt_id
-                }}<small>{{ lot.external_transaction_id }}</small>
-              </td>
-              <td>{{ money(lot.issued_cents) }}</td>
-              <td>
-                {{ money(lot.remaining_cents) }} / {{ money(lot.held_cents) }}
-              </td>
-              <td>
-                <button @click="correction.lotId = lot.id">来源差额纠正</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <form v-if="correction.lotId" class="inline" @submit.prevent="correct">
-        <h4>纠正原批次 #{{ correction.lotId }}</h4>
-        <label
-          >冲减积分<input
-            v-model="correction.amount"
-            required
-            inputmode="decimal" /></label
-        ><label
-          >原来源及纠错原因<input
-            v-model="correction.reason"
-            maxlength="200"
-            required /></label
-        ><button :disabled="busy">保存纠正流水</button
-        ><button type="button" @click="correction.lotId = 0">取消</button>
-      </form>
+  <section class="wallet-operations" :aria-busy="busy">
+    <header class="wallet-page-heading">
+      <h2>公司订货收款与积分钱包</h2>
       <p class="muted">
-        仅能纠正该原批次未消费且未占用的积分，已消费差额须人工核实处理。
+        仅登记品牌方已经核实的真实到账。1 元对应 1
+        积分，不赠送、不过期；产品包款请到入驻申请核款。
       </p>
-      <h3>积分流水</h3>
-      <div v-for="entry in wallet.ledger" :key="entry.id" class="entry">
-        <div>
-          {{ kinds[entry.kind] || entry.kind }} ·
-          {{ entry.order_number || "原收款 #" + entry.receipt_id
-          }}<small>{{ entry.create_time }} · {{ entry.reason }}</small>
-        </div>
-        <strong
-          >{{ entry.delta_cents > 0 ? "+" : ""
-          }}{{ money(entry.delta_cents) }}</strong
+    </header>
+    <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
+    <p v-if="notice" role="status" class="feedback notice">{{ notice }}</p>
+    <div class="wallet-workspace">
+      <form
+        class="surface fields receipt-form"
+        @submit.prevent="confirmReceipt"
+      >
+        <h3>核实订货到账并发积分</h3>
+        <label
+          >代理用户编号<input
+            v-model="form.userId"
+            type="number"
+            min="1"
+            required
+        /></label>
+        <label
+          >实际到账（元）<input
+            v-model="form.amount"
+            inputmode="decimal"
+            required
+            placeholder="1000.00"
+        /></label>
+        <label
+          >实际收款渠道<select v-model="form.sourceChannel">
+            <option value="bank">公司银行账户</option>
+            <option value="wechat_company">公司微信收款</option>
+          </select></label
         >
+        <label
+          >收款账户标识<input
+            v-model="form.accountRef"
+            maxlength="200"
+            required
+        /></label>
+        <label
+          >原银行 / 公司微信流水<input
+            v-model="form.externalTransactionId"
+            maxlength="200"
+            required
+        /></label>
+        <label
+          >实际到账时间<input
+            v-model="form.receivedAt"
+            type="datetime-local"
+            required
+        /></label>
+        <label
+          >原始凭证地址或归档编号<input
+            v-model="form.evidence"
+            maxlength="1000"
+            required
+        /></label>
+        <label
+          >核实说明<input v-model="form.reason" maxlength="200" required
+        /></label>
+        <label class="check"
+          ><input
+            v-model="form.verified"
+            type="checkbox"
+            required
+          />我已核实公司真实到账、收款人和原流水，非仅核对转款截图</label
+        >
+        <button class="primary" :disabled="busy">确认到账并发积分</button>
+      </form>
+      <div class="account-workspace">
+        <section class="surface account-query" aria-label="钱包与收款查询">
+          <h3>查账与收款追溯</h3>
+          <p class="muted">
+            填写代理编号可查看积分钱包，也可按原收款编号或流水追查。
+          </p>
+          <form class="query-fields" @submit.prevent="run(refresh)">
+            <label
+              >按代理编号追查<input
+                v-model="userId"
+                type="number"
+                min="1" /></label
+            ><label
+              >原收款编号<input
+                v-model="receiptId"
+                type="number"
+                min="1" /></label
+            ><label
+              >原银行 / 公司微信流水<input
+                v-model="externalTransactionId"
+                maxlength="200" /></label
+            ><button :disabled="busy">查询钱包和收款</button>
+          </form>
+        </section>
+        <div v-if="wallet" class="surface wallet-detail">
+          <div class="balances">
+            <p>
+              积分余额<strong>{{ money(wallet.balanceCents) }}</strong>
+            </p>
+            <p>
+              可用积分<strong>{{ money(wallet.availableCents) }}</strong>
+            </p>
+            <p>
+              办理中占用<strong>{{ money(wallet.heldCents) }}</strong>
+            </p>
+          </div>
+          <h3>原收款积分批次</h3>
+          <div
+            class="table-wrap"
+            tabindex="0"
+            role="region"
+            aria-label="原收款积分批次，可横向滚动"
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th>批次 / 原收款</th>
+                  <th>原始积分</th>
+                  <th>剩余 / 占用</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="lot in wallet.lots" :key="lot.id">
+                  <td>
+                    #{{ lot.id }} / #{{ lot.receipt_id
+                    }}<small>{{ lot.external_transaction_id }}</small>
+                  </td>
+                  <td>{{ money(lot.issued_cents) }}</td>
+                  <td>
+                    {{ money(lot.remaining_cents) }} /
+                    {{ money(lot.held_cents) }}
+                  </td>
+                  <td>
+                    <button @click="correction.lotId = lot.id">
+                      来源差额纠正
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-if="!wallet.lots.length" class="empty-state">
+            暂无原收款积分批次。
+          </p>
+          <form
+            v-if="correction.lotId"
+            class="correction-form"
+            @submit.prevent="correct"
+          >
+            <h4>纠正原批次 #{{ correction.lotId }}</h4>
+            <label
+              >冲减积分<input
+                v-model="correction.amount"
+                required
+                inputmode="decimal" /></label
+            ><label
+              >原来源及纠错原因<input
+                v-model="correction.reason"
+                maxlength="200"
+                required /></label
+            ><button :disabled="busy">保存纠正流水</button
+            ><button type="button" @click="correction.lotId = 0">取消</button>
+          </form>
+          <p class="muted">
+            仅能纠正该原批次未消费且未占用的积分，已消费差额须人工核实处理。
+          </p>
+          <h3>积分流水</h3>
+          <div v-for="entry in wallet.ledger" :key="entry.id" class="entry">
+            <div>
+              {{ kinds[entry.kind] || entry.kind }} ·
+              {{ entry.order_number || "原收款 #" + entry.receipt_id
+              }}<small>{{ entry.create_time }} · {{ entry.reason }}</small>
+            </div>
+            <strong
+              >{{ entry.delta_cents > 0 ? "+" : ""
+              }}{{ money(entry.delta_cents) }}</strong
+            >
+          </div>
+          <p v-if="!wallet.ledger.length" class="empty-state">暂无积分流水。</p>
+        </div>
+        <section class="surface receipts-panel" aria-label="真实收款记录">
+          <h3>真实收款记录</h3>
+          <div
+            class="table-wrap"
+            tabindex="0"
+            role="region"
+            aria-label="真实收款记录，可横向滚动"
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th>原收款 / 代理</th>
+                  <th>用途</th>
+                  <th>到账 / 已退现金</th>
+                  <th>原流水 / 账户</th>
+                  <th>到账时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in receipts" :key="r.id">
+                  <td>#{{ r.id }} / #{{ r.user_id }}</td>
+                  <td>
+                    {{ r.purpose === "points" ? "订货积分" : "入驻产品包" }}
+                  </td>
+                  <td>
+                    ¥{{ money(r.amount_cents) }} / ¥{{
+                      money(r.cash_refunded_cents)
+                    }}
+                  </td>
+                  <td>
+                    {{ r.external_transaction_id
+                    }}<small>{{ r.account_ref }}</small>
+                  </td>
+                  <td>{{ r.received_at }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-if="busy && !receipts.length" class="empty-state" role="status">
+            正在加载收款记录…
+          </p>
+          <p v-else-if="!error && !receipts.length" class="empty-state">
+            暂无匹配的真实收款，请核对查询条件。
+          </p>
+        </section>
       </div>
-      <p v-if="!wallet.ledger.length">暂无流水</p>
-    </div>
-    <h3>真实收款记录</h3>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>原收款 / 代理</th>
-            <th>用途</th>
-            <th>到账 / 已退现金</th>
-            <th>原流水 / 账户</th>
-            <th>到账时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="r in receipts" :key="r.id">
-            <td>#{{ r.id }} / #{{ r.user_id }}</td>
-            <td>{{ r.purpose === "points" ? "订货积分" : "入驻产品包" }}</td>
-            <td>
-              ¥{{ money(r.amount_cents) }} / ¥{{ money(r.cash_refunded_cents) }}
-            </td>
-            <td>
-              {{ r.external_transaction_id }}<small>{{ r.account_ref }}</small>
-            </td>
-            <td>{{ r.received_at }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-if="!receipts.length">暂无匹配的真实收款</p>
     </div>
   </section>
 </template>
 <style scoped>
 .wallet-operations {
-  max-width: 1120px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  color: var(--admin-ink);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.wallet-page-heading {
+  display: grid;
+  gap: 6px;
+}
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+h2 {
+  font-size: 18px;
+}
+h3 {
+  font-size: 15px;
+}
+h4 {
+  font-size: 13px;
+}
+.wallet-workspace {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.5fr);
+  align-items: start;
+  gap: 16px;
+  min-width: 0;
+}
+.account-workspace {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
 }
 .surface {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
   background: #fff;
-  padding: 24px;
-  border: 1px solid #e5e0da;
-  margin: 20px 0;
 }
-.fields {
+.fields,
+.query-fields,
+.correction-form {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-content: start;
 }
 .fields h3,
-.fields .check {
-  grid-column: 1/-1;
+.fields .check,
+.fields > button,
+.query-fields > label:last-of-type,
+.correction-form h4,
+.correction-form > label:last-of-type {
+  grid-column: 1 / -1;
+}
+.fields > button,
+.query-fields > button,
+.correction-form > button {
+  justify-self: start;
+}
+.account-query {
+  display: grid;
+  gap: 8px;
+}
+.query-fields {
+  margin-top: 4px;
 }
 label {
   display: grid;
-  gap: 8px;
+  min-width: 0;
+  gap: 5px;
   font-size: 13px;
 }
 input,
 select {
   min-width: 0;
+  max-width: 100%;
   width: 100%;
   box-sizing: border-box;
-  padding: 11px;
-  border: 1px solid #d7ddd7;
-  background: white;
-  border-radius: 5px;
-  font: inherit;
 }
 .check {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  gap: 8px;
 }
 .check input {
-  width: 18px;
-  height: 18px;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--admin-accent);
 }
-.inline,
-.balances,
-.entry {
-  display: flex;
-  align-items: end;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-.inline {
-  margin: 20px 0;
+.wallet-detail {
+  display: grid;
+  gap: 12px;
 }
 .balances {
-  gap: 40px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--admin-border);
+}
+.balances p {
+  color: var(--admin-muted);
 }
 .balances strong {
   display: block;
-  font:
-    26px Georgia,
-    serif;
-  margin-top: 8px;
-  color: #8d1724;
+  margin-top: 4px;
+  color: var(--admin-ink);
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.balances p:nth-child(2) strong {
+  color: var(--admin-accent);
+}
+.correction-form {
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-bg);
 }
 .entry {
+  display: flex;
   justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid #e9e1da;
-  padding: 16px 0;
+  align-items: start;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-border);
+}
+.entry > div {
+  min-width: 0;
+}
+.entry > strong {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 small {
   display: block;
-  color: #8e8178;
-  margin-top: 6px;
+  color: var(--admin-muted);
+  margin-top: 4px;
   overflow-wrap: anywhere;
 }
 .muted {
-  color: #74675f;
-  line-height: 1.8;
+  color: var(--admin-muted);
+}
+.feedback {
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+.error,
+.notice {
+  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
 }
 .error {
-  color: #a32332;
+  border-color: var(--admin-accent);
 }
-button {
-  cursor: pointer;
+.receipts-panel {
+  display: grid;
+  gap: 12px;
 }
 .table-wrap {
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
 }
-table {
-  width: 100%;
+.table-wrap:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 3px;
 }
-td,
-th {
-  padding: 14px;
-  text-align: left;
-  border-bottom: 1px solid #e9e1da;
+td {
+  white-space: normal;
+}
+.wallet-detail td:not(:first-child),
+.receipts-panel td:nth-child(1),
+.receipts-panel td:nth-child(2),
+.receipts-panel td:nth-child(3) {
+  white-space: nowrap;
+}
+table {
+  min-width: 540px;
+}
+.receipts-panel table {
+  min-width: 680px;
+}
+.empty-state {
+  padding: 20px 12px;
+  text-align: center;
+  color: var(--admin-muted);
+}
+@media (max-width: 1100px) {
+  .wallet-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 @media (max-width: 650px) {
-  .fields {
-    grid-template-columns: 1fr;
+  .fields,
+  .query-fields,
+  .correction-form {
+    grid-template-columns: minmax(0, 1fr);
   }
   .surface {
-    padding: 16px;
+    padding: 12px;
+  }
+  .balances {
+    gap: 8px;
+  }
+  .balances strong {
+    font-size: 18px;
   }
 }
 </style>

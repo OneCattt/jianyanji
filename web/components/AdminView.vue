@@ -1,5 +1,28 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import "../admin.css";
+import {
+  LayoutDashboard,
+  Package,
+  Wallet,
+  Truck,
+  ShoppingBag,
+  RotateCcw,
+  Banknote,
+  Gift,
+  BookOpen,
+  Users,
+  UserCog,
+  History,
+  ArrowUpRight,
+  LogOut,
+  Menu,
+  X,
+  ChevronRight,
+  RefreshCw,
+  Plus,
+  ShieldCheck,
+} from "lucide-vue-next";
 import OrderOperations from "./OrderOperations.vue";
 import PaymentOperations from "./PaymentOperations.vue";
 import AfterSalesOperations from "./AfterSalesOperations.vue";
@@ -44,43 +67,139 @@ const form = ref({
   enabled: true,
   reason: "",
 });
-const sections = computed(() => [
-  { key: "overview", label: "工作台", symbol: "◈" },
-  ...(me.value?.permissions.includes("onboarding:manage")
-    ? [{ key: "membership", label: "产品包与入驻", symbol: "◇" }]
-    : []),
-  ...(me.value?.permissions.includes("finance:manage")
-    ? [{ key: "wallet", label: "公司收款与积分", symbol: "¤" }]
-    : []),
-  ...(me.value?.permissions.includes("orders:manage")
-    ? [
-        { key: "shipping", label: "配送政策", symbol: "◇" },
-        { key: "orders", label: "订单与发货", symbol: "□" },
-        { key: "aftersales", label: "商品售后", symbol: "↩" },
-      ]
-    : []),
-  ...(me.value?.permissions.includes("finance:manage")
-    ? [{ key: "cashrefunds", label: "未用积分退现金", symbol: "↪" }]
-    : []),
-  ...(me.value?.permissions.includes("rewards:manage")
-    ? [{ key: "rewards", label: "奖励与结算", symbol: "☆" }]
-    : []),
-  ...(me.value?.permissions.includes("content:manage")
-    ? [{ key: "content", label: "品牌与经营说明", symbol: "◇" }]
-    : []),
-  ...(me.value?.permissions.includes("catalog:manage")
-    ? [{ key: "catalog", label: "商品与分类", symbol: "▤" }]
-    : []),
-  ...(me.value?.permissions.includes("users:read")
-    ? [{ key: "users", label: "用户资料", symbol: "◎" }]
-    : []),
-  ...(me.value?.permissions.includes("staff:manage")
-    ? [{ key: "staff", label: "工作人员", symbol: "♧" }]
-    : []),
-  ...(me.value?.permissions.includes("audit:read")
-    ? [{ key: "audit", label: "操作记录", symbol: "≡" }]
-    : []),
-]);
+const menuExpanded = ref(false);
+const navigation = [
+  {
+    key: "overview",
+    label: "工作台",
+    icon: LayoutDashboard,
+    group: "总览",
+    description: "查看工作入口，开始日常经营。",
+  },
+  {
+    key: "catalog",
+    label: "商品与分类",
+    icon: Package,
+    group: "品牌经营",
+    permission: "catalog:manage",
+    description: "维护商品、规格与身份价格，管理商品上架。",
+  },
+  {
+    key: "content",
+    label: "品牌与经营说明",
+    icon: BookOpen,
+    group: "品牌经营",
+    permission: "content:manage",
+    description: "维护小程序品牌展示、购买说明与公司收款资料。",
+  },
+  {
+    key: "membership",
+    label: "产品包与入驻",
+    icon: Users,
+    group: "品牌经营",
+    permission: "onboarding:manage",
+    description: "配置入驻产品包，核实收款并审核代理身份。",
+  },
+  {
+    key: "orders",
+    label: "订单与发货",
+    icon: ShoppingBag,
+    group: "交易与履约",
+    permission: "orders:manage",
+    description: "核查订单与付款，安排发货并维护物流记录。",
+  },
+  {
+    key: "aftersales",
+    label: "商品售后",
+    icon: RotateCcw,
+    group: "交易与履约",
+    permission: "orders:manage",
+    description: "受理退货退款，核对商品与原支付记录。",
+  },
+  {
+    key: "shipping",
+    label: "配送政策",
+    icon: Truck,
+    group: "交易与履约",
+    permission: "orders:manage",
+    description: "设置配送地区、运费与订单付款时限。",
+  },
+  {
+    key: "wallet",
+    label: "公司收款与积分",
+    icon: Wallet,
+    group: "资金与奖励",
+    permission: "finance:manage",
+    description: "核实公司到账、发放积分，逐笔核对积分来源。",
+  },
+  {
+    key: "cashrefunds",
+    label: "未用积分退现金",
+    icon: Banknote,
+    group: "资金与奖励",
+    permission: "finance:manage",
+    description: "核对原收款与未用积分，记录实际现金退款。",
+  },
+  {
+    key: "rewards",
+    label: "奖励与结算",
+    icon: Gift,
+    group: "资金与奖励",
+    permission: "rewards:manage",
+    description: "登记代理奖励，处理月结、抵扣与追回。",
+  },
+  {
+    key: "users",
+    label: "用户资料",
+    icon: Users,
+    group: "协作与记录",
+    permission: "users:read",
+    description: "查看用户的有效身份与必要联系资料。",
+  },
+  {
+    key: "staff",
+    label: "工作人员",
+    icon: UserCog,
+    group: "协作与记录",
+    permission: "staff:manage",
+    description: "管理同事的账号、功能权限与启用状态。",
+  },
+  {
+    key: "audit",
+    label: "操作记录",
+    icon: History,
+    group: "协作与记录",
+    permission: "audit:read",
+    description: "按业务对象核对操作者、处理结果与原因。",
+  },
+] as const;
+const sections = computed(() =>
+  navigation.filter(
+    (item) =>
+      !("permission" in item) ||
+      me.value?.permissions.includes(item.permission),
+  ),
+);
+const sectionGroups = computed(() =>
+  ["总览", "品牌经营", "交易与履约", "资金与奖励", "协作与记录"]
+    .map((label) => ({
+      label,
+      items: sections.value.filter((item) => item.group === label),
+    }))
+    .filter((group) => group.items.length),
+);
+const workGroups = computed(() =>
+  sectionGroups.value.filter((group) => group.label !== "总览"),
+);
+const currentSection = computed(
+  () =>
+    sections.value.find((item) => item.key === section.value) || navigation[0],
+);
+const quickEntries = computed(() =>
+  sections.value.filter((item) =>
+    ["catalog", "orders", "membership", "wallet"].includes(item.key),
+  ),
+);
 const sectionTitle = computed(
   () => sections.value.find((s) => s.key === section.value)?.label || "工作台",
 );
@@ -161,6 +280,7 @@ async function load() {
 }
 async function navigate(key: string) {
   section.value = key;
+  menuExpanded.value = false;
   page.value = 1;
   notice.value = "";
   error.value = "";
@@ -290,20 +410,44 @@ const actionNames: Record<string, string> = {
     </section>
   </main>
   <div v-else class="admin-shell">
-    <aside class="sidebar">
-      <a href="/" class="brand-word">清欣<span>简妍肌</span></a
-      ><span class="workspace-label">品牌方工作空间</span>
-      <nav aria-label="后台功能">
+    <aside class="sidebar" :class="{ 'menu-expanded': menuExpanded }">
+      <div class="sidebar-brand">
+        <a href="/" class="brand-word">清欣<span>简妍肌</span></a>
         <button
-          v-for="item in sections"
-          :key="item.key"
-          :aria-current="section === item.key ? 'page' : undefined"
-          @click="navigate(item.key)"
+          class="mobile-menu icon-button"
+          :aria-expanded="menuExpanded"
+          aria-controls="admin-navigation"
+          :aria-label="menuExpanded ? '收起功能菜单' : '展开功能菜单'"
+          @click="menuExpanded = !menuExpanded"
         >
-          <span>{{ item.symbol }}</span
-          >{{ item.label
-          }}<span v-if="section === item.key" class="nav-indicator">·</span>
+          <X v-if="menuExpanded" :size="20" /><Menu v-else :size="20" />
         </button>
+      </div>
+      <span class="workspace-label">品牌方管理后台</span>
+      <nav id="admin-navigation" aria-label="后台功能">
+        <div
+          v-for="group in sectionGroups"
+          :key="group.label"
+          class="nav-group"
+        >
+          <p v-if="group.label !== '总览'" class="nav-group-label">
+            {{ group.label }}
+          </p>
+          <button
+            v-for="item in group.items"
+            :key="item.key"
+            :aria-current="section === item.key ? 'page' : undefined"
+            @click="navigate(item.key)"
+          >
+            <component
+              :is="item.icon"
+              :size="17"
+              :stroke-width="1.7"
+              aria-hidden="true"
+            />
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
       </nav>
       <div class="sidebar-bottom">
         <span class="staff-avatar">{{ me.displayName.slice(0, 1) }}</span>
@@ -317,38 +461,31 @@ const actionNames: Record<string, string> = {
           @click="logout"
           :disabled="busy"
         >
-          ↗
+          <LogOut :size="17" aria-hidden="true" />
         </button>
       </div>
     </aside>
     <div class="admin-main">
       <header class="admin-topbar">
-        <span>工作空间 <span class="muted">/</span> {{ sectionTitle }}</span
-        ><a href="/">查看小程序体验 ↗</a>
+        <div class="breadcrumb">
+          <span>品牌方工作空间</span
+          ><ChevronRight :size="14" aria-hidden="true" /><strong>{{
+            sectionTitle
+          }}</strong>
+        </div>
+        <a href="/" target="_blank" rel="noopener"
+          >查看小程序体验 <ArrowUpRight :size="14" aria-hidden="true"
+        /></a>
       </header>
       <main class="admin-content">
         <div class="admin-heading">
           <div>
-            <span class="eyebrow"
-              >品牌运营 ·
-              {{ section === "overview" ? "工作台" : "账号与身份" }}</span
-            >
-            <h1>
-              {{
-                section === "overview"
-                  ? `你好，${me.displayName}`
-                  : sectionTitle
-              }}
-            </h1>
+            <h1>{{ section === "overview" ? "经营工作台" : sectionTitle }}</h1>
             <p>
               {{
-                section === "staff"
-                  ? "为每位同事分配合适的权限，让协作有据可查。"
-                  : section === "users"
-                    ? "查看用户的有效身份与必要联系资料。"
-                    : section === "audit"
-                      ? "按业务对象查找操作，核对谁在何时做了什么。"
-                      : "从这里开始今天的品牌工作。"
+                section === "overview"
+                  ? `你好，${me.displayName}。从这里开始今天的品牌工作。`
+                  : currentSection.description
               }}
             </p>
           </div>
@@ -357,7 +494,7 @@ const actionNames: Record<string, string> = {
             class="primary"
             @click="open('create')"
           >
-            ＋ 新增工作人员</button
+            <Plus :size="16" aria-hidden="true" /> 新增工作人员</button
           ><button
             v-else-if="section !== 'overview'"
             class="secondary"
@@ -368,7 +505,7 @@ const actionNames: Record<string, string> = {
             "
             :disabled="busy"
           >
-            刷新记录</button
+            <RefreshCw :size="14" aria-hidden="true" /> 刷新记录</button
           ><span v-else class="date-label">{{
             new Date().toLocaleDateString("zh-CN", {
               year: "numeric",
@@ -381,50 +518,131 @@ const actionNames: Record<string, string> = {
           {{ error }}
         </p>
         <p v-if="notice" class="message success" role="status">{{ notice }}</p>
-        <template v-if="section === 'overview'"
-          ><section class="overview-banner">
-            <span class="eyebrow">当前工作身份</span>
-            <h2>品牌方工作人员</h2>
-            <p>
-              后台功能按账号授权。购买时的身份与价格，<br />以小程序中的有效身份为准。
-            </p>
-            <span class="banner-stamp" aria-hidden="true">清<br />欣</span>
-          </section>
-          <div class="section-heading">
-            <h2>可用工作入口</h2>
-            <span class="muted">{{ sections.length - 1 }} 项已授权</span>
-          </div>
-          <div class="entry-grid">
-            <button
-              v-for="item in sections.filter((s) => s.key !== 'overview')"
-              :key="item.key"
-              @click="navigate(item.key)"
-            >
-              <span class="entry-icon">{{ item.symbol }}</span>
-              <h3>{{ item.label }}</h3>
-              <p>
-                {{
-                  item.key === "staff"
-                    ? "管理账号、权限与启用状态"
-                    : item.key === "users"
-                      ? "核对用户资料与有效身份"
-                      : "查看关键操作与处理结果"
-                }}
-              </p>
-              <span class="entry-arrow">↗</span>
-            </button>
-            <p v-if="sections.length === 1" class="muted">
-              当前尚未分配业务权限，请联系管理员。
-            </p>
-          </div>
-          <section class="access-note">
-            <span>◎</span>
-            <div>
-              <strong>每次协作，都留有记录</strong>
-              <p>授权、停用和资料修改会保留操作者及原因，方便后续核对。</p>
+        <template v-if="section === 'overview'">
+          <section
+            v-if="quickEntries.length"
+            class="quick-work"
+            aria-labelledby="quick-work-title"
+          >
+            <div class="overview-section-title">
+              <h2 id="quick-work-title">常用工作</h2>
+              <span>日常业务，直接进入</span>
             </div>
-          </section></template
-        >
+            <div class="quick-work-grid">
+              <button
+                v-for="item in quickEntries"
+                :key="item.key"
+                @click="navigate(item.key)"
+              >
+                <component
+                  :is="item.icon"
+                  :size="21"
+                  :stroke-width="1.6"
+                  aria-hidden="true"
+                />
+                <span>{{
+                  item.key === "catalog"
+                    ? "管理与上架商品"
+                    : item.key === "orders"
+                      ? "处理订单与发货"
+                      : item.key === "membership"
+                        ? "审核代理入驻"
+                        : "核实收款与积分"
+                }}</span>
+                <ArrowUpRight
+                  :size="16"
+                  class="quick-arrow"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
+          </section>
+          <div class="workspace-grid">
+            <section
+              class="work-directory"
+              aria-labelledby="work-directory-title"
+            >
+              <div class="overview-section-title">
+                <h2 id="work-directory-title">业务工作区</h2>
+                <span>{{ sections.length - 1 }} 项已授权功能</span>
+              </div>
+              <div
+                v-for="group in workGroups"
+                :key="group.label"
+                class="directory-group"
+              >
+                <h3>{{ group.label }}</h3>
+                <button
+                  v-for="item in group.items"
+                  :key="item.key"
+                  @click="navigate(item.key)"
+                >
+                  <span class="directory-icon"
+                    ><component
+                      :is="item.icon"
+                      :size="19"
+                      :stroke-width="1.6"
+                      aria-hidden="true"
+                  /></span>
+                  <span class="directory-copy"
+                    ><strong>{{ item.label }}</strong
+                    ><small>{{ item.description }}</small></span
+                  >
+                  <ChevronRight :size="16" aria-hidden="true" />
+                </button>
+              </div>
+              <p v-if="!workGroups.length" class="empty-cell">
+                当前尚未分配业务权限，请联系管理员开通。
+              </p>
+            </section>
+            <aside class="work-guide">
+              <section class="guide-panel">
+                <div class="guide-heading">
+                  <ShieldCheck :size="18" aria-hidden="true" />
+                  <h2>当前工作账号</h2>
+                </div>
+                <div class="account-summary">
+                  <span class="staff-avatar">{{
+                    me.displayName.slice(0, 1)
+                  }}</span>
+                  <div>
+                    <strong>{{ me.displayName }}</strong
+                    ><small>{{ me.username }}</small>
+                  </div>
+                </div>
+                <dl>
+                  <div>
+                    <dt>工作身份</dt>
+                    <dd>品牌方工作人员</dd>
+                  </div>
+                  <div>
+                    <dt>已授权功能</dt>
+                    <dd>{{ sections.length - 1 }} 项</dd>
+                  </div>
+                </dl>
+                <p>需要其他功能？请联系品牌管理员调整账号权限。</p>
+              </section>
+              <section class="guide-panel processing-guide">
+                <h2>业务处理提醒</h2>
+                <div>
+                  <span class="guide-dot"></span><strong>公司收款</strong>
+                  <p>先核实实际到账，再向对应代理发放积分。</p>
+                </div>
+                <div>
+                  <span class="guide-dot"></span><strong>代理入驻</strong>
+                  <p>产品包货款用于实物交付，不另发等额订货积分。</p>
+                </div>
+                <div>
+                  <span class="guide-dot"></span><strong>奖励结算</strong>
+                  <p>核对收货与售后情况，记录公司实际转账凭证。</p>
+                </div>
+              </section>
+              <p class="workspace-footnote">
+                关键业务操作保留处理人和原因，便于后续核对。
+              </p>
+            </aside>
+          </div>
+        </template>
         <section v-else-if="section === 'staff'" class="table-panel">
           <div class="panel-title">
             <h2>工作人员列表</h2>
@@ -523,7 +741,7 @@ const actionNames: Record<string, string> = {
             </table>
           </div>
         </section>
-        <section v-else class="table-panel">
+        <section v-else-if="section === 'audit'" class="table-panel">
           <form
             class="filter-bar"
             @submit.prevent="
