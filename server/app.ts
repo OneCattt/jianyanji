@@ -1,3 +1,10 @@
+import { mountPayments, type PaymentsOptions } from "./payments.ts";
+import { mountFulfillment, refreshFulfillment } from "./fulfillment.ts";
+import { mountMembership, applyPackageRefundIdentity } from "./membership.ts";
+import { mountWallet, restoreOrderPoints } from "./wallet.ts";
+import { mountRewards, reconcileRewardReversals } from "./rewards.ts";
+import { mountCashRefunds } from "./cash-refunds.ts";
+import { paymentAdapterFromEnv, type PayChannel } from "./wechat-pay.ts";
 import express, {
   type Request,
   type Response,
@@ -23,21 +30,19 @@ import {
 } from "./db.ts";
 import { exchangeWechatCode, WechatError } from "./wechat.ts";
 
-interface Options {
+import { HttpError } from "./http.ts";
+import { mountAftersales, type RefundHooks } from "./aftersales.ts";
+import { mountOrders } from "./orders.ts";
+import { mountCatalog } from "./catalog.ts";
+
+export interface AppOptions {
+  payments?: PaymentsOptions;
+  refunds?: RefundHooks;
   devAuth: boolean;
   production?: boolean;
   appId?: string;
   appSecret?: string;
   exchangeCode?: (code: string) => Promise<string>;
-}
-class HttpError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    message: string,
-  ) {
-    super(message);
-  }
 }
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
@@ -66,7 +71,7 @@ const staffSchema = z
   })
   .strict();
 
-export function createApp(db: DB, options: Options) {
+export function createApp(db: DB, options: AppOptions) {
   if (options.production && options.devAuth)
     throw new Error("生产环境禁止开启调试登录");
   const app = express();
@@ -82,7 +87,15 @@ export function createApp(db: DB, options: Options) {
     if (req.path.startsWith("/api/")) res.set("Cache-Control", "no-store");
     next();
   });
-  app.use(express.json({ limit: "16kb" }));
+  app.use(
+    express.json({
+      limit: "128kb",
+      verify: (req, _res, buffer) => {
+        if (req.url?.startsWith("/api/payments/wechat/notify"))
+          (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+      },
+    }),
+  );
   const audit = (
     res: Response,
     action: string,
@@ -570,9 +583,47 @@ export function createApp(db: DB, options: Options) {
       .get(...params) as { total: number };
     res.json({ items, page: query.page, total });
   });
+  const business = {
+    db,
+    userAuth,
+    staffAuth,
+    permit,
+    audit,
+    optionalUser: (req: Request, res: Response, next: NextFunction) =>
+      req.headers.authorization ? userAuth(req, res, next) : next(),
+  };
+  mountCatalog(app, business);
+  mountOrders(app, business);
+  mountPayments(app, business, options.payments);
+  mountFulfillment(app, business);
+  mountMembership(app, business);
+  mountWallet(app, business);
+  mountRewards(app, business);
+  let refundChannel = options.refunds?.channel;
+  if (!refundChannel) {
+    try {
+      const channel =
+        options.payments?.adapter ??
+        paymentAdapterFromEnv(options.payments?.env);
+      if (channel && "refund" in channel && "queryRefund" in channel)
+        refundChannel = channel as PayChannel;
+    } catch {
+      /* 商户配置无效时由支付能力接口明确提示，禁止伪造退款。 */
+    }
+  }
+  mountAftersales(app, business, {
+    channel: refundChannel,
+    returnPoints: (db, orderId, refundId, amount, actor) =>
+      restoreOrderPoints(db, orderId, amount, "refund:" + refundId, actor),
+    reverseRewards: reconcileRewardReversals,
+    packageIdentity: applyPackageRefundIdentity,
+    ...options.refunds,
+  });
+  mountCashRefunds(app, business);
   app.use("/api", (_req, _res) => {
     throw new HttpError(404, "NOT_FOUND", "接口不存在");
   });
+  app.use("/assets", express.static(resolve("miniprogram/assets")));
   const dist = resolve("dist");
   if (existsSync(dist)) {
     app.use(express.static(dist));
@@ -625,7 +676,12 @@ export function createApp(db: DB, options: Options) {
         JSON.stringify({
           message: "请求处理失败",
           requestId: res.locals.requestId,
-          error: error instanceof Error ? error.name : "UnknownError",
+          error:
+            error instanceof Error
+              ? { name: error.name, message: error.message, stack: error.stack }
+              : "UnknownError",
+          method: req.method,
+          path: req.path,
         }),
       );
       res.status(500).json({

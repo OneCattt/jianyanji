@@ -56,6 +56,24 @@ try {
         });
       }
     }
+    const admin = db
+      .prepare("SELECT id FROM staff WHERE username='admin' AND is_deleted=0")
+      .get();
+    if (admin) {
+      db.prepare(
+        "UPDATE staff SET permissions=?,update_time=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?",
+      ).run(JSON.stringify(permissions), admin.id);
+      recordAudit(db, {
+        actorKind: "system",
+        actorId: 0,
+        action: "staff.seed",
+        objectType: "staff",
+        objectId: Number(admin.id),
+        result: "success",
+        reason: "显式更新本地演示管理员授权",
+        requestId: "local-seed",
+      });
+    }
   });
   console.info(
     "本地演示数据已就绪。后台账号 admin / operator；密码仅用于本地：Jianyanji-Local-2026!",

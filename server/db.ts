@@ -1,3 +1,12 @@
+import { migratePayments } from "./payments.ts";
+import { migrateFulfillment } from "./fulfillment.ts";
+import { migrateMembership } from "./membership.ts";
+import { migrateWallet } from "./wallet.ts";
+import { migrateRewards } from "./rewards.ts";
+import { migrateCashRefunds } from "./cash-refunds.ts";
+import { migrateAftersales } from "./aftersales.ts";
+import { migrateOrders } from "./orders.ts";
+import { migrateCatalog } from "./catalog.ts";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -7,6 +16,12 @@ export const permissions = [
   "staff:manage",
   "users:read",
   "audit:read",
+  "content:manage",
+  "catalog:manage",
+  "orders:manage",
+  "onboarding:manage",
+  "finance:manage",
+  "rewards:manage",
 ] as const;
 export type Permission = (typeof permissions)[number];
 export type Identity = "B" | "C" | "D";
@@ -30,7 +45,7 @@ export interface StaffRow {
 }
 
 // 统一审计列用于所有业务表；停用和移除均保留原始记录。
-const auditColumns = `
+export const auditColumns = `
   update_user_id INTEGER NOT NULL DEFAULT 0,
   create_user_id INTEGER NOT NULL DEFAULT 0,
   create_time TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -67,12 +82,28 @@ export function openDatabase(path: string) {
     );
     CREATE INDEX IF NOT EXISTS audit_object ON audit_events(object_type,object_id,id);
   `);
+  migrateCatalog(db);
+  migrateOrders(db);
+  migrateAftersales(db);
+  migratePayments(db);
+  migrateFulfillment(db);
+  migrateRewards(db);
+  migrateMembership(db);
+  migrateWallet(db);
+  migrateCashRefunds(db);
   return db;
 }
 export type DB = ReturnType<typeof openDatabase>;
 
+const activeTransactions = new WeakSet<DB>();
+export function assertTransaction(db: DB, operation: string) {
+  if (db.isTransaction !== true && !activeTransactions.has(db))
+    throw new Error(operation + " 必须在调用方事务内运行");
+}
+
 export function transaction<T>(db: DB, work: () => T): T {
   db.exec("BEGIN IMMEDIATE");
+  activeTransactions.add(db);
   try {
     const result = work();
     db.exec("COMMIT");
@@ -80,6 +111,8 @@ export function transaction<T>(db: DB, work: () => T): T {
   } catch (error) {
     db.exec("ROLLBACK");
     throw error;
+  } finally {
+    activeTransactions.delete(db);
   }
 }
 
