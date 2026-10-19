@@ -1,5 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import OrderOperations from "./OrderOperations.vue";
+import PaymentOperations from "./PaymentOperations.vue";
+import AfterSalesOperations from "./AfterSalesOperations.vue";
+import CashRefundOperations from "./CashRefundOperations.vue";
+import RewardOperations from "./RewardOperations.vue";
+import MembershipOperations from "./MembershipOperations.vue";
+import WalletOperations from "./WalletOperations.vue";
+import BusinessSettings from "./BusinessSettings.vue";
 import ModalDialog from "./ModalDialog.vue";
 import {
   api,
@@ -15,6 +23,7 @@ const me = ref<Staff | null>(null),
   busy = ref(false),
   error = ref(""),
   notice = ref("");
+const refreshKey = ref(0);
 const username = ref(""),
   password = ref(""),
   section = ref("overview");
@@ -37,6 +46,31 @@ const form = ref({
 });
 const sections = computed(() => [
   { key: "overview", label: "工作台", symbol: "◈" },
+  ...(me.value?.permissions.includes("onboarding:manage")
+    ? [{ key: "membership", label: "产品包与入驻", symbol: "◇" }]
+    : []),
+  ...(me.value?.permissions.includes("finance:manage")
+    ? [{ key: "wallet", label: "公司收款与积分", symbol: "¤" }]
+    : []),
+  ...(me.value?.permissions.includes("orders:manage")
+    ? [
+        { key: "shipping", label: "配送政策", symbol: "◇" },
+        { key: "orders", label: "订单与发货", symbol: "□" },
+        { key: "aftersales", label: "商品售后", symbol: "↩" },
+      ]
+    : []),
+  ...(me.value?.permissions.includes("finance:manage")
+    ? [{ key: "cashrefunds", label: "未用积分退现金", symbol: "↪" }]
+    : []),
+  ...(me.value?.permissions.includes("rewards:manage")
+    ? [{ key: "rewards", label: "奖励与结算", symbol: "☆" }]
+    : []),
+  ...(me.value?.permissions.includes("content:manage")
+    ? [{ key: "content", label: "品牌与经营说明", symbol: "◇" }]
+    : []),
+  ...(me.value?.permissions.includes("catalog:manage")
+    ? [{ key: "catalog", label: "商品与分类", symbol: "▤" }]
+    : []),
   ...(me.value?.permissions.includes("users:read")
     ? [{ key: "users", label: "用户资料", symbol: "◎" }]
     : []),
@@ -327,7 +361,11 @@ const actionNames: Record<string, string> = {
           ><button
             v-else-if="section !== 'overview'"
             class="secondary"
-            @click="load"
+            @click="
+              ['users', 'staff', 'audit'].includes(section)
+                ? load()
+                : refreshKey++
+            "
             :disabled="busy"
           >
             刷新记录</button
@@ -586,6 +624,42 @@ const actionNames: Record<string, string> = {
             下一页
           </button>
         </div>
+        <OrderOperations
+          v-if="section === 'shipping'"
+          :key="'shipping:' + refreshKey"
+          section="shipping"
+        />
+        <PaymentOperations
+          v-if="section === 'orders'"
+          :key="'orders:' + refreshKey"
+        />
+        <AfterSalesOperations
+          v-if="section === 'aftersales'"
+          :key="'aftersales:' + refreshKey"
+          :canFinance="me.permissions.includes('finance:manage')"
+        />
+        <CashRefundOperations
+          v-if="section === 'cashrefunds'"
+          :key="'cash:' + refreshKey"
+        />
+        <RewardOperations
+          v-if="section === 'rewards'"
+          :key="'rewards:' + refreshKey"
+        />
+        <MembershipOperations
+          v-if="section === 'membership'"
+          :key="'membership:' + refreshKey"
+          :permissions="me.permissions"
+        />
+        <WalletOperations
+          v-if="section === 'wallet'"
+          :key="'wallet:' + refreshKey"
+        />
+        <BusinessSettings
+          v-if="['content', 'catalog'].includes(section)"
+          :key="section + refreshKey"
+          :section="section"
+        />
       </main>
       <footer class="admin-footer">
         清欣简妍肌 <span>·</span> 品牌方管理后台

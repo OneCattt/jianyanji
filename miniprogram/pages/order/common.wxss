@@ -1,0 +1,389 @@
+page {
+  background: #f2ece4;
+}
+.jy-orders {
+  background: #f2ece4;
+  min-height: 100vh;
+  color: #251d1a;
+  font-size: 19.947rpx;
+}
+.jy-header {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 127.66rpx;
+  padding-top: env(safe-area-inset-top);
+  box-sizing: content-box;
+  background: #f8f5eef5;
+  border-bottom: 1.995rpx solid #4530261f;
+  font:
+    31.915rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 1.995rpx;
+}
+.jy-header .jy-back {
+  position: absolute;
+  left: 19.947rpx;
+  top: calc(33.91rpx + env(safe-area-inset-top));
+  width: 71.809rpx;
+  height: 67.819rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.jy-back image {
+  width: 39.894rpx;
+  height: 39.894rpx;
+}
+.jy-list {
+  padding: 23.936rpx 27.926rpx 55.851rpx;
+}
+.jy-card {
+  background: #fffdfa;
+  padding: 0 29.92rpx 27.926rpx;
+  margin-bottom: 21.941rpx;
+}
+.jy-order-top {
+  height: 84.77rpx;
+  border-bottom: 1.995rpx solid #4530261f;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15rpx;
+  color: #8e8178;
+  font-size: 15.957rpx;
+}
+.jy-order-top > text:first-child {
+  overflow-wrap: anywhere;
+}
+.jy-status {
+  color: #8d1724;
+  font-size: 17.952rpx;
+  flex-shrink: 0;
+}
+.jy-product {
+  display: flex;
+  gap: 19.947rpx;
+  padding: 25.931rpx 0 9.973rpx;
+  align-items: flex-start;
+}
+.jy-product > image {
+  width: 127.66rpx;
+  height: 137.633rpx;
+  flex-shrink: 0;
+  border-radius: 5.984rpx;
+  background: #eee4d7;
+}
+.jy-product-copy {
+  flex: 1;
+  min-width: 0;
+  font:
+    19.947rpx/1.5 STSong,
+    "Songti SC",
+    serif;
+  padding-top: 7.979rpx;
+}
+.jy-product-copy text {
+  display: block;
+  font:
+    13.963rpx/1.7 "PingFang SC",
+    sans-serif;
+  color: #8e8178;
+  margin-top: 13.963rpx;
+}
+.jy-line-price {
+  text-align: right;
+  font-size: 17.952rpx;
+  padding-top: 7.979rpx;
+  line-height: 1.6;
+  max-width: 180rpx;
+  overflow-wrap: anywhere;
+}
+.jy-line-price > view {
+  font-size: 15.957rpx;
+  color: #8e8178;
+  margin-top: 11.968rpx;
+}
+.jy-order-hint {
+  background: #f0e7dc;
+  display: flex;
+  gap: 15.957rpx;
+  align-items: center;
+  padding: 19.947rpx;
+  margin-top: 19.947rpx;
+  color: #7b5a47;
+  font-size: 15.957rpx;
+  line-height: 1.6;
+}
+.jy-order-hint image {
+  width: 33.91rpx;
+  height: 33.91rpx;
+  flex-shrink: 0;
+}
+.jy-order-bottom {
+  border-top: 1.995rpx solid #4530261f;
+  margin-top: 25.931rpx;
+  padding-top: 23.936rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15rpx;
+  font-size: 15.957rpx;
+  color: #8e8178;
+}
+.jy-total {
+  color: #251d1a;
+  font-weight: 600;
+}
+.jy-order-bottom button {
+  border: 1.995rpx solid #8d1724;
+  color: #8d1724;
+  font-size: 15.957rpx;
+  padding: 13.963rpx 23.936rpx;
+  flex-shrink: 0;
+}
+.jy-empty {
+  padding: 79.787rpx 25.931rpx;
+  text-align: center;
+  color: #8e8178;
+  line-height: 1.8;
+}
+.jy-error {
+  margin: 19.947rpx 27.926rpx;
+  padding: 23.936rpx;
+  background: #f4e2de;
+  color: #8d1724;
+  line-height: 1.8;
+  font-size: 21.941rpx;
+  overflow-wrap: anywhere;
+}
+.jy-error button {
+  display: inline;
+  color: #8d1724;
+  text-decoration: underline;
+  margin-left: 15rpx;
+}
+.jy-banner {
+  min-height: 181.516rpx;
+  display: flex;
+  gap: 33.91rpx;
+  align-items: center;
+  padding: 43.883rpx 53.856rpx;
+  background:
+    radial-gradient(ellipse at top right, #c0736257, transparent 60%), #59131b;
+  color: #f7ebdf;
+}
+.jy-banner > image {
+  width: 47.872rpx;
+  height: 47.872rpx;
+  flex-shrink: 0;
+}
+.jy-banner > view > view {
+  font:
+    35.904rpx/1.5 STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 1.995rpx;
+}
+.jy-banner text {
+  display: block;
+  font-size: 15.957rpx;
+  color: #fff9;
+  margin-top: 11.968rpx;
+  line-height: 1.8;
+}
+.jy-logistics-link,
+.jy-address {
+  display: flex;
+  gap: 23.936rpx;
+  align-items: center;
+  padding: 29.92rpx 31.915rpx;
+}
+.jy-logistics-link > image,
+.jy-address > image {
+  width: 35.904rpx;
+  height: 35.904rpx;
+  flex-shrink: 0;
+}
+.jy-logistics-link > view,
+.jy-address > view {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.jy-logistics-link text,
+.jy-address text {
+  font-size: 15.957rpx;
+  display: block;
+  color: #8e8178;
+  line-height: 1.8;
+  margin-top: 11.968rpx;
+  font-weight: 400;
+}
+.jy-logistics-link .jy-arrow {
+  width: 27.926rpx;
+  height: 27.926rpx;
+}
+.jy-store {
+  display: flex;
+  gap: 19.947rpx;
+  align-items: center;
+  border-bottom: 1.995rpx solid #4530261f;
+  padding: 29.92rpx 0;
+  color: #6d4d3e;
+  font-size: 19.947rpx;
+  font-weight: 600;
+}
+.jy-store image {
+  width: 33.91rpx;
+  height: 33.91rpx;
+}
+.jy-info {
+  padding: 13.963rpx 31.915rpx;
+}
+.jy-info > view {
+  display: flex;
+  justify-content: space-between;
+  gap: 19.947rpx;
+  padding: 15.957rpx 0;
+  line-height: 1.8;
+  font-size: 15.957rpx;
+}
+.jy-info > view > text:first-child {
+  color: #8e8178;
+  flex-shrink: 0;
+}
+.jy-info > view > text:last-child,
+.jy-info button {
+  text-align: right;
+  max-width: 75%;
+  overflow-wrap: anywhere;
+  color: #5f514a;
+}
+.jy-contact {
+  display: flex;
+  gap: 15.957rpx;
+  align-items: center;
+  padding: 25.931rpx 29.92rpx;
+  background: #eee4d7;
+  color: #7d5a46;
+  font-size: 15.957rpx;
+}
+.jy-contact image {
+  width: 35.904rpx;
+  height: 35.904rpx;
+  flex-shrink: 0;
+}
+.jy-contact text {
+  flex: 1;
+  line-height: 1.7;
+}
+.jy-contact button {
+  border: 1.995rpx solid #9f7d58;
+  padding: 11.968rpx 15.957rpx;
+  font-size: 15.957rpx;
+  color: #76523f;
+}
+.jy-detail {
+  padding-bottom: 160rpx;
+}
+.jy-actions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 19.947rpx;
+  padding: 25.931rpx 35.904rpx calc(29.92rpx + env(safe-area-inset-bottom));
+  background: #fffdfaf7;
+  border-top: 1.995rpx solid #4530261f;
+  box-shadow: 0 -15.957rpx 47.872rpx #3f2a210d;
+}
+.jy-actions button {
+  flex: 1;
+  min-height: 85.771rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21.941rpx;
+}
+.qx .jy-outline {
+  background: #f4e3e0;
+  color: #8d1724;
+  padding: 19.947rpx;
+}
+.qx .jy-solid {
+  background: #8d1724;
+  color: #fff;
+  padding: 19.947rpx;
+  font-size: 21.941rpx;
+}
+.jy-orders button[disabled] {
+  opacity: 0.45;
+}
+.jy-timeline {
+  padding: 39.894rpx 35.904rpx;
+}
+.jy-step {
+  position: relative;
+  margin-left: 7.979rpx;
+  border-left: 1.995rpx solid #dacbc1;
+  padding: 0 0 59.84rpx 43.883rpx;
+  color: #70645d;
+  font-size: 17.952rpx;
+}
+.jy-step:before {
+  content: "";
+  position: absolute;
+  left: -9.973rpx;
+  top: 3.989rpx;
+  width: 13.963rpx;
+  height: 13.963rpx;
+  border: 3.989rpx solid #cabbb0;
+  border-radius: 50%;
+  background: #fffdfa;
+}
+.jy-step.active {
+  color: #8d1724;
+}
+.jy-step.active:before {
+  background: #8d1724;
+  border-color: #f0d6d9;
+}
+.jy-step text {
+  display: block;
+  font-size: 15.957rpx;
+  color: #a89c95;
+  margin-top: 13.963rpx;
+}
+.jy-track-note {
+  color: #8e8178;
+  font-size: 17.952rpx;
+  line-height: 1.8;
+  margin-bottom: 23.936rpx;
+}
+.jy-process {
+  background: #eee4d7;
+  padding: 43.883rpx 31.915rpx;
+  font-size: 19.947rpx;
+  font-weight: 600;
+}
+.jy-process-icons {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 39.894rpx;
+}
+.jy-process-icons > view {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 17.952rpx;
+  font-size: 13.963rpx;
+  font-weight: 400;
+}
+.jy-process-icons image {
+  width: 53.856rpx;
+  height: 53.856rpx;
+}

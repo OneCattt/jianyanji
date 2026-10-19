@@ -1,4 +1,13 @@
-export type Permission = "staff:manage" | "users:read" | "audit:read";
+export type Permission =
+  | "staff:manage"
+  | "users:read"
+  | "audit:read"
+  | "content:manage"
+  | "catalog:manage"
+  | "orders:manage"
+  | "onboarding:manage"
+  | "finance:manage"
+  | "rewards:manage";
 export interface User {
   id: number;
   nickname: string;
@@ -55,4 +64,10 @@ export const permissionNames: Record<Permission, string> = {
   "staff:manage": "工作人员管理",
   "users:read": "用户资料查看",
   "audit:read": "操作记录查看",
+  "content:manage": "品牌内容管理",
+  "catalog:manage": "商品管理",
+  "orders:manage": "订单与售后管理",
+  "onboarding:manage": "代理入驻审核",
+  "finance:manage": "收款与积分管理",
+  "rewards:manage": "奖励与结算管理",
 };

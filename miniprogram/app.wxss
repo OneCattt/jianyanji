@@ -1,3 +1,4 @@
+@import "figma.wxss";
 page {
   background: #fbfcfa;
   color: #233d38;

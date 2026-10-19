@@ -1,0 +1,106 @@
+<view class="qx wallet-page">
+  <view class="wallet-header"
+    ><button bindtap="back" aria-label="返回">
+      <image src="assets/back.png" /></button
+    ><text>积分明细</text><view></view
+  ></view>
+  <view class="wallet-card">
+    <view class="wallet-card-row"
+      ><text>可用积分</text><button bindtap="transfer">公司转款</button></view
+    >
+    <view class="wallet-amount">{{wallet?wallet.availableText:'—'}}</view>
+    <view class="wallet-totals"
+      ><view
+        ><text>累计发放</text
+        ><view>{{wallet?wallet.creditedText:'—'}}</view></view
+      ><view
+        ><text>累计使用</text><view>{{wallet?wallet.spentText:'—'}}</view></view
+      ><view wx:if="{{wallet&&wallet.heldCents}}"
+        ><text>办理中占用</text><view>{{wallet.heldText}}</view></view
+      ></view
+    >
+  </view>
+  <view wx:if="{{error}}" class="wallet-error" role="alert"
+    >{{error}}<button wx:if="{{!user}}" bindtap="login">
+      登录 / 查看个人资料 ›</button
+    ><button wx:else bindtap="load">重新查询 ›</button></view
+  >
+  <view wx:if="{{order}}" class="wallet-payment"
+    ><view class="wallet-section-title"
+      >{{paid?'本订单积分已支付':'积分支付商品订单'}}</view
+    ><view class="wallet-source">{{order.number}}</view
+    ><view class="wallet-payment-row"
+      ><text>本次整单扣减</text><text>{{order.totalText}} 积分</text></view
+    ><view wx:if="{{paid}}" class="wallet-paid"
+      >已扣减 {{order.totalText}} 积分，当前可用 {{wallet.availableText}}
+      积分</view
+    ><button
+      wx:if="{{!paid}}"
+      bindtap="pay"
+      disabled="{{busy||order.status!=='pending'}}"
+      class="wallet-primary"
+    >
+      {{busy?'核对支付结果中…':'确认整单积分付款'}}</button
+    ><button wx:else bindtap="order" class="wallet-primary">
+      查看订单与商品交付</button
+    ><view class="wallet-payment-note"
+      >积分不足请核实公司转款；待原微信交易结果明确后才可选择其他整单支付方式。</view
+    ></view
+  >
+  <view class="wallet-heading"
+    ><text>积分流水</text
+    ><button bindtap="filter">{{filterName}} <image class="wallet-chevron" src="assets/chevron.png" /></button></view
+  >
+  <view class="wallet-ledger">
+    <view
+      wx:for="{{visible}}"
+      wx:key="id"
+      class="wallet-entry"
+      data-id="{{item.order_id}}"
+      bindtap="ledgerOrder"
+      ><view class="wallet-icon {{item.delta_cents>0?'positive':''}}"
+        ><image src="assets/{{item.icon}}.png" /></view
+      ><view class="wallet-copy"
+        ><view>{{item.title}}</view
+        ><text>{{item.source}} · {{item.dateText}}</text></view
+      ><text class="wallet-delta {{item.delta_cents>0?'credit':''}}"
+        >{{item.deltaText}}</text
+      ></view
+    >
+    <view wx:if="{{!visible.length}}" class="wallet-empty"
+      >{{wallet?'暂无该类型积分流水':'登录后查询本人真实积分流水'}}</view
+    >
+  </view>
+  <view class="wallet-audit"
+    ><image src="assets/shield.png" /><text
+      >每笔发放、扣减与退回均关联原收款或订单流水，不可随意修改</text
+    ></view
+  >
+  <button class="wallet-cash" bindtap="cashRefunds">现金退款办理记录 ›</button>
+  <view class="wallet-bottom-note"
+    >未用积分对应款项须经客服人工审核退回原公司收款，不提供线上提现。</view
+  >
+  <view wx:if="{{showTransfer}}" class="wallet-mask" bindtap="closeTransfer"
+    ><view class="wallet-transfer" catchtap="stop"
+      ><view class="wallet-section-title">向公司转款 · 核实后发积分</view
+      ><view wx:if="{{wallet&&wallet.transfer.configured}}"
+        ><view class="wallet-bank">{{wallet.transfer.companyName}}</view
+        ><view class="wallet-source">{{wallet.transfer.bankName}}</view
+        ><view class="wallet-account"
+          >{{wallet.transfer.bankAccount}}</view
+        ></view
+      ><view wx:else class="wallet-bank"
+        >公司收款资料尚未配置，请联系品牌方核实</view
+      ><view class="wallet-transfer-notes"
+        >{{wallet?wallet.transfer.transferNotes:''}}<view
+          >{{wallet?wallet.transfer.customerService:''}}</view
+        ><view
+          >仅有效调肤店主、主理人可办理。1 元对应 1
+          积分，不赠送、不过期。请保留原流水并联系品牌方核实到账；产品包货款不发积分。</view
+        ></view
+      ><button class="wallet-primary" bindtap="closeTransfer">
+        我已了解，联系品牌方核实
+      </button></view
+    ></view
+  >
+</view>

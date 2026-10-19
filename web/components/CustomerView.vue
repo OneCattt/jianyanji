@@ -1,7 +1,29 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { api, ApiError, type User } from "../client";
+import CommerceView from "./CommerceView.vue";
+import CustomerOrders from "./CustomerOrders.vue";
+import Storefront from "./Storefront.vue";
 import ModalDialog from "./ModalDialog.vue";
+const commerceOpen = ref(false),
+  commerceItems = ref<{ skuId: number; quantity: number }[] | undefined>(),
+  ordersOpen = ref(false),
+  orderId = ref<number | undefined>();
+function checkout(items?: { skuId: number; quantity: number }[]) {
+  if (!token.value) {
+    tab.value = "mine";
+    notice.value = "请先登录再结算";
+    return;
+  }
+  commerceItems.value = items;
+  commerceOpen.value = true;
+  ordersOpen.value = false;
+}
+function showOrder(id?: number) {
+  commerceOpen.value = false;
+  ordersOpen.value = true;
+  orderId.value = id;
+}
 const user = ref<User | null>(null),
   token = ref(sessionStorage.getItem("jyj_user") || "");
 const devAuth = ref(false),
@@ -13,6 +35,10 @@ const devAuth = ref(false),
 const nickname = ref(""),
   phone = ref(""),
   account = ref("visitor");
+watch(tab, () => {
+  commerceOpen.value = false;
+  ordersOpen.value = false;
+});
 onMounted(async () => {
   try {
     const context = await api<{ devAuth: boolean }>("/public/context");
@@ -103,43 +129,32 @@ async function logout() {
       ><span>由心开始，从容调肤</span><a href="/admin">品牌方后台 ↗</a>
     </header>
     <main class="phone-page">
-      <header class="mobile-header">
+      <header v-if="tab === 'mine'" class="mobile-header">
         <span class="brand-seal">清</span><strong>清欣简妍肌</strong
         ><span class="caps">SKIN & CARE</span>
       </header>
       <div class="mobile-content">
-        <template v-if="tab === 'home'">
-          <section class="brand-hero">
-            <span class="eyebrow">清欣 · 日常调肤</span>
-            <h1>关照肌肤，<br />也关照自己。</h1>
-            <p>认识清欣，从一份属于你的资料开始。</p>
-            <div class="botanical" aria-hidden="true">
-              <i></i><i></i><i></i><i></i>
-            </div>
-            <span class="hero-caption">清 / 欣 / 简 / 妍 / 肌</span>
-          </section>
-          <section class="welcome-block">
-            <span class="eyebrow">欢迎来到清欣</span>
-            <h2>你的调肤之旅，从这里开始</h2>
-            <p>登录后查看当前身份，管理个人资料与联系方式。</p>
-            <button
-              class="primary full"
-              @click="user ? (tab = 'mine') : login()"
-              :disabled="busy"
-            >
-              {{
-                user ? "前往我的清欣" : busy ? "正在登录…" : "登录，认识清欣"
-              }}
-              <span>↗</span>
-            </button>
-          </section>
-        </template>
-        <section v-else-if="tab === 'mall'" class="empty-state">
-          <span class="empty-symbol">叶</span>
-          <h1>好产品，正在准备中</h1>
-          <p>商品上架后，会在这里与你见面。</p>
-          <button class="secondary" @click="tab = 'home'">返回首页</button>
-        </section>
+        <CommerceView
+          v-if="commerceOpen"
+          :token="token"
+          :initialItems="commerceItems"
+          @close="commerceOpen = false"
+          @order="showOrder"
+        />
+        <CustomerOrders
+          v-else-if="ordersOpen"
+          :token="token"
+          :orderId="orderId"
+          @close="ordersOpen = false"
+        />
+        <Storefront
+          v-else-if="tab !== 'mine'"
+          :tab="tab"
+          :token="token"
+          @navigate="tab = $event"
+          @buy="checkout"
+          @cart="checkout()"
+        />
         <template v-else>
           <div class="page-heading">
             <span class="eyebrow">MY QINGXIN</span>
@@ -180,6 +195,11 @@ async function logout() {
           </section>
           <section v-if="user" class="profile-section">
             <div class="section-heading">
+              <button class="text-button" @click="showOrder()">
+                我的订单 ›</button
+              ><button class="text-button" @click="checkout()">购物袋 ›</button>
+            </div>
+            <div class="section-heading">
               <h2>个人资料</h2>
               <button class="text-button" @click="edit" :disabled="busy">
                 编辑资料 ↗
@@ -209,7 +229,10 @@ async function logout() {
         </template>
         <p v-if="error" role="alert" class="message error">{{ error }}</p>
         <p v-if="notice" role="status" class="message success">{{ notice }}</p>
-        <details v-if="devAuth" class="dev-panel">
+        <details
+          v-if="devAuth && tab === 'mine' && !commerceOpen && !ordersOpen"
+          class="dev-panel"
+        >
           <summary>本地调试账号</summary>
           <label
             >选择已有身份<select v-model="account">
@@ -221,7 +244,11 @@ async function logout() {
           <p>调试入口只在本地显式开启；正式登录请使用微信小程序。</p>
         </details>
       </div>
-      <nav class="bottom-nav" aria-label="小程序导航">
+      <nav
+        v-if="!commerceOpen && !ordersOpen"
+        class="bottom-nav"
+        aria-label="小程序导航"
+      >
         <button
           :aria-current="tab === 'home' ? 'page' : undefined"
           @click="tab = 'home'"

@@ -1,0 +1,5 @@
+# 微信开发者工具维护的本地配置，保留用户设置。
+miniprogram/project.config.json
+miniprogram/project.private.config.json
+# 原始 Figma 导出资源保留源文件内容。
+miniprogram/**/assets/**

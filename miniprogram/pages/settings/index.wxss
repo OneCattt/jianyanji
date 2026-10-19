@@ -1,0 +1,119 @@
+page {
+  background: #f8f5ee;
+  color: #251d1a;
+}
+.settings-page {
+  min-height: 100vh;
+  padding: 43.883rpx 35.904rpx calc(63.83rpx + env(safe-area-inset-bottom));
+  font-family: "PingFang SC", sans-serif;
+}
+.settings-page button {
+  border-radius: 0;
+  font-size: 25.931rpx;
+  line-height: 79.787rpx;
+  padding: 0 23.936rpx;
+}
+.settings-page button::after {
+  border: 0;
+}
+.settings-page button[disabled] {
+  opacity: 0.55;
+}
+.settings-eyebrow {
+  color: #ac8a62;
+  font:
+    17.952rpx/26.928rpx Georgia,
+    serif;
+  letter-spacing: 5.186rpx;
+}
+.settings-title {
+  margin: 15.957rpx 0 35.904rpx;
+  font:
+    49.867rpx/74.8rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 3.989rpx;
+}
+.settings-card {
+  padding: 35.904rpx;
+  margin-bottom: 27.926rpx;
+  background: #fffdfa;
+}
+.settings-identity {
+  display: flex;
+  align-items: center;
+  gap: 27.926rpx;
+}
+.settings-avatar {
+  width: 103.723rpx;
+  height: 103.723rpx;
+  border-radius: 50%;
+  text-align: center;
+  font:
+    43.883rpx/103.723rpx STSong,
+    "Songti SC",
+    serif;
+  color: #6b2025;
+  background: linear-gradient(145deg, #f7e7d8, #c7a889);
+}
+.settings-name {
+  font-size: 29.92rpx;
+  font-weight: 600;
+  word-break: break-all;
+}
+.settings-role {
+  font-size: 21.941rpx;
+  color: #8d1724;
+  margin-top: 11.968rpx;
+}
+.settings-help {
+  color: #8e8178;
+  font-size: 21.941rpx;
+  line-height: 1.8;
+  margin-top: 27.926rpx;
+}
+.settings-section-title {
+  font-size: 27.926rpx;
+  font-weight: 600;
+}
+.settings-label {
+  margin: 27.926rpx 0 11.968rpx;
+  font-size: 23.936rpx;
+  color: #6d4d3e;
+}
+.settings-page input {
+  height: 87.766rpx;
+  padding: 0 23.936rpx;
+  border: 1.995rpx solid #4530261f;
+  border-radius: 0;
+  background: #f8f5ee;
+  font-size: 25.931rpx;
+  color: #251d1a;
+}
+.settings-page .settings-primary {
+  margin-top: 31.915rpx;
+  color: #fff;
+  background: #8d1724;
+}
+.settings-page .settings-logout {
+  margin-top: 23.936rpx;
+  color: #8e8178;
+  background: transparent;
+}
+.settings-page .settings-secondary {
+  margin-top: 23.936rpx;
+  color: #8d1724;
+  background: #eee7de;
+}
+.settings-error {
+  padding: 23.936rpx;
+  color: #8d1724;
+  background: #f7e6e2;
+  font-size: 23.936rpx;
+  line-height: 1.8;
+}
+.settings-dev {
+  margin-top: 43.883rpx;
+  padding: 31.915rpx;
+  border: 1.995rpx dashed #caa786;
+}

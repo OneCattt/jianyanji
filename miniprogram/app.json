@@ -1,21 +1,50 @@
 {
-  "pages": ["pages/home/index", "pages/mall/index", "pages/profile/index"],
+  "pages": [
+    "pages/home/index",
+    "pages/mall/index",
+    "pages/profile/index",
+    "pages/product/index",
+    "pages/info/index",
+    "pages/cart/index",
+    "pages/checkout/index",
+    "pages/addresses/index",
+    "pages/orders/index",
+    "pages/order/index",
+    "pages/refunds/index",
+    "pages/cash-refunds/index",
+    "pages/onboarding/index",
+    "pages/wallet/index",
+    "pages/rewards/index",
+    "pages/rewards/detail",
+    "pages/order/logistics",
+    "pages/settings/index"
+  ],
   "window": {
     "navigationBarTitleText": "清欣简妍肌",
-    "navigationBarBackgroundColor": "#fbfcfa",
+    "navigationBarBackgroundColor": "#f8f5ee",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#fbfcfa"
+    "backgroundColor": "#f8f5ee"
   },
   "tabBar": {
-    "color": "#8b9892",
-    "selectedColor": "#12665c",
-    "backgroundColor": "#ffffff",
+    "color": "#8e8178",
+    "selectedColor": "#8d1724",
+    "backgroundColor": "#fffdfa",
     "borderStyle": "white",
     "list": [
-      { "pagePath": "pages/home/index", "text": "首页" },
-      { "pagePath": "pages/mall/index", "text": "商城" },
-      { "pagePath": "pages/profile/index", "text": "我的" }
-    ]
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/mall/index",
+        "text": "商城"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ],
+    "custom": true
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

@@ -8,7 +8,14 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      "^/api/": { target: "http://127.0.0.1:3100", changeOrigin: false },
+      "^/assets/": {
+        target: process.env.API_PROXY_TARGET || "http://127.0.0.1:3100",
+        changeOrigin: false,
+      },
+      "^/api/": {
+        target: process.env.API_PROXY_TARGET || "http://127.0.0.1:3100",
+        changeOrigin: false,
+      },
     },
   },
   build: { outDir: "../dist", emptyOutDir: true },

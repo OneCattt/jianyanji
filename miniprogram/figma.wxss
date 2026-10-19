@@ -1,0 +1,554 @@
+.qx {
+  background: #f8f5ee;
+  color: #251d1a;
+  font-family: "PingFang SC", sans-serif;
+  font-size: 23.936rpx;
+  min-height: 100%;
+  padding-bottom: 51.862rpx;
+}
+.qx button {
+  font: inherit;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  line-height: 1.5;
+  background: transparent;
+  color: inherit;
+}
+.qx button::after {
+  border: 0;
+}
+.qx-brand {
+  height: 155.585rpx;
+  display: flex;
+  gap: 19.947rpx;
+  align-items: center;
+  padding: 27.926rpx 43.883rpx 19.947rpx;
+}
+.qx-seal {
+  width: 71.809rpx;
+  height: 71.809rpx;
+  border: 1.995rpx solid #8d1724;
+  border-radius: 50%;
+  font:
+    39.894rpx/67.819rpx STSong,
+    "Songti SC",
+    serif;
+  text-align: center;
+  color: #8d1724;
+}
+.qx-brand-name {
+  font:
+    33.91rpx/50.864rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 7.979rpx;
+  color: #8d1724;
+}
+.qx-en {
+  font:
+    13.963rpx/20.944rpx Georgia,
+    serif;
+  letter-spacing: 5.585rpx;
+  color: #9f7d58;
+}
+.qx-hero {
+  height: 937.5rpx;
+  position: relative;
+  overflow: hidden;
+}
+.qx-hero-image,
+.qx-shade {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+}
+.qx-shade {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(43, 18, 17, 0.78),
+      rgba(52, 19, 19, 0.3) 57%,
+      rgba(52, 19, 19, 0)
+    ),
+    linear-gradient(0deg, rgba(45, 14, 14, 0.26), transparent 50%);
+}
+.qx-hero-copy {
+  position: absolute;
+  left: 55.851rpx;
+  top: 149.601rpx;
+  color: #fff;
+  width: calc(100% - 111.702rpx);
+}
+.qx-overline {
+  font-size: 21.941rpx;
+  letter-spacing: 9.973rpx;
+  color: #ffffffbd;
+}
+.qx-hero-title {
+  font:
+    77.793rpx/1.35 STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 7.979rpx;
+  margin-top: 39.894rpx;
+  white-space: pre-line;
+}
+.qx-hero-sub {
+  font-size: 23.936rpx;
+  color: #ffffffc7;
+  letter-spacing: 1.995rpx;
+  margin-top: 33.91rpx;
+}
+.qx .qx-hero-button {
+  display: flex;
+  align-items: center;
+  gap: 35.904rpx;
+  border: 1.995rpx solid #ffffff8f;
+  background: #ffffff14;
+  backdrop-filter: blur(15.957rpx);
+  padding: 21.941rpx 31.915rpx;
+  margin: 55.851rpx auto 0;
+  color: white;
+  font-size: 23.936rpx;
+  letter-spacing: 1.995rpx;
+  width: max-content;
+}
+.qx-hero-button text {
+  font-size: 33.91rpx;
+}
+.qx-shortcuts {
+  background: #fffdfa;
+  display: flex;
+  padding: 45.878rpx 27.926rpx;
+  border-bottom: 1.995rpx solid #4530261f;
+  gap: 23.936rpx;
+}
+.qx-shortcuts button {
+  flex: 1;
+  text-align: center;
+  font-size: 23.936rpx;
+}
+.qx-shortcuts image,
+.qx-shortcuts img {
+  display: block;
+  width: 43.883rpx;
+  height: 43.883rpx;
+  padding: 21.941rpx;
+  box-sizing: content-box;
+  border-radius: 50%;
+  background: #f4e4e3;
+  margin: 0 auto 17.952rpx;
+}
+.qx-shortcuts text {
+  display: block;
+  font-size: 17.952rpx;
+  color: #8e8178;
+  margin-top: 7.979rpx;
+}
+.qx-section {
+  padding: 59.84rpx 39.894rpx 0;
+}
+.qx-caption {
+  font:
+    15.957rpx/23.936rpx Georgia,
+    serif;
+  letter-spacing: 5.186rpx;
+  color: #ac8a62;
+}
+.qx-h2 {
+  font:
+    43.883rpx/65.824rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 3.989rpx;
+  margin: 7.979rpx 0 0;
+}
+.qx-section-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15.957rpx;
+}
+.qx .qx-text {
+  color: #8e8178;
+  font-size: 21.941rpx;
+}
+.qx-feature {
+  display: flex;
+  margin-top: 33.91rpx;
+  background: #ede3d5;
+  min-height: 478.723rpx;
+  overflow: hidden;
+}
+.qx-feature > image,
+.qx-feature > img {
+  width: 53%;
+  height: 478.723rpx;
+  object-fit: cover;
+}
+.qx-feature-copy {
+  flex: 1;
+  padding: 47.872rpx 27.926rpx 31.915rpx 13.963rpx;
+}
+.qx-badge {
+  font-size: 17.952rpx;
+  padding: 7.979rpx 13.963rpx;
+  background: #8d172414;
+  color: #8d1724;
+  display: inline-block;
+}
+.qx-feature .qx-h2 {
+  font-size: 47.872rpx;
+  line-height: 1.38;
+  margin-top: 21.941rpx;
+}
+.qx-muted {
+  color: #8e8178;
+  font-size: 19.947rpx;
+  line-height: 1.7;
+}
+.qx-price {
+  font:
+    bold 31.915rpx/47.872rpx Georgia,
+    serif;
+  color: #8d1724;
+}
+.qx-feature .qx-price {
+  margin: 27.926rpx 0;
+  font-size: 37.899rpx;
+}
+.qx .qx-primary {
+  background: #8d1724;
+  color: #fff;
+  padding: 15.957rpx 39.894rpx;
+  font-size: 21.941rpx;
+}
+.qx-about {
+  white-space: pre-line;
+  font-size: 23.936rpx;
+  line-height: 1.9;
+  color: #786a62;
+  margin: 27.926rpx 0;
+  overflow-wrap: anywhere;
+}
+.qx .qx-info {
+  padding: 47.872rpx;
+  background: linear-gradient(135deg, #55161c, #8a2630);
+  color: #f9ede0;
+  font:
+    35.904rpx/53.856rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 3.989rpx;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+}
+.qx-shop-head {
+  background: #f3ece2;
+  padding: 107.713rpx 43.883rpx 55.851rpx;
+}
+.qx-h1 {
+  font:
+    57.846rpx/1.5 STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 5.984rpx;
+  margin: 11.968rpx 0 13.963rpx;
+}
+.qx-role {
+  background: #59131b;
+  color: #f1dfcd;
+  margin: 0 35.904rpx;
+  padding: 27.926rpx 31.915rpx;
+}
+.qx-role text {
+  font-size: 17.952rpx;
+  letter-spacing: 1.995rpx;
+  color: #caa684;
+  display: block;
+  margin-bottom: 7.979rpx;
+}
+.qx-categories {
+  display: block;
+  white-space: nowrap;
+  padding: 35.904rpx 35.904rpx 29.92rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+.qx-categories button {
+  display: inline-block;
+  padding: 13.963rpx 29.92rpx;
+  border: 1.995rpx solid #4530261f;
+  border-radius: 39.894rpx;
+  margin-right: 17.952rpx;
+  color: #8e8178;
+  font-size: 21.941rpx;
+}
+.qx button.chosen {
+  background: #8d1724;
+  color: #fff;
+  border-color: #8d1724;
+}
+.qx-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 35.904rpx 23.936rpx;
+  padding: 0 35.904rpx 55.851rpx;
+}
+.qx-product {
+  background: #fffdfa;
+  overflow: hidden;
+}
+.qx-product > image,
+.qx-product > img {
+  width: 100%;
+  height: 359.043rpx;
+  display: block;
+  object-fit: cover;
+  border-radius: 5.984rpx;
+}
+.qx-product-copy {
+  padding: 23.936rpx 7.979rpx 17.952rpx;
+}
+.qx-product-copy > .qx-muted {
+  font-size: 15.957rpx;
+  letter-spacing: 0.997rpx;
+  min-height: 47.872rpx;
+}
+.qx-product-name {
+  font:
+    29.92rpx/44.88rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 1.995rpx;
+  margin-top: 9.973rpx;
+}
+.qx-product .qx-section-row {
+  margin-top: 25.931rpx;
+}
+.qx-add {
+  width: 59.84rpx;
+  height: 59.84rpx;
+  box-sizing: border-box;
+  background: #8d1724;
+  border-radius: 50%;
+  padding: 11.968rpx;
+}
+.qx-empty {
+  padding: 127.66rpx 43.883rpx;
+  text-align: center;
+  color: #8e8178;
+}
+.qx-detail-image {
+  display: block;
+  width: 100%;
+  height: 668.218rpx;
+  object-fit: cover;
+}
+.qx-detail-section {
+  padding: 43.883rpx 39.894rpx 39.894rpx;
+  background: #fffdfa;
+  margin-bottom: 19.947rpx;
+}
+.qx-detail-section .qx-h1 {
+  font-size: 45.878rpx;
+  letter-spacing: 1.995rpx;
+  margin-top: 21.941rpx;
+}
+.qx-large {
+  font-size: 43.883rpx;
+  line-height: 65.824rpx;
+  margin-top: 33.91rpx;
+}
+.qx-large text {
+  font:
+    19.947rpx "PingFang SC",
+    sans-serif;
+  color: #8e8178;
+}
+.qx-label {
+  font-weight: 600;
+  font-size: 21.941rpx;
+  margin-bottom: 21.941rpx;
+}
+.qx-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15.957rpx;
+  margin-bottom: 35.904rpx;
+}
+.qx-specs button {
+  border: 1.995rpx solid #4530261f;
+  padding: 17.952rpx 27.926rpx;
+  font-size: 19.947rpx;
+}
+.qx-specs button.chosen {
+  color: #8d1724;
+  border-color: #8d1724;
+  background: #f8ecea;
+}
+.qx-quantity {
+  display: flex;
+  align-items: center;
+}
+.qx-quantity button {
+  width: 59.84rpx;
+  height: 55.851rpx;
+  background: #f6f1eb;
+  border: 1.995rpx solid #4530261f;
+}
+.qx-quantity text {
+  width: 67.819rpx;
+  height: 55.851rpx;
+  line-height: 55.851rpx;
+  text-align: center;
+  border-block: 1.995rpx solid #4530261f;
+}
+.qx-notes {
+  background: #eee2d3;
+  padding: 47.872rpx 39.894rpx 63.83rpx;
+}
+.qx-flow {
+  background: #f2ece4;
+  min-height: 100vh;
+  padding-bottom: calc(199.468rpx + env(safe-area-inset-bottom));
+}
+.qx-flow-content {
+  padding: 23.936rpx 27.926rpx 0;
+}
+.qx-sheet {
+  background: #fffdfa;
+  padding: 31.915rpx;
+  margin-bottom: 19.947rpx;
+}
+.qx-notice {
+  background: #eaddcc;
+  padding: 25.931rpx 31.915rpx;
+  color: #785541;
+  font-size: 19.947rpx;
+  line-height: 1.8;
+  margin-bottom: 19.947rpx;
+}
+.qx-fixed {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 19.947rpx;
+  min-height: 143.617rpx;
+  padding: 21.941rpx 35.904rpx calc(27.926rpx + env(safe-area-inset-bottom));
+  background: #fffdfaf7;
+  box-shadow: 0 -15.957rpx 47.872rpx #3f2a210d;
+  border-top: 1.995rpx solid #4530261f;
+}
+.qx-fixed .qx-primary {
+  min-width: 309.176rpx;
+  min-height: 85.771rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qx-cart-line {
+  display: flex;
+  align-items: center;
+  gap: 21.941rpx;
+  padding: 33.91rpx 0;
+  border-bottom: 1.995rpx solid #4530261f;
+}
+.qx-cart-line > image {
+  width: 171.543rpx;
+  height: 185.505rpx;
+  flex-shrink: 0;
+}
+.qx-cart-line checkbox {
+  transform: scale(0.75);
+  width: 39.894rpx;
+  flex-shrink: 0;
+}
+.qx-line-copy {
+  flex: 1;
+  min-width: 0;
+}
+.qx-line-copy .qx-badge {
+  margin: 11.968rpx 0;
+}
+.qx-line-copy .qx-quantity {
+  justify-content: flex-end;
+}
+.qx-line-copy .qx-price {
+  font-size: 25.931rpx;
+}
+.qx-line-copy .qx-text {
+  font-size: 17.952rpx;
+}
+.qx-order-line {
+  display: flex;
+  gap: 23.936rpx;
+  margin-top: 29.92rpx;
+  padding: 0 0 23.936rpx;
+}
+.qx-order-line > image {
+  width: 139.628rpx;
+  height: 151.596rpx;
+  flex-shrink: 0;
+}
+.qx-order-line > view {
+  flex: 1;
+  font-size: 19.947rpx;
+  line-height: 1.8;
+}
+.qx-line-end {
+  text-align: right;
+}
+.qx-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 27.926rpx;
+  border-top: 1.995rpx solid #4530261f;
+  min-height: 87.766rpx;
+  font-size: 19.947rpx;
+  line-height: 1.8;
+  padding: 15.957rpx 0;
+}
+.qx-info-row > text:last-child {
+  text-align: right;
+  max-width: 70%;
+  overflow-wrap: anywhere;
+}
+.qx .qx-wide {
+  width: 100%;
+  min-height: 85.771rpx;
+  margin: 27.926rpx 0;
+}
+.qx-sheet input {
+  background: #f8f5ee;
+  border-color: #4530261f;
+  margin-bottom: 35.904rpx;
+  height: 83.777rpx;
+  border-radius: 0;
+  font-size: 23.936rpx;
+}
+.qx-label {
+  margin-top: 19.947rpx;
+}
+.qx-address {
+  min-height: 147.606rpx;
+  line-height: 1.8;
+}
+.qx button[disabled] {
+  opacity: 0.5;
+}
+
+/* 底部自定义导航及微信安全区。 */
+.qx-tabpage {
+  padding-bottom: calc(180rpx + env(safe-area-inset-bottom));
+}

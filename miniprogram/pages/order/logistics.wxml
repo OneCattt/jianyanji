@@ -1,0 +1,15 @@
+<view class="qx jy-orders jy-logistics">
+  <view class="jy-header"><button class="jy-back" bindtap="back" aria-label="返回"><image src="assets/logistics-imgIcon.png"/></button><text>物流详情</text></view>
+  <view wx:if="error" class="jy-error">{{error}}<button bindtap="load">重新查询</button></view>
+  <block wx:if="order">
+    <view class="jy-banner"><image src="assets/logistics-imgIcon1.png"/><view><view>{{order.stateText}}</view><text>品牌仓发货记录 · 物流时效以承运方为准</text></view></view>
+    <view class="jy-list">
+      <view wx:if="!shipments.length" class="jy-card jy-empty">暂无包裹记录，品牌仓将按订单安排发货</view>
+      <view wx:for="{{shipments}}" wx:key="id" class="jy-parcel">
+        <view class="jy-card jy-info"><view><text>物流公司</text><text>{{item.carrier}}</text></view><view><text>物流单号</text><button data-tracking="{{item.tracking}}" bindtap="copy">{{item.tracking}}　复制</button></view><view><text>收货地址</text><text>{{order.snapshot.address.province}}{{order.snapshot.address.city}}{{order.snapshot.address.district}}{{order.snapshot.address.detail}}</text></view></view>
+        <view class="jy-card jy-timeline"><view wx:if="item.receivedText" class="jy-step active"><view>购买者已确认收货</view><text>{{item.receivedText}}</text></view><view class="jy-step {{!item.receivedText?'active':''}}"><view>品牌仓已登记发货 · {{item.carrier}}</view><text>{{item.shippedText}}</text></view><view class="jy-track-note">首期提供实际发货与收货记录，暂无实时物流轨迹。可复制单号向承运方查询。</view><button wx:if="item.canReceive" class="jy-solid" disabled="{{busy}}" loading="{{busy}}" data-id="{{item.id}}" bindtap="receive">确认此包裹收货</button></view>
+      </view>
+      <view class="jy-process"><view>品牌仓发货流程</view><view class="jy-process-icons"><view><image src="assets/logistics-imgIcon2.png"/><text>订单审核</text></view><view><image src="assets/logistics-imgIcon3.png"/><text>拣货复核</text></view><view><image src="assets/logistics-imgIcon4.png"/><text>质检打包</text></view><view><image src="assets/logistics-imgIcon5.png"/><text>物流揽收</text></view></view></view>
+    </view>
+  </block>
+</view>

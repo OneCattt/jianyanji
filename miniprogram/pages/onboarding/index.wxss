@@ -1,0 +1,325 @@
+.ob-page {
+  height: 100vh;
+  overflow: hidden;
+  padding-bottom: 0;
+  background: #f8f5ee;
+}
+.ob-background {
+  position: absolute;
+  inset: 0;
+}
+.ob-hero {
+  width: 100%;
+  height: 937.5rpx;
+}
+.ob-mask {
+  position: fixed;
+  inset: 0;
+  background: #1f14118c;
+  backdrop-filter: blur(8rpx);
+}
+.ob-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 86vh;
+  background: #f8f5ee;
+  border-radius: 47.872rpx 47.872rpx 0 0;
+  box-shadow: 0 -31.915rpx 99.734rpx #190f0c33;
+  overflow: hidden;
+  padding-top: 57.846rpx;
+}
+.ob-handle {
+  position: absolute;
+  top: 17.952rpx;
+  left: 45.2%;
+  height: 7.979rpx;
+  width: 71.809rpx;
+  border-radius: 3.989rpx;
+  background: #d6cec7;
+}
+.qx .ob-close {
+  position: absolute;
+  right: 31.915rpx;
+  top: 43.883rpx;
+  border-radius: 50%;
+  background: #eee8e1;
+  width: 67.819rpx;
+  height: 67.819rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+.ob-close image {
+  width: 39.894rpx;
+  height: 39.894rpx;
+}
+.ob-scroll {
+  height: 100%;
+}
+.ob-inner {
+  padding: 0 39.894rpx calc(189.495rpx + env(safe-area-inset-bottom));
+}
+.ob-overline {
+  font:
+    15.957rpx/23.936rpx Georgia,
+    serif;
+  letter-spacing: 5.386rpx;
+  color: #ad845b;
+  height: 47.872rpx;
+  padding-top: 19.947rpx;
+}
+.ob-title {
+  font:
+    49.867rpx/74.8rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 3.989rpx;
+  padding-top: 9.973rpx;
+}
+.ob-sub {
+  font-size: 19.947rpx;
+  line-height: 29.92rpx;
+  color: #8e8178;
+  margin-top: 13.963rpx;
+}
+.ob-tabs {
+  display: flex;
+  margin-top: 37.899rpx;
+  padding: 5.984rpx;
+  background: #ebe3da;
+}
+.ob-tabs button {
+  flex: 1;
+  color: #8e8178;
+  padding: 19.947rpx;
+  font-size: 21.941rpx;
+  line-height: 32.912rpx;
+}
+.ob-tabs button.active {
+  background: #8d1724;
+  color: #fff;
+}
+.ob-stats {
+  display: flex;
+  padding: 29.92rpx 9.973rpx;
+  background: #fffdfa;
+  margin-top: 29.92rpx;
+}
+.ob-stats > view {
+  flex: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 11.968rpx;
+  padding: 0 3.989rpx;
+  min-width: 0;
+}
+.ob-stats > view + view {
+  border-left: 1.995rpx solid #4530261f;
+}
+.ob-stats text {
+  font-size: 15.957rpx;
+  line-height: 23.936rpx;
+  color: #8e8178;
+}
+.ob-stats .ob-number {
+  font:
+    bold 25.931rpx/38.896rpx Georgia,
+    "PingFang SC",
+    serif;
+  color: #8d1724;
+  overflow-wrap: anywhere;
+}
+.ob-relationship {
+  padding: 27.926rpx;
+  background: #f1e9df;
+  border: 1.995rpx solid #4530261f;
+  margin-top: 29.92rpx;
+}
+.ob-section-label {
+  font-size: 19.947rpx;
+  font-weight: 600;
+  line-height: 29.92rpx;
+  color: #7d5d49;
+  margin: 11.968rpx 0;
+}
+.ob-columns {
+  display: flex;
+  gap: 19.947rpx;
+  padding: 21.941rpx 0 17.952rpx;
+}
+.ob-columns > view {
+  flex: 1;
+  min-width: 0;
+  font-size: 19.947rpx;
+  line-height: 29.92rpx;
+}
+.ob-columns text {
+  display: block;
+  font-size: 15.957rpx;
+  line-height: 23.936rpx;
+  color: #8e8178;
+  margin-bottom: 7.979rpx;
+}
+.ob-columns input {
+  font-size: 19.947rpx;
+  height: 43.883rpx;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  margin: 0;
+}
+.ob-footnote {
+  color: #9a8a80;
+  font-size: 15.957rpx;
+  line-height: 23.936rpx;
+  padding-top: 11.968rpx;
+}
+.ob-rights-image {
+  display: block;
+  width: 100%;
+  margin-top: 29.92rpx;
+}
+.ob-rights,
+.ob-address,
+.ob-agreement-copy,
+.ob-progress,
+.ob-transfer {
+  display: block;
+  width: 100%;
+  padding: 27.926rpx;
+  border: 1.995rpx solid #4530261f;
+  margin-top: 29.92rpx;
+  text-align: left;
+  background: #fffdfa;
+}
+.qx .ob-address {
+  padding: 27.926rpx;
+  background: #fffdfa;
+  border: 1.995rpx solid #4530261f;
+  margin-top: 29.92rpx;
+  text-align: left;
+}
+.ob-body {
+  font-size: 19.947rpx;
+  line-height: 1.85;
+  white-space: pre-line;
+  color: #786a62;
+  overflow-wrap: anywhere;
+}
+.ob-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 19.947rpx;
+  font-size: 19.947rpx;
+  padding: 19.947rpx 0;
+  border-bottom: 1.995rpx solid #4530261f;
+}
+.ob-line text {
+  font-size: 15.957rpx;
+  color: #8e8178;
+}
+.ob-agree {
+  display: flex;
+  align-items: flex-start;
+  padding: 25.931rpx 3.989rpx 3.989rpx;
+  gap: 15.957rpx;
+}
+.ob-agree checkbox {
+  transform: scale(0.7);
+  transform-origin: top left;
+  width: 31.915rpx;
+  height: 31.915rpx;
+  flex-shrink: 0;
+  margin-top: 7.979rpx;
+}
+.ob-agree text {
+  font-size: 15.957rpx;
+  line-height: 25.532rpx;
+  color: #8e8178;
+  flex: 1;
+}
+.ob-error {
+  font-size: 21.941rpx;
+  line-height: 1.8;
+  color: #9d2032;
+  padding: 23.936rpx 0;
+}
+.ob-fixed {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  gap: 27.926rpx;
+  padding: 25.931rpx 39.894rpx calc(35.904rpx + env(safe-area-inset-bottom));
+  border-top: 1.995rpx solid #4530261f;
+  background: #f8f5eef5;
+  backdrop-filter: blur(19.947rpx);
+  align-items: center;
+}
+.ob-fixed > view {
+  flex: 1;
+  min-width: 0;
+}
+.ob-fixed text {
+  display: block;
+  font-size: 15.957rpx;
+  line-height: 23.936rpx;
+  color: #8e8178;
+}
+.ob-fixed .ob-number {
+  display: block;
+  font:
+    bold 35.904rpx/53.856rpx Georgia,
+    serif;
+  color: #8d1724;
+}
+.qx .ob-apply {
+  width: 343.55rpx;
+  min-height: 81.782rpx;
+  padding: 21.941rpx 23.936rpx;
+  background: #8d1724;
+  color: #fff;
+  font-size: 21.941rpx;
+  line-height: 32.912rpx;
+}
+.qx .ob-apply[disabled] {
+  background: #ddd4cc;
+  color: #a99b93;
+  opacity: 1;
+}
+.ob-empty {
+  padding: 99.734rpx 0;
+  text-align: center;
+  color: #8e8178;
+  font-size: 23.936rpx;
+}
+.ob-progress button {
+  margin-top: 19.947rpx !important;
+  color: #8d1724 !important;
+  font-size: 19.947rpx !important;
+}
+.qx .ob-transfer-toggle {
+  font-size: 19.947rpx;
+  color: #8d1724;
+  padding: 27.926rpx 0;
+  width: 100%;
+  text-align: left;
+}
+.ob-transfer {
+  margin-top: 0;
+  font-size: 21.941rpx;
+  line-height: 1.8;
+}
+.ob-account {
+  font:
+    25.931rpx Georgia,
+    serif;
+  overflow-wrap: anywhere;
+  margin: 15.957rpx 0;
+}

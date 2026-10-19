@@ -7,3 +7,4 @@ data/
 artifacts/
 *.tsbuildinfo
 .DS_Store
+miniprogram/project.private.config.json

@@ -1,0 +1,167 @@
+<view class="qx ob-page">
+  <view class="ob-background"
+    ><view class="qx-brand"
+      ><view class="qx-seal">清</view
+      ><view
+        ><view class="qx-brand-name">清欣简妍肌</view
+        ><view class="qx-en">SKIN WELLNESS</view></view
+      ></view
+    ><image
+      class="ob-hero"
+      src="/assets/figma/Home-imgImage.png"
+      mode="aspectFill"
+  /></view>
+  <view class="ob-mask"></view>
+  <view class="ob-sheet">
+    <view class="ob-handle"></view
+    ><button class="ob-close" bindtap="close" aria-label="关闭代理入驻">
+      <image src="assets/close.png" />
+    </button>
+    <scroll-view class="ob-scroll" scroll-y>
+      <view class="ob-inner">
+        <view class="ob-overline">PARTNER PROGRAM</view
+        ><view class="ob-title">选择你的事业身份</view
+        ><view class="ob-sub"
+          >加入清欣简妍肌，获得产品、课程与事业成长支持</view
+        >
+        <view class="ob-tabs"
+          ><button
+            class="{{target==='C'?'active':''}}"
+            data-target="C"
+            bindtap="changeTarget"
+          >
+            调肤店主</button
+          ><button
+            class="{{target==='B'?'active':''}}"
+            data-target="B"
+            bindtap="changeTarget"
+          >
+            调肤主理人
+          </button></view
+        >
+        <view wx:if="{{selected}}">
+          <view class="ob-stats"
+            ><view
+              ><text>加入门槛</text
+              ><text class="ob-number">{{selected.amountText}}</text></view
+            ><view
+              ><text>产品包价值</text
+              ><text class="ob-number">{{selected.valueText}}</text></view
+            ><view
+              ><text>自用产品</text
+              ><text class="ob-number">{{selected.selfUseLabel}}</text></view
+            ></view
+          >
+          <view class="ob-relationship"
+            ><view class="ob-section-label">邀请与归属</view
+            ><view class="ob-columns"
+              ><view
+                ><text>直接邀请人编号（可留空）</text
+                ><input
+                  value="{{inviterId}}"
+                  bindinput="onInviter"
+                  type="number"
+                  placeholder="未受邀请" /></view
+              ><view
+                ><text>归属主理人</text
+                ><view
+                  >{{current&&current.principal_id?'用户 #'+current.principal_id:'待品牌方指定确认'}}</view
+                ></view
+              ></view
+            ><view class="ob-footnote"
+              >直接邀请人与归属主理人分别由品牌方确认</view
+            ></view
+          >
+          <image
+            wx:if="{{selected.rightsImage}}"
+            class="ob-rights-image"
+            src="{{selected.rightsImage}}"
+            mode="widthFix"
+          />
+          <view class="ob-rights"
+            ><view class="ob-section-label">{{selected.name}}</view
+            ><view class="ob-body">{{selected.benefits}}</view
+            ><view class="ob-section-label">入驻条件</view
+            ><view class="ob-body">{{selected.conditions}}</view
+            ><view class="ob-section-label">实际交付商品</view
+            ><view wx:for="{{selected.lines}}" wx:key="skuId" class="ob-line"
+              ><view
+                >{{item.name||'商品规格'}} · {{item.skuName||item.skuId}} ×
+                {{item.quantity}}</view
+              ><text>{{item.priceText}} / {{item.unit||'件'}}</text></view
+            ></view
+          >
+          <button class="ob-address" bindtap="addresses">
+            <view class="ob-section-label">产品包收货地址 ›</view
+            ><view wx:if="{{address}}" class="ob-body"
+              >{{address.recipient}} · {{address.phone}}<view
+                >{{address.province}}{{address.city}}{{address.district}}{{address.detail}}</view
+              ></view
+            ><view wx:else class="ob-body">请选择本人收货地址</view>
+          </button>
+          <view class="ob-agreement-copy"
+            ><view class="ob-section-label">代理入驻协议</view
+            ><view class="ob-body">{{selected.agreement}}</view></view
+          >
+          <checkbox-group bindchange="agreement"
+            ><label class="ob-agree"
+              ><checkbox
+                value="yes"
+                checked="{{agreed}}"
+                color="#8d1724"
+              /><text
+                >我已阅读并同意《代理入驻协议》，确认身份价格、产品包明细及邀请归属需品牌方审核</text
+              ></label
+            ></checkbox-group
+          >
+        </view>
+        <view wx:else class="ob-empty">产品包尚未配置，请联系品牌方</view>
+        <view wx:if="{{error}}" class="ob-error" role="alert">{{error}}</view>
+        <view wx:if="{{current}}" class="ob-progress"
+          ><view class="ob-section-label">最近入驻申请 #{{current.id}}</view
+          ><view class="ob-body"
+            >{{current.statusText}}<view
+              >核款：{{current.receipt?'已核实真实到账':'待工作人员核实'}}</view
+            ><view>交付：{{current.deliveryText}}</view
+            ><view wx:if="{{current.review_reason}}"
+              >审核原因：{{current.review_reason}}</view
+            ><view wx:if="{{current.receipt}}"
+              >原收款：{{current.receipt.external_transaction_id}}</view
+            ></view
+          ><button wx:if="{{current.order}}" bindtap="order">
+            查看商品交付订单 ›
+          </button></view
+        >
+        <button class="ob-transfer-toggle" bindtap="transfer">
+          公司转款资料与办理说明 {{showTransfer?'⌃':'⌄'}}
+        </button>
+        <view wx:if="{{showTransfer&&transfer}}" class="ob-transfer"
+          ><view wx:if="{{transfer.configured}}"
+            ><view>{{transfer.companyName}}</view
+            ><view>{{transfer.bankName}}</view
+            ><view class="ob-account">{{transfer.bankAccount}}</view></view
+          ><view class="ob-body"
+            >{{transfer.transferNotes}}<view>{{transfer.customerService}}</view
+            ><view
+              >入驻产品包款仅用于商品交付，不发订货积分。提交申请或转款截图均不代表公司已核实到账。</view
+            ></view
+          ></view
+        >
+      </view>
+    </scroll-view>
+    <view class="ob-fixed"
+      ><view
+        ><text>入驻产品包</text
+        ><text class="ob-number"
+          >{{selected?selected.amountText:'待配置'}}</text
+        ></view
+      ><button
+        class="ob-apply"
+        disabled="{{busy||!selected||(user&&!agreed)||(current&&current.status==='submitted')}}"
+        bindtap="submit"
+      >
+        {{busy?'提交中…':!user?'登录后申请入驻':current&&current.status==='submitted'?'申请办理中':'立即申请入驻'}}
+      </button></view
+    >
+  </view>
+</view>

@@ -1,0 +1,52 @@
+page {
+  background: #f2ece4;
+  color: #251d1a;
+}
+.reward-detail {
+  padding: 28rpx;
+  font-size: 24rpx;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+.detail-top {
+  background: #59131b;
+  color: #f5e8dc;
+  padding: 40rpx;
+}
+.detail-amount {
+  font:
+    56rpx/1.8 Georgia,
+    serif;
+}
+.detail-card {
+  background: #fffdfa;
+  margin-top: 22rpx;
+  padding: 28rpx;
+  color: #8e8178;
+}
+.detail-title {
+  font-size: 28rpx;
+  color: #251d1a;
+  font-weight: 600;
+  margin-bottom: 18rpx;
+}
+.detail-row {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #e9e1d8;
+}
+.detail-row:last-child {
+  border: 0;
+}
+.debt {
+  color: #8d1724;
+}
+.detail-note,
+.state {
+  padding: 36rpx 10rpx;
+  text-align: center;
+  color: #8e8178;
+}
+.state button {
+  font-size: 24rpx;
+  color: #8d1724;
+}

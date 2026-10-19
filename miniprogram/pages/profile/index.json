@@ -1,0 +1,7 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "我的清欣",
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#f8f5ee",
+  "backgroundTextStyle": "dark"
+}

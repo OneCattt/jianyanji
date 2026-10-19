@@ -1,0 +1,10 @@
+<view class="reward-page">
+  <view class="reward-header"><button class="back" bindtap="back" aria-label="返回"><image src="assets/back.png" /></button><text>收益台账</text><view /></view>
+  <view class="reward-summary"><view class="estimate-label">本月预估收益</view><view class="estimate">{{summary ? '¥ ' + summary.estimatedCents : '—'}}</view><view class="metrics"><view><text>待结算</text><view>{{summary ? '¥ ' + summary.pendingCents : '—'}}</view></view><view><text>已结算</text><view>{{summary ? '¥ ' + summary.settledCents : '—'}}</view></view><view><text>已冲回</text><view>{{summary ? '¥ ' + summary.reversedCents : '—'}}</view></view></view></view>
+  <view class="reward-tabs"><button wx:for="{{tabs}}" wx:key="*this" class="{{tab === index ? 'active' : ''}}" data-index="{{index}}" bindtap="select">{{item}}</button></view>
+  <view class="reward-body"><view class="reward-list"><view wx:if="{{error}}" class="state error" role="alert">{{error}}<button bindtap="load">重新加载</button></view><view wx:elif="{{loading}}" class="state">正在读取本人奖励…</view><view wx:elif="{{!visible.length}}" class="state">暂无{{tab ? tabs[tab] : ''}}奖励记录</view>
+    <button wx:for="{{visible}}" wx:key="eventKey" class="reward-row" data-id="{{item.id}}" bindtap="detail"><view class="reward-icon {{item.isReversal ? 'muted' : ''}}"><image src="{{item.isReversal ? 'assets/reversal.png' : 'assets/wallet.png'}}" /></view><view class="reward-source"><view class="reward-title">{{item.title}}</view><view class="source-number">订单 {{item.orderNumber}}</view><view class="source-date">{{item.date}}</view></view><view class="reward-value {{item.isReversal ? 'muted-value' : ''}}"><view>¥ {{item.isReversal ? '-' + item.amount : '+' + item.amount}}</view><text>{{item.statusName}}</text></view></button>
+  </view></view>
+  <view wx:if="{{summary && summary.debtCents !== '0.00'}}" class="debt-note">尚待收回 ¥ {{summary.debtCents}} · 可在原奖励明细核对抵扣与实收</view>
+  <view class="reward-footer"><image src="assets/shield.png" /><text>每笔收益关联原始入驻或商品订单 · 订单退款后，对应收益将同步冲回</text></view>
+</view>

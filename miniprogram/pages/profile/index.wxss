@@ -1,0 +1,360 @@
+page {
+  background: #f8f5ee;
+  color: #251d1a;
+}
+.mine {
+  min-height: 100vh;
+  background: #eee7de;
+  font-family:
+    "PingFang SC",
+    -apple-system,
+    sans-serif;
+  padding-bottom: calc(207.447rpx + env(safe-area-inset-bottom));
+}
+.mine button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+.mine button::after {
+  border: 0;
+}
+.mine button[disabled] {
+  opacity: 0.55;
+}
+.mine image {
+  display: block;
+  flex-shrink: 0;
+}
+.mine-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 27.926rpx;
+  padding-right: 43.883rpx;
+  padding-left: 43.883rpx;
+  box-sizing: border-box;
+  background:
+    radial-gradient(
+      ellipse 69.415rpx 69.415rpx at 80% 30%,
+      rgba(170, 95, 83, 0.35),
+      rgba(170, 95, 83, 0) 37%
+    ),
+    linear-gradient(155.035deg, #461519 6.1733%, #781f28 93.827%);
+}
+.mine .mine-avatar {
+  width: 127.66rpx;
+  height: 127.66rpx;
+  flex-shrink: 0;
+  border: 1.995rpx solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #f7e7d8 6.1733%, #c7a889 93.827%);
+  color: #6b2025;
+  font:
+    49.867rpx/123.67rpx STSong,
+    "Songti SC",
+    serif;
+  text-align: center;
+}
+.mine-identity {
+  flex: 1;
+  min-width: 0;
+  padding-top: 5.984rpx;
+}
+.mine-membership {
+  height: 47.872rpx;
+  padding-top: 13.963rpx;
+  box-sizing: border-box;
+  color: #caa786;
+  font-size: 17.952rpx;
+  line-height: 26.928rpx;
+  letter-spacing: 3.989rpx;
+}
+.mine .mine-name {
+  width: 100%;
+  height: 83.777rpx;
+  padding-top: 11.968rpx;
+  color: #f8eee5;
+  font:
+    47.872rpx/71.809rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 3.989rpx;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mine-role {
+  display: flex;
+  align-items: center;
+  gap: 11.968rpx;
+  padding-top: 13.963rpx;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 17.952rpx;
+  line-height: 26.928rpx;
+}
+.mine-role text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mine-role-dot {
+  width: 9.973rpx;
+  height: 9.973rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #d6b277;
+  box-shadow: 0 0 0 5.984rpx rgba(214, 178, 119, 0.14);
+}
+.mine .mine-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 75.798rpx;
+  height: 75.798rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 31.915rpx;
+  letter-spacing: 3.989rpx;
+  padding-left: 3.989rpx;
+}
+.mine-content {
+  position: relative;
+  margin-top: -131.649rpx;
+  padding: 0 35.904rpx;
+}
+.mine-wallet,
+.mine-welcome {
+  padding: 39.894rpx;
+  background: #fffdfa;
+  box-shadow: 0 23.936rpx 34.907rpx rgba(60, 37, 29, 0.09);
+}
+.mine-wallet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 11.968rpx;
+}
+.mine-wallet-label {
+  display: flex;
+  align-items: center;
+  gap: 13.963rpx;
+  flex-shrink: 0;
+  color: #6d4d3e;
+  font-size: 21.941rpx;
+  line-height: 32.912rpx;
+  font-weight: 600;
+}
+.mine-wallet-label image {
+  width: 37.899rpx;
+  height: 37.899rpx;
+}
+.mine-wallet-hint {
+  color: #8e8178;
+  font-size: 15.957rpx;
+  line-height: 23.936rpx;
+  text-align: right;
+}
+.mine-balance {
+  padding-top: 39.894rpx;
+  height: 170.545rpx;
+  box-sizing: border-box;
+}
+.mine-balance-label {
+  display: block;
+  font-size: 17.952rpx;
+  line-height: 26.928rpx;
+  color: #8e8178;
+  padding-bottom: 9.973rpx;
+}
+.mine-balance-number {
+  display: block;
+  padding-top: 7.979rpx;
+  font:
+    61.835rpx/92.753rpx Georgia,
+    serif;
+}
+.mine-wallet-actions {
+  display: flex;
+  gap: 17.952rpx;
+  padding-top: 35.904rpx;
+}
+.mine .mine-solid,
+.mine .mine-outline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 73.803rpx;
+  padding: 17.952rpx;
+  font-size: 19.947rpx;
+  line-height: 29.92rpx;
+  border: 1.995rpx solid #8d1724;
+}
+.mine .mine-solid {
+  flex: 1.25;
+  background: #8d1724;
+  color: #fff;
+}
+.mine .mine-outline {
+  flex: 1;
+  color: #8d1724;
+}
+.mine-welcome-title {
+  padding-top: 5.984rpx;
+  font:
+    45.878rpx/68.817rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 3.989rpx;
+}
+.mine-welcome-copy {
+  margin-top: 19.947rpx;
+  font-size: 21.941rpx;
+  line-height: 37.899rpx;
+  color: #8e8178;
+}
+.mine-inline-error,
+.mine-error {
+  display: flex;
+  align-items: center;
+  gap: 19.947rpx;
+  margin-top: 23.936rpx;
+  font-size: 21.941rpx;
+  line-height: 35.904rpx;
+  color: #8d1724;
+}
+.mine-inline-error text,
+.mine-error text {
+  flex: 1;
+}
+.mine .mine-inline-error button,
+.mine .mine-error button {
+  flex-shrink: 0;
+  padding: 7.979rpx 15.957rpx;
+  color: #8d1724;
+  text-decoration: underline;
+}
+.mine-error {
+  padding: 19.947rpx;
+  background: #fff5f0;
+}
+.mine-orders {
+  margin-top: 27.926rpx;
+  padding: 33.91rpx;
+  background: #fffdfa;
+}
+.mine-orders-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mine-section-title {
+  font-size: 25.931rpx;
+  line-height: 38.896rpx;
+  font-weight: 600;
+}
+.mine .mine-all-orders {
+  display: flex;
+  align-items: center;
+  gap: 3.989rpx;
+  color: #8e8178;
+  font-size: 21.941rpx;
+  line-height: 32.912rpx;
+}
+.mine-all-orders image {
+  width: 27.926rpx;
+  height: 27.926rpx;
+}
+.mine-order-grid {
+  display: flex;
+  padding-top: 43.883rpx;
+}
+.mine .mine-order-shortcut {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15.957rpx;
+  font-size: 17.952rpx;
+  line-height: 26.928rpx;
+  color: #8e8178;
+}
+.mine-order-shortcut image {
+  width: 43.883rpx;
+  height: 43.883rpx;
+}
+.mine-menu {
+  margin-top: 27.926rpx;
+  padding: 5.984rpx 33.91rpx;
+  background: #fffdfa;
+}
+.mine .mine-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 21.941rpx;
+  min-height: 117.686rpx;
+  padding: 27.926rpx 0;
+  border-bottom: 1.995rpx solid rgba(69, 48, 38, 0.12);
+  text-align: left;
+}
+.mine .mine-menu-item:last-child {
+  border-bottom: 0;
+}
+.mine-menu-icon {
+  width: 61.835rpx;
+  height: 61.835rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #f0e7dc;
+}
+.mine-menu-icon image {
+  width: 39.894rpx;
+  height: 39.894rpx;
+}
+.mine-menu-title {
+  flex-shrink: 0;
+  font-size: 21.941rpx;
+  line-height: 32.912rpx;
+  font-weight: 600;
+}
+.mine-menu-hint {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8e8178;
+  text-align: right;
+  font-size: 17.952rpx;
+  line-height: 26.928rpx;
+}
+.mine-menu-arrow {
+  width: 29.92rpx;
+  height: 29.92rpx;
+}
+.mine .mine-copy-invite {
+  color: #8d1724;
+  font-size: 19.947rpx;
+  margin: 27.926rpx auto 0;
+  text-decoration: underline;
+}
+.mine-footer {
+  padding: 43.883rpx 0 19.947rpx;
+  color: #9b8c82;
+  text-align: center;
+  font-size: 15.957rpx;
+  line-height: 23.936rpx;
+  letter-spacing: 1.197rpx;
+}

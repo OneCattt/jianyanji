@@ -1,0 +1,229 @@
+page {
+  background: #f2ece4;
+  color: #251d1a;
+}
+.reward-page {
+  min-height: 100vh;
+  background: #f2ece4;
+  font-family: "PingFang SC", sans-serif;
+  padding-bottom: calc(env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+.reward-page button {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  line-height: 1.5;
+  font: inherit;
+  color: inherit;
+}
+.reward-page button::after {
+  border: 0;
+}
+.reward-header {
+  height: 127.66rpx;
+  padding: 0 19.95rpx 25.93rpx;
+  background: rgba(248, 245, 238, 0.96);
+  display: grid;
+  grid-template-columns: 95.74rpx 1fr 95.74rpx;
+  align-items: end;
+  border-bottom: 1rpx solid #4530261f;
+}
+.reward-header > text {
+  text-align: center;
+  font:
+    31.91rpx/47.87rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 1.995rpx;
+  padding-bottom: 13.96rpx;
+}
+.reward-header .back {
+  width: 71.81rpx;
+  height: 67.82rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.back image {
+  width: 39.89rpx;
+  height: 39.89rpx;
+}
+.reward-summary {
+  height: 345.08rpx;
+  padding: 47.87rpx 43.88rpx 41.89rpx;
+  background:
+    radial-gradient(ellipse at 100% 5%, #bc6a5b61, transparent 45%), #59131b;
+  color: #f5e8dc;
+}
+.estimate-label {
+  padding-top: 13.96rpx;
+  height: 47.87rpx;
+  font-size: 17.95rpx;
+  line-height: 26.93rpx;
+  color: #ffffff99;
+}
+.estimate {
+  font:
+    57.85rpx/86.77rpx Georgia,
+    serif;
+  padding-top: 15.96rpx;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding-top: 39.89rpx;
+}
+.metrics > view {
+  display: flex;
+  flex-direction: column;
+  gap: 9.97rpx;
+}
+.metrics > view + view {
+  border-left: 1rpx solid #ffffff24;
+  padding-left: 31.91rpx;
+}
+.metrics text {
+  color: #ffffff7a;
+  font-size: 15.96rpx;
+  line-height: 23.94rpx;
+}
+.metrics view view {
+  font:
+    19.95rpx/29.92rpx Georgia,
+    serif;
+}
+.reward-tabs {
+  height: 82.78rpx;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: #fffdfa;
+}
+.reward-tabs button {
+  padding: 25.93rpx 3.99rpx;
+  font-size: 17.95rpx;
+  line-height: 26.93rpx;
+  color: #8e8178;
+  border-bottom: 3.99rpx solid transparent;
+}
+.reward-tabs button.active {
+  color: #8d1724;
+  border-color: #8d1724;
+}
+.reward-body {
+  padding: 23.94rpx 27.93rpx 0;
+  flex: 1;
+}
+.reward-list {
+  background: #fffdfa;
+  min-height: 993.35rpx;
+  padding: 0 29.92rpx;
+}
+.reward-row {
+  display: flex !important;
+  gap: 21.94rpx;
+  padding: 31.91rpx 0 !important;
+  width: 100%;
+  min-height: 155.59rpx;
+  text-align: left;
+  border-top: 1rpx solid #4530261f !important;
+}
+.reward-row:first-child {
+  border-top: 0 !important;
+}
+.reward-icon {
+  flex-shrink: 0;
+  width: 67.82rpx;
+  height: 67.82rpx;
+  background: #f1dfde;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reward-icon image {
+  width: 33.91rpx;
+  height: 33.91rpx;
+}
+.reward-icon.muted {
+  background: #eee8e0;
+}
+.reward-source {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 9.97rpx;
+}
+.reward-title {
+  font-size: 19.95rpx;
+  font-weight: 600;
+  line-height: 29.92rpx;
+}
+.source-number,
+.source-date {
+  font-size: 13.96rpx;
+  line-height: 20.94rpx;
+  color: #8e8178;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reward-value {
+  display: flex;
+  flex-direction: column;
+  gap: 9.97rpx;
+  align-items: flex-end;
+  flex-shrink: 0;
+  color: #8d1724;
+}
+.reward-value > view {
+  font:
+    bold 21.94rpx/32.91rpx Georgia,
+    serif;
+}
+.reward-value > text {
+  font-size: 13.96rpx;
+  line-height: 20.94rpx;
+  color: #8e8178;
+}
+.muted-value {
+  color: #81746b;
+}
+.reward-footer {
+  padding: 23.94rpx 39.89rpx;
+  display: flex;
+  gap: 13.96rpx;
+  align-items: center;
+  color: #8e8178;
+  font-size: 13.96rpx;
+  line-height: 20.94rpx;
+}
+.reward-footer image {
+  width: 29.92rpx;
+  height: 29.92rpx;
+  flex-shrink: 0;
+}
+.state {
+  padding: 79.79rpx 10rpx;
+  text-align: center;
+  color: #8e8178;
+  font-size: 24rpx;
+  line-height: 1.8;
+}
+.state button {
+  color: #8d1724;
+  margin-top: 20rpx;
+}
+.error {
+  color: #8d1724;
+}
+.debt-note {
+  padding: 20rpx 40rpx;
+  color: #8d1724;
+  font-size: 20rpx;
+  line-height: 1.7;
+}

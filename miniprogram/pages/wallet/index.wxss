@@ -1,0 +1,296 @@
+.wallet-page {
+  min-height: 100vh;
+  background: #f2ece4;
+  padding-bottom: 79.787rpx;
+}
+.wallet-header {
+  height: 127.66rpx;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 19.947rpx 25.931rpx;
+  background: #f8f5eef5;
+  border-bottom: 1.995rpx solid #4530261f;
+  backdrop-filter: blur(23.936rpx);
+}
+.wallet-header > text {
+  font:
+    31.915rpx/47.872rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 1.995rpx;
+  padding-bottom: 13.963rpx;
+}
+.wallet-header > button,
+.wallet-header > view {
+  width: 95.745rpx;
+  min-height: 67.819rpx;
+}
+.wallet-header image {
+  width: 39.894rpx;
+  height: 39.894rpx;
+  display: block;
+  margin: 13.963rpx auto;
+}
+.wallet-card {
+  margin: 27.926rpx;
+  padding: 43.883rpx;
+  height: 337.101rpx;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 95% 10%, #c2776359, transparent 37%), #59131b;
+  color: white;
+}
+.wallet-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 47.872rpx;
+}
+.wallet-card-row > text {
+  font-size: 17.952rpx;
+  line-height: 26.928rpx;
+  color: #ffffff9e;
+}
+.qx .wallet-card-row button {
+  color: #eadbd1;
+  border: 1.995rpx solid #ffffff5c;
+  line-height: 23.936rpx;
+  font-size: 15.957rpx;
+  padding: 15.957rpx 23.936rpx;
+}
+.wallet-amount {
+  font:
+    59.84rpx/89.761rpx Georgia,
+    serif;
+  color: #f6e9dc;
+  margin-top: 13.963rpx;
+}
+.wallet-totals {
+  display: flex;
+  gap: 45.878rpx;
+  margin-top: 33.91rpx;
+}
+.wallet-totals text {
+  font-size: 15.957rpx;
+  line-height: 23.936rpx;
+  color: #ffffff8c;
+  display: block;
+  margin-bottom: 9.973rpx;
+}
+.wallet-totals view > view {
+  font:
+    bold 19.947rpx/29.92rpx Georgia,
+    serif;
+  color: white;
+}
+.wallet-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 19.947rpx 35.904rpx 25.931rpx;
+  font-size: 21.941rpx;
+  font-weight: 600;
+  line-height: 32.912rpx;
+}
+.qx .wallet-heading button {
+  font-size: 15.957rpx;
+  color: #8e8178;
+  font-weight: 400;
+}
+.wallet-ledger {
+  background: #fffdfa;
+  margin: 0 27.926rpx;
+  padding: 0 29.92rpx;
+}
+.wallet-entry {
+  display: flex;
+  gap: 21.941rpx;
+  align-items: center;
+  padding: 29.92rpx 0;
+  min-height: 121.676rpx;
+  border-top: 1.995rpx solid #4530261f;
+}
+.wallet-entry:first-child {
+  border-top: 0;
+}
+.wallet-icon {
+  width: 61.835rpx;
+  height: 61.835rpx;
+  border-radius: 50%;
+  background: #eee4d8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.wallet-icon.positive {
+  background: #f1dfde;
+}
+.wallet-icon image {
+  width: 31.915rpx;
+  height: 31.915rpx;
+}
+.wallet-copy {
+  flex: 1;
+  min-width: 0;
+}
+.wallet-copy > view {
+  font-size: 19.947rpx;
+  font-weight: 600;
+  line-height: 29.92rpx;
+  margin-bottom: 9.973rpx;
+}
+.wallet-copy > text {
+  display: block;
+  color: #8e8178;
+  font-size: 13.963rpx;
+  line-height: 20.944rpx;
+  overflow-wrap: anywhere;
+}
+.wallet-delta {
+  font:
+    21.941rpx/32.912rpx Georgia,
+    serif;
+  white-space: nowrap;
+  color: #251d1a;
+}
+.wallet-delta.credit {
+  color: #8d1724;
+}
+.wallet-audit {
+  display: flex;
+  gap: 15.957rpx;
+  align-items: flex-start;
+  padding: 23.936rpx 35.904rpx;
+}
+.wallet-audit image {
+  width: 35.904rpx;
+  height: 35.904rpx;
+  flex-shrink: 0;
+}
+.wallet-audit text {
+  font-size: 15.957rpx;
+  line-height: 25.532rpx;
+  color: #8e8178;
+}
+.qx .wallet-cash {
+  font-size: 19.947rpx;
+  color: #8d1724;
+  text-align: left;
+  padding: 23.936rpx 35.904rpx;
+}
+.wallet-bottom-note {
+  font-size: 15.957rpx;
+  line-height: 1.8;
+  color: #8e8178;
+  padding: 0 35.904rpx;
+}
+.wallet-empty {
+  padding: 79.787rpx 23.936rpx;
+  text-align: center;
+  color: #8e8178;
+  font-size: 21.941rpx;
+}
+.wallet-error {
+  font-size: 21.941rpx;
+  color: #a52b37;
+  padding: 23.936rpx 35.904rpx;
+  line-height: 1.8;
+}
+.wallet-error button {
+  font-size: 21.941rpx;
+  color: #8d1724;
+  text-align: left;
+}
+.wallet-payment {
+  background: #fffdfa;
+  margin: 27.926rpx;
+  padding: 31.915rpx;
+}
+.wallet-section-title {
+  font:
+    31.915rpx/47.872rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 1.995rpx;
+}
+.wallet-source {
+  font-size: 17.952rpx;
+  line-height: 1.8;
+  color: #8e8178;
+  overflow-wrap: anywhere;
+  margin-top: 9.973rpx;
+}
+.wallet-payment-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 21.941rpx;
+  margin: 31.915rpx 0;
+}
+.wallet-payment-row text:last-child {
+  font-family: Georgia, serif;
+  color: #8d1724;
+}
+.qx .wallet-primary {
+  padding: 23.936rpx;
+  background: #8d1724;
+  color: white;
+  font-size: 21.941rpx;
+  text-align: center;
+  width: 100%;
+  margin-top: 19.947rpx;
+}
+.wallet-payment-note {
+  font-size: 17.952rpx;
+  line-height: 1.8;
+  color: #8e8178;
+  margin-top: 23.936rpx;
+}
+.wallet-paid {
+  font-size: 21.941rpx;
+  color: #8d1724;
+  line-height: 1.8;
+}
+.wallet-mask {
+  position: fixed;
+  inset: 0;
+  background: #1f14118c;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  backdrop-filter: blur(7.979rpx);
+}
+.wallet-transfer {
+  width: 100%;
+  background: #f8f5ee;
+  border-radius: 47.872rpx 47.872rpx 0 0;
+  padding: 55.851rpx 39.894rpx calc(47.872rpx + env(safe-area-inset-bottom));
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.wallet-bank {
+  font-size: 25.931rpx;
+  line-height: 1.8;
+  margin-top: 31.915rpx;
+}
+.wallet-account {
+  font:
+    31.915rpx/1.6 Georgia,
+    serif;
+  color: #8d1724;
+  overflow-wrap: anywhere;
+  margin: 19.947rpx 0;
+}
+.wallet-transfer-notes {
+  font-size: 21.941rpx;
+  color: #786a62;
+  line-height: 1.9;
+  white-space: pre-line;
+}
+
+.wallet-chevron {
+  width: 25.931rpx;
+  height: 25.931rpx;
+  vertical-align: middle;
+}

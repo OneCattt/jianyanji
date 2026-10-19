@@ -1,0 +1,29 @@
+@import "../order/common.wxss";
+.jy-tabs {
+  display: flex;
+  justify-content: space-around;
+  background: #fffdfa;
+  border-bottom: 1.995rpx solid #4530261f;
+  padding: 0 17.952rpx;
+}
+.jy-tabs button {
+  flex: 1;
+  font-size: 17.952rpx;
+  color: #8e8178;
+  position: relative;
+  padding: 27.926rpx 3.989rpx 23.936rpx;
+}
+.jy-tabs button.selected {
+  color: #8d1724;
+  font-weight: 600;
+}
+.jy-tabs button.selected:after {
+  content: "";
+  display: block;
+  position: absolute;
+  bottom: 0;
+  left: 28%;
+  right: 28%;
+  height: 3.989rpx;
+  background: #8d1724;
+}
