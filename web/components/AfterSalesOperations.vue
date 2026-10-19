@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { api } from "../client";
+import AdminDialog from "./AdminDialog.vue";
+import AdminForm from "./AdminForm.vue";
+import AdminSelect from "./AdminSelect.vue";
+import AdminDatePicker from "./AdminDatePicker.vue";
 const props = defineProps<{ canFinance: boolean }>();
 const orders = ref<any[]>([]),
   refunds = ref<any[]>([]),
@@ -12,6 +16,31 @@ const orders = ref<any[]>([]),
   selectedOrderId = ref(0),
   quantities = ref<Record<number, number>>({}),
   shipping = ref("0.00");
+const setupDialog = ref<"" | "policy" | "create">("");
+const policyDraft = ref({ days: 7, policy: "" });
+function openSetup(key: "policy" | "create") {
+  reason.value = "";
+  error.value = "";
+  if (key === "policy") policyDraft.value = { ...policy.value };
+  else {
+    selectedOrderId.value = 0;
+    quantities.value = {};
+    shipping.value = "0.00";
+    exceptionApproved.value = false;
+    exceptionReason.value = "";
+  }
+  setupDialog.value = key;
+}
+async function savePolicy() {
+  await run(async () => {
+    await api("/admin/aftersales-settings", {
+      method: "PUT",
+      body: { ...policyDraft.value, reason: reason.value },
+    });
+    policy.value = { ...policyDraft.value };
+    setupDialog.value = "";
+  });
+}
 const current = computed(() =>
   orders.value.find((o) => o.id === selectedOrderId.value),
 );
@@ -90,12 +119,14 @@ async function create() {
           : {}),
       },
     });
+    setupDialog.value = "";
     quantities.value = {};
     exceptionApproved.value = false;
     exceptionReason.value = "";
   });
 }
 function open(r: any, key: string) {
+  error.value = "";
   selected.value = r;
   action.value = key;
   reason.value = "";
@@ -145,170 +176,27 @@ async function submit() {
     <p v-if="error" class="message error" role="alert">{{ error }}</p>
     <p v-if="notice" class="message success" role="status">{{ notice }}</p>
     <div class="setup-panels">
-      <details class="surface setup-panel">
-        <summary>
-          <span class="summary-copy">
-            <strong>售后政策</strong>
-            <small>配置新交易适用的售后期限与说明</small>
-          </span>
-        </summary>
-        <form
-          class="form-grid setup-form"
-          @submit.prevent="
-            run(async () => {
-              await api('/admin/aftersales-settings', {
-                method: 'PUT',
-                body: { ...policy, reason },
-              });
-            })
-          "
-        >
-          <label
-            >收货后售后天数<input
-              v-model.number="policy.days"
-              type="number"
-              min="0"
-              max="365"
-              required /></label
-          ><label class="wide-field"
-            >实际售后政策<textarea
-              v-model="policy.policy"
-              rows="4"
-              required
-            /></label
-          ><label class="wide-field"
-            >修改原因<input v-model="reason" required /></label
-          ><button class="primary form-submit" :disabled="busy">
-            保存政策
+      <section class="surface setup-panel">
+        <div class="section-heading">
+          <h3>售后政策</h3>
+          <button :disabled="busy" @click="openSetup('policy')">
+            编辑售后政策
           </button>
-          <p class="wide-field">
-            新政策只用于新交易；历史订单保留购买时的政策。
-          </p>
-        </form>
-      </details>
-      <details class="surface setup-panel">
-        <summary>
-          <span class="summary-copy">
-            <strong>客服受理商品售后</strong>
-            <small>选择原订单，登记退款商品与受理原因</small>
-          </span>
-        </summary>
-        <form class="form-grid setup-form" @submit.prevent="create">
-          <label class="wide-field"
-            >原订单<select
-              v-model.number="selectedOrderId"
-              required
-              @change="quantities = {}"
-            >
-              <option :value="0" disabled>选择已付款订单</option>
-              <option
-                v-for="o in orders.filter((o) => o.payment_state === 'paid')"
-                :key="o.id"
-                :value="o.id"
-              >
-                {{ o.number }} · 用户{{ o.user_id }} ·
-                {{ money(o.total_cents) }}
-              </option>
-            </select></label
-          ><template v-if="current"
-            ><div
-              v-for="l in current.lines"
-              :key="l.id"
-              class="line return-line wide-field"
-            >
-              <span
-                >{{
-                  current.snapshot.lines.find((i: any) => i.skuId === l.sku_id)
-                    ?.name
-                }}
-                · 已发{{ l.shipped_qty }} 已退{{ l.refunded_qty }} 办理中{{
-                  l.refund_held
-                }}</span
-              ><label
-                >本次退货数量<input
-                  v-model.number="quantities[l.id]"
-                  type="number"
-                  min="0"
-                  :max="l.quantity - l.refunded_qty - l.refund_held"
-                  placeholder="0"
-              /></label></div></template
-          ><label
-            >退运费（元）<input
-              v-model="shipping"
-              inputmode="decimal"
-              required /></label
-          ><label
-            >受理原因<input v-model="reason" required maxlength="200" /></label
-          ><template v-if="props.canFinance"
-            ><label class="check-field wide-field"
-              ><input
-                v-model="exceptionApproved"
-                type="checkbox"
-              />品牌方确认按特殊原因受理超期售后</label
-            ><label v-if="exceptionApproved" class="wide-field"
-              >特批依据及原因<input
-                v-model="exceptionReason"
-                required
-                maxlength="200" /></label></template
-          ><button class="primary form-submit" :disabled="busy || !current">
-            登记售后并占用可退数量
-          </button>
-        </form>
-      </details>
-    </div>
-    <section v-if="selected && action" class="surface handling-panel">
-      <header class="section-heading">
-        <h3>处理售后 {{ selected.number }}</h3>
-      </header>
-      <form class="form-grid" @submit.prevent="submit">
-        <template
-          v-if="
-            ['approve', 'reject'].includes(action) &&
-            selected.kind === 'package'
-          "
-          ><label
-            >产品包部分退款后身份<select v-model="decision">
-              <option value="retain">仍满足入驻条件，保留</option>
-              <option value="revoke">不再满足条件，撤销该次身份</option>
-            </select></label
-          ></template
-        ><template v-if="action === 'inspect'"
-          ><label
-            >实际退货收到时间<input
-              v-model="paidAt"
-              type="datetime-local"
-              required /></label
-          ><label>验货依据<textarea v-model="inspection" required /></label
-          ><label class="check-field wide-field"
-            ><input
-              v-model="restock"
-              type="checkbox"
-            />实际验货确认可重新销售并回库存</label
-          ></template
-        ><template v-if="action === 'offline'"
-          ><label>实际收款人<input v-model="recipient" required /></label
-          ><label
-            >实际付款时间<input
-              v-model="paidAt"
-              type="datetime-local"
-              required /></label
-          ><label>实际转账凭证<input v-model="proof" required /></label
-          ><label class="check-field wide-field"
-            ><input
-              v-model="confirmed"
-              type="checkbox"
-              required
-            />公司已实际退款，资料核实无误</label
-          ></template
-        ><label class="wide-field"
-          >处理原因<input v-model="reason" required maxlength="200"
-        /></label>
-        <div class="actions wide-field">
-          <button class="primary" :disabled="busy">确认处理</button
-          ><button type="button" @click="action = ''">取消</button>
         </div>
-      </form>
-    </section>
+        <p>收货后 {{ policy.days }} 天可申请售后。</p>
+        <p>{{ policy.policy || "暂未配置售后政策" }}</p>
+        <p>新政策只用于新交易；历史订单保留购买时的政策。</p>
+      </section>
+      <section class="surface setup-panel">
+        <div class="section-heading">
+          <h3>客服受理商品售后</h3>
+          <button class="primary" :disabled="busy" @click="openSetup('create')">
+            新增售后受理
+          </button>
+        </div>
+        <p>选择原订单，登记退款商品与受理原因。</p>
+      </section>
+    </div>
     <section class="surface refund-list">
       <header class="section-heading">
         <h3>售后处理记录</h3>
@@ -367,6 +255,172 @@ async function submit() {
       </article>
       <p v-if="!busy && !refunds.length" class="empty">暂无售后记录</p>
     </section>
+    <AdminDialog
+      v-if="setupDialog"
+      :title="setupDialog === 'policy' ? '编辑售后政策' : '客服受理商品售后'"
+      :busy="busy"
+      wide
+      @close="!busy && (setupDialog = '')"
+    >
+      <p v-if="error" class="message error" role="alert">{{ error }}</p>
+      <template v-if="setupDialog === 'policy'">
+        <AdminForm class="form-grid setup-form" @submit="savePolicy">
+          <label
+            >收货后售后天数<input
+              v-model.number="policyDraft.days"
+              type="number"
+              min="0"
+              max="365"
+              required /></label
+          ><label class="wide-field"
+            >实际售后政策<textarea
+              v-model="policyDraft.policy"
+              rows="4"
+              required
+            /></label
+          ><label class="wide-field"
+            >修改原因<input v-model="reason" required
+          /></label>
+          <div class="dialog-actions wide-field">
+            <button type="button" :disabled="busy" @click="setupDialog = ''">
+              取消
+            </button>
+            <button class="primary" :disabled="busy">保存政策</button>
+          </div>
+          <p class="wide-field">
+            新政策只用于新交易；历史订单保留购买时的政策。
+          </p>
+        </AdminForm>
+      </template>
+      <template v-else>
+        <AdminForm class="form-grid setup-form" @submit="create">
+          <label class="wide-field"
+            >原订单<AdminSelect
+              v-model.number="selectedOrderId"
+              required
+              @change="quantities = {}"
+            >
+              <option :value="0" disabled>选择已付款订单</option>
+              <option
+                v-for="o in orders.filter((o) => o.payment_state === 'paid')"
+                :key="o.id"
+                :value="o.id"
+              >
+                {{ o.number }} · 用户{{ o.user_id }} ·
+                {{ money(o.total_cents) }}
+              </option>
+            </AdminSelect></label
+          ><template v-if="current"
+            ><div
+              v-for="l in current.lines"
+              :key="l.id"
+              class="line return-line wide-field"
+            >
+              <span
+                >{{
+                  current.snapshot.lines.find((i: any) => i.skuId === l.sku_id)
+                    ?.name
+                }}
+                · 已发{{ l.shipped_qty }} 已退{{ l.refunded_qty }} 办理中{{
+                  l.refund_held
+                }}</span
+              ><label
+                >本次退货数量<input
+                  v-model.number="quantities[l.id]"
+                  type="number"
+                  min="0"
+                  :max="l.quantity - l.refunded_qty - l.refund_held"
+                  placeholder="0"
+              /></label></div></template
+          ><label
+            >退运费（元）<input
+              v-model="shipping"
+              inputmode="decimal"
+              required /></label
+          ><label
+            >受理原因<input v-model="reason" required maxlength="200" /></label
+          ><template v-if="props.canFinance"
+            ><label class="check-field wide-field"
+              ><input
+                v-model="exceptionApproved"
+                type="checkbox"
+              />品牌方确认按特殊原因受理超期售后</label
+            ><label v-if="exceptionApproved" class="wide-field"
+              >特批依据及原因<input
+                v-model="exceptionReason"
+                required
+                maxlength="200" /></label
+          ></template>
+          <div class="dialog-actions wide-field">
+            <button type="button" :disabled="busy" @click="setupDialog = ''">
+              取消
+            </button>
+            <button class="primary" :disabled="busy || !current">
+              登记售后并占用可退数量
+            </button>
+          </div>
+        </AdminForm>
+      </template>
+    </AdminDialog>
+    <AdminDialog
+      v-if="selected && action"
+      :title="'处理售后 ' + selected.number"
+      :busy="busy"
+      wide
+      @close="!busy && (action = '')"
+    >
+      <p v-if="error" class="message error" role="alert">{{ error }}</p>
+      <AdminForm class="form-grid" @submit="submit">
+        <template
+          v-if="
+            ['approve', 'reject'].includes(action) &&
+            selected.kind === 'package'
+          "
+          ><label
+            >产品包部分退款后身份<AdminSelect v-model="decision">
+              <option value="retain">仍满足入驻条件，保留</option>
+              <option value="revoke">不再满足条件，撤销该次身份</option>
+            </AdminSelect></label
+          ></template
+        ><template v-if="action === 'inspect'"
+          ><label
+            >实际退货收到时间<AdminDatePicker
+              v-model="paidAt"
+              type="datetime-local"
+              required /></label
+          ><label>验货依据<textarea v-model="inspection" required /></label
+          ><label class="check-field wide-field"
+            ><input
+              v-model="restock"
+              type="checkbox"
+            />实际验货确认可重新销售并回库存</label
+          ></template
+        ><template v-if="action === 'offline'"
+          ><label>实际收款人<input v-model="recipient" required /></label
+          ><label
+            >实际付款时间<AdminDatePicker
+              v-model="paidAt"
+              type="datetime-local"
+              required /></label
+          ><label>实际转账凭证<input v-model="proof" required /></label
+          ><label class="check-field wide-field"
+            ><input
+              v-model="confirmed"
+              type="checkbox"
+              required
+            />公司已实际退款，资料核实无误</label
+          ></template
+        ><label class="wide-field"
+          >处理原因<input v-model="reason" required maxlength="200"
+        /></label>
+        <div class="dialog-actions wide-field">
+          <button type="button" :disabled="busy" @click="action = ''">
+            取消
+          </button>
+          <button class="primary" :disabled="busy">确认处理</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
   </section>
 </template>
 <style scoped>

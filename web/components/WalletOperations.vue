@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { api } from "../client";
+import AdminDialog from "./AdminDialog.vue";
+import AdminForm from "./AdminForm.vue";
+import AdminSelect from "./AdminSelect.vue";
+import AdminDatePicker from "./AdminDatePicker.vue";
 interface Receipt {
   id: number;
   user_id: number;
@@ -36,6 +40,7 @@ interface Wallet {
   lots: Lot[];
   ledger: Entry[];
 }
+const dialog = ref<"receipt" | "correction" | null>(null);
 const receipts = ref<Receipt[]>([]),
   wallet = ref<Wallet | null>(null),
   busy = ref(false),
@@ -103,6 +108,34 @@ async function refresh() {
     wallet.value = await api<Wallet>("/admin/wallets/" + userId.value);
   else wallet.value = null;
 }
+function closeDialog() {
+  if (!busy.value) dialog.value = null;
+}
+function openReceipt() {
+  form.value = {
+    userId: userId.value,
+    amount: "",
+    sourceChannel: "bank",
+    accountRef: "",
+    externalTransactionId: "",
+    receivedAt: "",
+    evidence: "",
+    reason: "",
+    verified: false,
+  };
+  error.value = "";
+  dialog.value = "receipt";
+}
+function openCorrection(lotId: number) {
+  correction.value = {
+    lotId,
+    amount: "",
+    reason: "",
+    requestKey: crypto.randomUUID(),
+  };
+  error.value = "";
+  dialog.value = "correction";
+}
 async function confirmReceipt() {
   await run(async () => {
     await api("/admin/receipts", {
@@ -124,6 +157,7 @@ async function confirmReceipt() {
     await refresh();
     form.value.externalTransactionId = "";
     form.value.verified = false;
+    dialog.value = null;
     notice.value = "已确认公司收款并一次性发放对应积分";
   });
 }
@@ -137,13 +171,14 @@ async function correct() {
         requestKey: correction.value.requestKey,
       },
     });
+    await refresh();
     correction.value = {
       lotId: 0,
       amount: "",
       reason: "",
       requestKey: crypto.randomUUID(),
     };
-    await refresh();
+    dialog.value = null;
     notice.value = "纠正记录已保存，原收款和历史流水仍可追溯";
   });
 }
@@ -157,78 +192,24 @@ onMounted(() => run(refresh));
         仅登记品牌方已经核实的真实到账。1 元对应 1
         积分，不赠送、不过期；产品包款请到入驻申请核款。
       </p>
+      <div>
+        <button class="primary" :disabled="busy" @click="openReceipt">
+          充值核款并发积分
+        </button>
+      </div>
     </header>
-    <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
+    <p v-if="error && !dialog" role="alert" class="feedback error">
+      {{ error }}
+    </p>
     <p v-if="notice" role="status" class="feedback notice">{{ notice }}</p>
     <div class="wallet-workspace">
-      <form
-        class="surface fields receipt-form"
-        @submit.prevent="confirmReceipt"
-      >
-        <h3>核实订货到账并发积分</h3>
-        <label
-          >代理用户编号<input
-            v-model="form.userId"
-            type="number"
-            min="1"
-            required
-        /></label>
-        <label
-          >实际到账（元）<input
-            v-model="form.amount"
-            inputmode="decimal"
-            required
-            placeholder="1000.00"
-        /></label>
-        <label
-          >实际收款渠道<select v-model="form.sourceChannel">
-            <option value="bank">公司银行账户</option>
-            <option value="wechat_company">公司微信收款</option>
-          </select></label
-        >
-        <label
-          >收款账户标识<input
-            v-model="form.accountRef"
-            maxlength="200"
-            required
-        /></label>
-        <label
-          >原银行 / 公司微信流水<input
-            v-model="form.externalTransactionId"
-            maxlength="200"
-            required
-        /></label>
-        <label
-          >实际到账时间<input
-            v-model="form.receivedAt"
-            type="datetime-local"
-            required
-        /></label>
-        <label
-          >原始凭证地址或归档编号<input
-            v-model="form.evidence"
-            maxlength="1000"
-            required
-        /></label>
-        <label
-          >核实说明<input v-model="form.reason" maxlength="200" required
-        /></label>
-        <label class="check"
-          ><input
-            v-model="form.verified"
-            type="checkbox"
-            required
-          />我已核实公司真实到账、收款人和原流水，非仅核对转款截图</label
-        >
-        <button class="primary" :disabled="busy">确认到账并发积分</button>
-      </form>
       <div class="account-workspace">
         <section class="surface account-query" aria-label="钱包与收款查询">
           <h3>查账与收款追溯</h3>
           <p class="muted">
             填写代理编号可查看积分钱包，也可按原收款编号或流水追查。
           </p>
-          <form class="query-fields" @submit.prevent="run(refresh)">
+          <AdminForm class="query-fields" @submit="run(refresh)">
             <label
               >按代理编号追查<input
                 v-model="userId"
@@ -244,7 +225,7 @@ onMounted(() => run(refresh));
                 v-model="externalTransactionId"
                 maxlength="200" /></label
             ><button :disabled="busy">查询钱包和收款</button>
-          </form>
+          </AdminForm>
         </section>
         <div v-if="wallet" class="surface wallet-detail">
           <div class="balances">
@@ -286,7 +267,7 @@ onMounted(() => run(refresh));
                     {{ money(lot.held_cents) }}
                   </td>
                   <td>
-                    <button @click="correction.lotId = lot.id">
+                    <button :disabled="busy" @click="openCorrection(lot.id)">
                       来源差额纠正
                     </button>
                   </td>
@@ -297,25 +278,6 @@ onMounted(() => run(refresh));
           <p v-if="!wallet.lots.length" class="empty-state">
             暂无原收款积分批次。
           </p>
-          <form
-            v-if="correction.lotId"
-            class="correction-form"
-            @submit.prevent="correct"
-          >
-            <h4>纠正原批次 #{{ correction.lotId }}</h4>
-            <label
-              >冲减积分<input
-                v-model="correction.amount"
-                required
-                inputmode="decimal" /></label
-            ><label
-              >原来源及纠错原因<input
-                v-model="correction.reason"
-                maxlength="200"
-                required /></label
-            ><button :disabled="busy">保存纠正流水</button
-            ><button type="button" @click="correction.lotId = 0">取消</button>
-          </form>
           <p class="muted">
             仅能纠正该原批次未消费且未占用的积分，已消费差额须人工核实处理。
           </p>
@@ -380,6 +342,112 @@ onMounted(() => run(refresh));
         </section>
       </div>
     </div>
+    <AdminDialog
+      v-if="dialog === 'receipt'"
+      title="充值核款并发积分"
+      :busy="busy"
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
+      <AdminForm class="fields receipt-form" @submit="confirmReceipt">
+        <h3>核实订货到账并发积分</h3>
+        <label
+          >代理用户编号<input
+            v-model="form.userId"
+            type="number"
+            min="1"
+            required
+        /></label>
+        <label
+          >实际到账（元）<input
+            v-model="form.amount"
+            pattern="[0-9]+([.][0-9]{1,2})?"
+            data-error-message="请填写最多两位小数的金额"
+            inputmode="decimal"
+            required
+            placeholder="1000.00"
+        /></label>
+        <label
+          >实际收款渠道<AdminSelect v-model="form.sourceChannel">
+            <option value="bank">公司银行账户</option>
+            <option value="wechat_company">公司微信收款</option>
+          </AdminSelect></label
+        >
+        <label
+          >收款账户标识<input
+            v-model="form.accountRef"
+            maxlength="200"
+            required
+        /></label>
+        <label
+          >原银行 / 公司微信流水<input
+            v-model="form.externalTransactionId"
+            maxlength="200"
+            required
+        /></label>
+        <label
+          >实际到账时间<AdminDatePicker
+            v-model="form.receivedAt"
+            type="datetime-local"
+            required
+        /></label>
+        <label
+          >原始凭证地址或归档编号<input
+            v-model="form.evidence"
+            maxlength="1000"
+            required
+        /></label>
+        <label
+          >核实说明<input v-model="form.reason" maxlength="200" required
+        /></label>
+        <label class="check"
+          ><input
+            v-model="form.verified"
+            type="checkbox"
+            required
+          />我已核实公司真实到账、收款人和原流水，非仅核对转款截图</label
+        >
+        <div class="dialog-actions">
+          <button type="button" :disabled="busy" @click="closeDialog">
+            取消
+          </button>
+          <button class="primary" :disabled="busy">确认到账并发积分</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
+    <AdminDialog
+      v-if="dialog === 'correction'"
+      title="积分来源差额纠正"
+      :busy="busy"
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
+      <AdminForm class="correction-form" @submit="correct">
+        <h4>纠正原批次 #{{ correction.lotId }}</h4>
+        <label
+          >冲减积分<input
+            v-model="correction.amount"
+            pattern="[0-9]+([.][0-9]{1,2})?"
+            data-error-message="请填写最多两位小数的金额"
+            required
+            inputmode="decimal" /></label
+        ><label
+          >原来源及纠错原因<input
+            v-model="correction.reason"
+            maxlength="200"
+            required
+        /></label>
+        <p class="wide muted">
+          仅能纠正该原批次未消费且未占用的积分，已消费差额须人工核实处理。
+        </p>
+        <div class="dialog-actions">
+          <button type="button" :disabled="busy" @click="closeDialog">
+            取消
+          </button>
+          <button class="primary" :disabled="busy">保存纠正流水</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
   </section>
 </template>
 <style scoped>
@@ -413,7 +481,7 @@ h4 {
 }
 .wallet-workspace {
   display: grid;
-  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.5fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 16px;
   min-width: 0;
@@ -440,10 +508,12 @@ h4 {
 }
 .fields h3,
 .fields .check,
-.fields > button,
+.fields > .dialog-actions,
 .query-fields > label:last-of-type,
 .correction-form h4,
-.correction-form > label:last-of-type {
+.correction-form > label:last-of-type,
+.correction-form > .dialog-actions,
+.wide {
   grid-column: 1 / -1;
 }
 .fields > button,
@@ -508,12 +578,6 @@ select {
 }
 .balances p:nth-child(2) strong {
   color: var(--admin-accent);
-}
-.correction-form {
-  padding: 12px;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  background: var(--admin-bg);
 }
 .entry {
   display: flex;

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
+import AdminDialog from "./AdminDialog.vue";
+import AdminForm from "./AdminForm.vue";
+import AdminSelect from "./AdminSelect.vue";
 interface OrderLine {
   id: number;
   sku_id: number;
@@ -80,6 +83,7 @@ const orders = ref<Order[]>([]),
   notice = ref(""),
   busy = ref(false),
   reason = ref("");
+const dialog = ref<"" | "ship" | "close">("");
 const shipment = ref({
   carrier: "",
   tracking: "",
@@ -149,6 +153,32 @@ async function select(id: number) {
     quantities: {},
   };
   correcting.value = null;
+  dialog.value = "";
+}
+function openShipment() {
+  shipment.value = {
+    carrier: "",
+    tracking: "",
+    requestKey: freshKey(),
+    quantities: {},
+  };
+  reason.value = "";
+  error.value = "";
+  dialog.value = "ship";
+}
+function openCorrection(value: Shipment) {
+  correcting.value = {
+    id: value.id,
+    carrier: value.carrier,
+    tracking: value.tracking,
+  };
+  reason.value = "";
+  error.value = "";
+}
+function openClose() {
+  reason.value = "";
+  error.value = "";
+  dialog.value = "close";
 }
 async function act(work: () => Promise<void>) {
   if (busy.value) return;
@@ -222,20 +252,20 @@ onMounted(() => act(load));
         </div>
         <span class="list-count">{{ visible.length }} 笔订单</span>
       </header>
-      <form class="filters" @submit.prevent="act(load)">
+      <AdminForm class="filters" @submit="act(load)">
         <label
           >订单编号 / 用户编号<input
             v-model="query"
             placeholder="输入订单号或用户编号" /></label
         ><label
-          >履约状态<select v-model="status">
+          >履约状态<AdminSelect v-model="status">
             <option value="">全部状态</option>
             <option v-for="(label, key) in labels" :key="key" :value="key">
               {{ label }}
             </option>
-          </select></label
+          </AdminSelect></label
         ><button :disabled="busy">刷新订单</button>
-      </form>
+      </AdminForm>
       <p v-if="busy" class="loading" role="status">正在读取或处理订单…</p>
       <div class="table-wrap">
         <table>
@@ -311,73 +341,26 @@ onMounted(() => act(load));
         <p>
           支付返回确认中时，请查询原交易；需要关闭时，系统核实渠道结果后才释放库存。
         </p>
-        <label class="reason"
-          >操作原因<input
-            v-model="reason"
-            maxlength="200"
-            placeholder="发货、关闭或纠正必填"
-        /></label>
         <div class="actions">
           <button :disabled="busy" @click="act(() => refreshPayment())">
             查询原支付</button
           ><button
-            :disabled="
-              busy || !reason.trim() || selected.payment_state === 'paid'
-            "
-            @click="act(() => refreshPayment(true))"
+            :disabled="busy || selected.payment_state === 'paid'"
+            @click="openClose"
           >
             核查并关闭未付交易
           </button>
         </div>
       </section>
       <section class="detail-section">
-        <form v-if="canShip" @submit.prevent="act(ship)">
-          <h4>登记品牌仓发货</h4>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>商品</th>
-                  <th>订单数量</th>
-                  <th>已出库</th>
-                  <th>待发货</th>
-                  <th>本次发货</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="l in selected.lines" :key="l.id">
-                  <td>{{ name(l) }}</td>
-                  <td>{{ l.quantity }}</td>
-                  <td>{{ l.shipped_qty }}</td>
-                  <td>{{ remaining(l) }}</td>
-                  <td>
-                    <input
-                      v-model.number="shipment.quantities[l.id]"
-                      type="number"
-                      min="0"
-                      :max="remaining(l)"
-                      :disabled="remaining(l) <= 0"
-                      aria-label="本次发货数量"
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="filters">
-            <label
-              >物流公司<input
-                v-model="shipment.carrier"
-                required
-                maxlength="60" /></label
-            ><label
-              >运单号<input
-                v-model="shipment.tracking"
-                required
-                pattern="[a-zA-Z0-9-]{4,80}" /></label
-            ><button :disabled="busy || !reason.trim()">确认发货</button>
-          </div>
-        </form>
+        <button
+          v-if="canShip"
+          class="primary"
+          :disabled="busy"
+          @click="openShipment"
+        >
+          登记品牌仓发货
+        </button>
         <p v-else>当前订单不允许新增发货。</p>
       </section>
       <section class="detail-section">
@@ -392,29 +375,11 @@ onMounted(() => act(load));
               }}</small
             >
           </div>
-          <button
-            @click="
-              correcting = {
-                id: s.id,
-                carrier: s.carrier,
-                tracking: s.tracking,
-              }
-            "
-          >
+          <button :disabled="busy" @click="openCorrection(s)">
             纠正物流信息
           </button>
         </div>
         <p v-if="!selected.shipments.length">尚未登记发货</p>
-        <form v-if="correcting" class="filters" @submit.prevent="act(correct)">
-          <label>物流公司<input v-model="correcting.carrier" required /></label
-          ><label
-            >运单号<input
-              v-model="correcting.tracking"
-              required
-              pattern="[a-zA-Z0-9-]{4,80}" /></label
-          ><button :disabled="busy || !reason.trim()">保留记录并纠正</button
-          ><button type="button" @click="correcting = null">取消</button>
-        </form>
       </section>
       <details class="detail-section payment-evidence">
         <summary>查看支付尝试、异常到账与补偿证据</summary>
@@ -466,6 +431,115 @@ onMounted(() => act(load));
         </div>
       </details>
     </section>
+    <AdminDialog
+      v-if="selected && dialog"
+      :title="dialog === 'ship' ? '登记品牌仓发货' : '核查并关闭未付交易'"
+      :busy="busy"
+      :wide="dialog === 'ship'"
+      @close="!busy && (dialog = '')"
+    >
+      <p v-if="error" class="message error" role="alert">{{ error }}</p>
+      <p>当前订单：{{ selected.number }}</p>
+      <AdminForm
+        v-if="dialog === 'close'"
+        @submit="act(() => refreshPayment(true))"
+      >
+        <p>系统核实渠道结果后才释放库存。</p>
+        <label
+          >操作原因<input v-model="reason" required maxlength="200"
+        /></label>
+        <div class="dialog-actions">
+          <button type="button" :disabled="busy" @click="dialog = ''">
+            取消
+          </button>
+          <button :disabled="busy">核查并关闭未付交易</button>
+        </div>
+      </AdminForm>
+      <template v-else>
+        <AdminForm @submit="act(ship)">
+          <h4>登记品牌仓发货</h4>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>商品</th>
+                  <th>订单数量</th>
+                  <th>已出库</th>
+                  <th>待发货</th>
+                  <th>本次发货</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="l in selected.lines" :key="l.id">
+                  <td>{{ name(l) }}</td>
+                  <td>{{ l.quantity }}</td>
+                  <td>{{ l.shipped_qty }}</td>
+                  <td>{{ remaining(l) }}</td>
+                  <td>
+                    <input
+                      v-model.number="shipment.quantities[l.id]"
+                      type="number"
+                      min="0"
+                      :max="remaining(l)"
+                      :disabled="remaining(l) <= 0"
+                      aria-label="本次发货数量"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="filters">
+            <label
+              >物流公司<input
+                v-model="shipment.carrier"
+                required
+                maxlength="60" /></label
+            ><label
+              >运单号<input
+                v-model="shipment.tracking"
+                required
+                pattern="[a-zA-Z0-9-]{4,80}"
+            /></label>
+          </div>
+          <label
+            >操作原因<input v-model="reason" required maxlength="200"
+          /></label>
+          <div class="dialog-actions">
+            <button type="button" :disabled="busy" @click="dialog = ''">
+              取消
+            </button>
+            <button :disabled="busy">确认发货</button>
+          </div>
+        </AdminForm>
+      </template>
+    </AdminDialog>
+    <AdminDialog
+      v-if="selected && correcting"
+      title="纠正物流信息"
+      :busy="busy"
+      @close="!busy && (correcting = null)"
+    >
+      <p v-if="error" class="message error" role="alert">{{ error }}</p>
+      <AdminForm v-if="correcting" @submit="act(correct)">
+        <label>物流公司<input v-model="correcting.carrier" required /></label
+        ><label
+          >运单号<input
+            v-model="correcting.tracking"
+            required
+            pattern="[a-zA-Z0-9-]{4,80}"
+        /></label>
+        <label
+          >操作原因<input v-model="reason" required maxlength="200"
+        /></label>
+        <div class="dialog-actions">
+          <button type="button" :disabled="busy" @click="correcting = null">
+            取消
+          </button>
+          <button :disabled="busy">保留记录并纠正</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
   </section>
 </template>
 <style scoped>

@@ -918,3 +918,349 @@
     animation: none !important;
   }
 }
+
+/* 后台统一表单弹窗：标题固定，长表单在窗口内滚动。 */
+.admin-shell .admin-dialog {
+  width: min(680px, calc(100vw - 40px));
+  max-width: none;
+  max-height: min(90dvh, 960px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  color: var(--admin-ink);
+  background: white;
+  box-shadow: 0 28px 90px #18213238;
+  overflow: hidden;
+}
+.admin-shell .admin-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.admin-shell .admin-dialog-wide {
+  width: min(980px, calc(100vw - 40px));
+}
+.admin-shell .admin-dialog::backdrop {
+  background: #1e253070;
+  backdrop-filter: blur(3px);
+}
+.admin-shell .admin-dialog-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--admin-border);
+}
+.admin-shell .admin-dialog-header h2 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.5;
+}
+.admin-shell .admin-dialog-close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--admin-muted);
+}
+.admin-shell .admin-dialog-close:hover {
+  color: var(--admin-ink);
+  background: var(--admin-bg);
+}
+.admin-shell .admin-dialog-body {
+  min-height: 0;
+  padding: 24px 24px 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.admin-shell .admin-dialog-body > :last-child {
+  margin-bottom: 24px;
+}
+.admin-shell .admin-dialog .admin-form {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+}
+.admin-shell .admin-dialog .dialog-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px -24px 0;
+  padding: 16px 24px;
+  border-top: 1px solid var(--admin-border);
+  background: white;
+}
+.admin-shell .admin-dialog .dialog-actions button {
+  min-width: 80px;
+}
+.admin-shell .admin-form label:has(:is(input, select, textarea)[required]),
+.admin-login .admin-form label:has(:is(input, select, textarea)[required]) {
+  position: relative;
+  padding-left: 11px;
+}
+.admin-shell
+  .admin-form
+  label:has(:is(input, select, textarea)[required])::before,
+.admin-login
+  .admin-form
+  label:has(:is(input, select, textarea)[required])::before {
+  content: "*";
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: #bd3047;
+  font-weight: 600;
+}
+.admin-shell .admin-form :is(input, select, textarea)[aria-invalid="true"],
+.admin-login .admin-form :is(input, select, textarea)[aria-invalid="true"] {
+  border-color: #c73a4c;
+  background-color: #fffafb;
+  box-shadow: 0 0 0 2px #c73a4c0d;
+}
+.admin-shell .admin-field-error,
+.admin-login .admin-field-error {
+  display: block;
+  grid-column: 1 / -1;
+  color: #bd3047;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+}
+@media (max-width: 640px) {
+  .admin-shell .admin-dialog,
+  .admin-shell .admin-dialog-wide {
+    width: calc(100vw - 24px);
+    max-height: 94dvh;
+  }
+  .admin-shell .admin-dialog-header {
+    padding: 16px;
+  }
+  .admin-shell .admin-dialog-body {
+    padding: 16px 16px 0;
+  }
+  .admin-shell .admin-dialog .dialog-actions {
+    margin-inline: -16px;
+    padding: 14px 16px;
+  }
+}
+
+/* 输入、选择与确认控件使用同一套品牌视觉，不显示系统控件外观。 */
+.admin-shell input[type="checkbox"],
+.admin-login input[type="checkbox"],
+.admin-shell input[type="radio"] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #c5c9d2;
+  border-radius: 4px;
+  background: white;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.admin-shell input[type="radio"] {
+  border-radius: 50%;
+}
+.admin-shell input[type="checkbox"]::after,
+.admin-login input[type="checkbox"]::after {
+  content: "";
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg) scale(0);
+}
+.admin-shell input[type="checkbox"]:checked,
+.admin-login input[type="checkbox"]:checked,
+.admin-shell input[type="radio"]:checked {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent);
+}
+.admin-shell input[type="checkbox"]:checked::after,
+.admin-login input[type="checkbox"]:checked::after {
+  transform: translateY(-1px) rotate(45deg) scale(1);
+}
+.admin-shell input[type="radio"]:checked::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: white;
+}
+.admin-shell input:is([type="checkbox"], [type="radio"]):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.admin-shell input[type="number"] {
+  appearance: textfield;
+}
+.admin-shell input[type="number"]::-webkit-inner-spin-button,
+.admin-shell input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.admin-shell textarea {
+  resize: none;
+}
+.admin-shell .admin-control {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  font-weight: 400;
+}
+.admin-shell .admin-control-source {
+  display: none !important;
+}
+.admin-shell .admin-control [data-admin-trigger] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid #d5d8df;
+  border-radius: 6px;
+  color: var(--admin-ink);
+  background: white;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-shell .admin-control [data-admin-trigger] > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-shell .admin-control [data-admin-trigger] > svg {
+  flex-shrink: 0;
+  color: var(--admin-muted);
+}
+.admin-shell
+  .admin-control
+  [data-admin-trigger]:is(:hover, [aria-expanded="true"]) {
+  border-color: var(--admin-accent);
+}
+.admin-shell .admin-control [data-admin-trigger]:focus-visible {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px #8d263814;
+}
+.admin-shell .admin-control [data-admin-trigger][aria-invalid="true"] {
+  border-color: #c73a4c;
+  background: #fffafb;
+  box-shadow: 0 0 0 2px #c73a4c0d;
+}
+.admin-shell .admin-control [data-admin-trigger]:disabled {
+  background: #f5f6f8;
+  color: #89909c;
+  cursor: not-allowed;
+}
+.admin-shell .admin-control .is-placeholder {
+  color: #767c88;
+}
+.admin-shell .admin-picker-panel {
+  position: fixed;
+  inset: auto;
+  z-index: 100;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: white;
+  color: var(--admin-ink);
+  box-shadow: 0 12px 36px #25283124;
+  overflow: auto;
+  overscroll-behavior: contain;
+  font-size: 13px;
+  font-weight: 400;
+}
+.admin-shell .admin-picker-panel::backdrop {
+  background: transparent;
+}
+.admin-shell .admin-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--admin-ink);
+  text-align: left;
+  white-space: normal;
+}
+.admin-shell .admin-select-option:is(:hover, :focus-visible) {
+  outline: none;
+  background: var(--admin-bg);
+}
+.admin-shell .admin-select-option[aria-selected="true"] {
+  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+  font-weight: 500;
+}
+.admin-shell .admin-select-option:disabled {
+  color: #89909c;
+  opacity: 0.65;
+}
+.admin-shell .admin-select-option > svg {
+  flex-shrink: 0;
+}
+.admin-shell summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  list-style: none;
+  cursor: pointer;
+}
+.admin-shell summary::-webkit-details-marker {
+  display: none;
+}
+.admin-shell summary::after {
+  content: "";
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  margin-right: 3px;
+  border: solid var(--admin-muted);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+.admin-shell details[open] > summary::after {
+  transform: rotate(225deg);
+}
+.admin-shell
+  :is(.admin-dialog-body, .admin-picker-panel, .table-wrap, .table-scroll) {
+  scrollbar-width: thin;
+  scrollbar-color: #c8cbd3 transparent;
+}

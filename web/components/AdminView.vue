@@ -31,7 +31,9 @@ import RewardOperations from "./RewardOperations.vue";
 import MembershipOperations from "./MembershipOperations.vue";
 import WalletOperations from "./WalletOperations.vue";
 import BusinessSettings from "./BusinessSettings.vue";
-import ModalDialog from "./ModalDialog.vue";
+import AdminDialog from "./AdminDialog.vue";
+import AdminForm from "./AdminForm.vue";
+import AdminSelect from "./AdminSelect.vue";
 import {
   api,
   ApiError,
@@ -379,7 +381,7 @@ const actionNames: Record<string, string> = {
       <div class="login-orbit" aria-hidden="true"></div>
     </aside>
     <section class="login-form-wrap">
-      <form class="login-form" @submit.prevent="login">
+      <AdminForm class="login-form" @submit="login">
         <span class="eyebrow">欢迎回来</span>
         <h2>登录品牌方后台</h2>
         <p>使用已授权的工作人员账号登录。</p>
@@ -406,7 +408,7 @@ const actionNames: Record<string, string> = {
           {{ busy ? "正在登录…" : "进入管理后台" }} <span>↗</span></button
         ><a class="back-link" href="/">← 返回清欣简妍肌</a
         ><small>账号尚未开通？请联系品牌管理员。</small>
-      </form>
+      </AdminForm>
     </section>
   </main>
   <div v-else class="admin-shell">
@@ -455,12 +457,7 @@ const actionNames: Record<string, string> = {
           <strong>{{ me.displayName }}</strong
           ><small>{{ me.username }}</small>
         </div>
-        <button
-          title="退出登录"
-          aria-label="退出登录"
-          @click="logout"
-          :disabled="busy"
-        >
+        <button aria-label="退出登录" @click="logout" :disabled="busy">
           <LogOut :size="17" aria-hidden="true" />
         </button>
       </div>
@@ -742,27 +739,27 @@ const actionNames: Record<string, string> = {
           </div>
         </section>
         <section v-else-if="section === 'audit'" class="table-panel">
-          <form
+          <AdminForm
             class="filter-bar"
-            @submit.prevent="
+            @submit="
               page = 1;
               load();
             "
           >
             <label
-              >业务对象<select v-model="filterType">
+              >业务对象<AdminSelect v-model="filterType">
                 <option value="">全部对象</option>
                 <option value="user">用户</option>
                 <option value="staff">工作人员</option>
                 <option value="permission">功能权限</option>
-              </select></label
+              </AdminSelect></label
             ><label
               >对象编号<input
                 v-model="filterId"
                 maxlength="40"
                 placeholder="如：1" /></label
             ><button class="secondary" :disabled="busy">查找记录</button>
-          </form>
+          </AdminForm>
           <div class="table-scroll">
             <table>
               <thead>
@@ -883,100 +880,94 @@ const actionNames: Record<string, string> = {
         清欣简妍肌 <span>·</span> 品牌方管理后台
       </footer>
     </div>
-    <ModalDialog
+    <AdminDialog
       v-if="modal"
-      labelledby="staff-form-title"
+      :title="
+        modal === 'create'
+          ? '新增工作人员'
+          : modal === 'remove'
+            ? '移除工作人员'
+            : '修改授权与状态'
+      "
+      :busy="busy"
       @close="modal = null"
-      ><section class="dialog">
-        <header>
-          <h2 id="staff-form-title">
-            {{
-              modal === "create"
-                ? "新增工作人员"
-                : modal === "remove"
-                  ? "移除工作人员"
-                  : "修改授权与状态"
-            }}
-          </h2>
-          <button class="icon-button" aria-label="关闭" @click="modal = null">
-            ×
-          </button>
-        </header>
-        <form @submit.prevent="save">
-          <template v-if="modal !== 'remove'"
-            ><label v-if="modal === 'create'"
-              >登录账号<input
-                v-model="form.username"
-                required
-                pattern="[a-zA-Z][a-zA-Z0-9_-]{2,31}"
-                maxlength="32"
-                autocomplete="off"
-                placeholder="3～32 位字母、数字、下划线" /></label
-            ><label
-              >工作人员姓名<input
-                v-model="form.displayName"
-                required
-                maxlength="30" /></label
-            ><label v-if="modal === 'create'"
-              >初始密码<input
-                v-model="form.password"
-                type="password"
-                required
-                minlength="12"
-                maxlength="128"
-                autocomplete="new-password"
-                placeholder="至少 12 位"
-            /></label>
-            <fieldset>
-              <legend>功能权限</legend>
-              <label
-                v-for="(label, key) in permissionNames"
-                :key="key"
-                class="check-label"
-                ><input
-                  v-model="form.permissions"
-                  type="checkbox"
-                  :value="key"
-                />{{ label }}</label
-              >
-            </fieldset>
-            <label v-if="modal === 'edit'" class="check-label"
-              ><input v-model="form.enabled" type="checkbox" />启用该账号</label
-            ></template
-          >
-          <p v-else class="field-help">
-            移除「{{
-              selected?.displayName
-            }}」后，该账号将无法登录，历史操作记录会保留。
-          </p>
-          <label
-            >操作原因<textarea
-              v-model="form.reason"
-              required
-              maxlength="200"
-              rows="3"
-              placeholder="说明本次新增、授权、停用或移除的原因"
-            ></textarea>
-          </label>
-          <p v-if="error" class="message error" role="alert">{{ error }}</p>
-          <div class="dialog-actions">
-            <button type="button" class="secondary" @click="modal = null">
-              取消</button
-            ><button
-              :class="modal === 'remove' ? 'danger' : 'primary'"
-              :disabled="busy"
-            >
-              {{
-                busy
-                  ? "正在保存…"
-                  : modal === "remove"
-                    ? "确认移除"
-                    : "保存设置"
-              }}
-            </button>
-          </div>
-        </form>
-      </section></ModalDialog
     >
+      <AdminForm @submit="save">
+        <template v-if="modal !== 'remove'"
+          ><label v-if="modal === 'create'"
+            >登录账号<input
+              v-model="form.username"
+              required
+              pattern="[a-zA-Z][a-zA-Z0-9_\-]{2,31}"
+              data-error-message="账号须以字母开头，使用 3～32 位字母、数字、下划线或短横线"
+              maxlength="32"
+              autocomplete="off"
+              placeholder="3～32 位字母、数字、下划线" /></label
+          ><label
+            >工作人员姓名<input
+              v-model="form.displayName"
+              required
+              maxlength="30" /></label
+          ><label v-if="modal === 'create'"
+            >初始密码<input
+              v-model="form.password"
+              type="password"
+              required
+              minlength="12"
+              maxlength="128"
+              autocomplete="new-password"
+              placeholder="至少 12 位"
+          /></label>
+          <fieldset>
+            <legend>功能权限</legend>
+            <label
+              v-for="(label, key) in permissionNames"
+              :key="key"
+              class="check-label"
+              ><input
+                v-model="form.permissions"
+                type="checkbox"
+                :value="key"
+              />{{ label }}</label
+            >
+          </fieldset>
+          <label v-if="modal === 'edit'" class="check-label"
+            ><input v-model="form.enabled" type="checkbox" />启用该账号</label
+          ></template
+        >
+        <p v-else class="field-help">
+          移除「{{
+            selected?.displayName
+          }}」后，该账号将无法登录，历史操作记录会保留。
+        </p>
+        <label
+          >操作原因<textarea
+            v-model="form.reason"
+            required
+            maxlength="200"
+            rows="3"
+            placeholder="说明本次新增、授权、停用或移除的原因"
+          ></textarea>
+        </label>
+        <p v-if="error" class="message error" role="alert">{{ error }}</p>
+        <div class="dialog-actions">
+          <button
+            type="button"
+            class="secondary"
+            :disabled="busy"
+            @click="modal = null"
+          >
+            取消</button
+          ><button
+            :class="modal === 'remove' ? 'danger' : 'primary'"
+            :disabled="busy"
+          >
+            {{
+              busy ? "正在保存…" : modal === "remove" ? "确认移除" : "保存设置"
+            }}
+          </button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
   </div>
 </template>

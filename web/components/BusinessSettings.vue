@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from "vue";
 import { api } from "../client";
+import AdminDialog from "./AdminDialog.vue";
+import AdminForm from "./AdminForm.vue";
+import AdminSelect from "./AdminSelect.vue";
 const props = defineProps<{ section: string }>();
 const error = ref(""),
   notice = ref(""),
@@ -23,6 +26,9 @@ const content = ref({
   bankAccount: "",
   transferNotes: "",
 });
+const contentForm = ref({ ...content.value });
+const editingContent = ref(false),
+  editingCategory = ref(false);
 const contentLabels: Record<string, string> = {
   brandName: "品牌名称",
   introduction: "品牌介绍",
@@ -73,7 +79,7 @@ interface Sku {
 }
 interface Product {
   id?: number;
-  categoryId: number;
+  categoryId: number | "";
   name: string;
   subtitle: string;
   description: string;
@@ -83,8 +89,9 @@ interface Product {
   featured: boolean;
   skus: Sku[];
 }
-interface ProductRecord extends Omit<Product, "skus"> {
+interface ProductRecord extends Omit<Product, "skus" | "categoryId"> {
   id: number;
+  categoryId: number;
   skus: (Omit<Sku, "retail" | "store" | "principal"> & {
     retailCents: number | null;
     storeCents: number | null;
@@ -131,7 +138,7 @@ function resetFilters() {
   categoryFilter.value = 0;
 }
 const blank = (): Product => ({
-  categoryId: 0,
+  categoryId: "",
   name: "",
   subtitle: "",
   description: "",
@@ -200,7 +207,52 @@ async function act(work: () => Promise<void>) {
     busy.value = false;
   }
 }
+function resetEditorFeedback() {
+  error.value = "";
+  notice.value = "";
+  reason.value = "";
+}
+function editContent() {
+  resetEditorFeedback();
+  contentForm.value = { ...content.value };
+  editingContent.value = true;
+}
+function saveContent() {
+  return act(async () => {
+    await api("/admin/content", {
+      method: "PUT",
+      body: { ...contentForm.value, reason: reason.value },
+    });
+    content.value = { ...contentForm.value };
+    editingContent.value = false;
+  });
+}
+function editCategory(c?: (typeof categories.value)[number]) {
+  resetEditorFeedback();
+  category.value = c
+    ? { ...c, active: Boolean(c.active) }
+    : { id: 0, name: "", sort: 0, active: true };
+  editingCategory.value = true;
+}
+function saveCategory() {
+  return act(async () => {
+    await api(
+      "/admin/categories" + (category.value.id ? "/" + category.value.id : ""),
+      {
+        method: category.value.id ? "PUT" : "POST",
+        body: {
+          name: category.value.name,
+          sort: Number(category.value.sort),
+          active: category.value.active,
+          reason: reason.value,
+        },
+      },
+    );
+    editingCategory.value = false;
+  });
+}
 async function edit(p?: ProductRecord) {
+  resetEditorFeedback();
   form.value = p
     ? {
         ...p,
@@ -215,7 +267,6 @@ async function edit(p?: ProductRecord) {
   editing.value = true;
   await nextTick();
   productNameInput.value?.focus({ preventScroll: true });
-  productNameInput.value?.scrollIntoView({ block: "center" });
 }
 function saveProduct() {
   return act(async () => {
@@ -250,7 +301,11 @@ function saveProduct() {
 </script>
 <template>
   <section class="business-settings" :aria-busy="loading || busy">
-    <div v-if="error" class="message error feedback" role="alert">
+    <div
+      v-if="error && !editing && !editingCategory && !editingContent"
+      class="message error feedback"
+      role="alert"
+    >
       <span>{{ error }}</span>
       <button
         v-if="loadFailed"
@@ -266,22 +321,22 @@ function saveProduct() {
       正在加载{{ section === "content" ? "品牌资料" : "商品与分类" }}…
     </p>
 
-    <form
-      v-if="section === 'content'"
-      class="content-layout"
-      @submit.prevent="
-        act(async () => {
-          await api('/admin/content', {
-            method: 'PUT',
-            body: { ...content, reason },
-          });
-        })
-      "
-    >
-      <fieldset
-        class="form-controls content-sections"
-        :disabled="busy || loading || !loaded"
-      >
+    <template v-if="section === 'content'">
+      <header class="catalog-heading">
+        <div>
+          <h3>品牌内容</h3>
+          <p>查看品牌、购买说明与公司收款资料。</p>
+        </div>
+        <button
+          class="primary"
+          type="button"
+          :disabled="busy || loading || !loaded"
+          @click="editContent"
+        >
+          编辑品牌资料
+        </button>
+      </header>
+      <div class="content-layout content-sections">
         <section
           v-for="group in contentGroups"
           :key="group.title"
@@ -294,64 +349,114 @@ function saveProduct() {
             </div>
           </header>
           <div class="field-grid">
-            <label
-              v-for="key in group.keys"
-              :key="key"
-              :class="{
-                'full-field': [
-                  'introduction',
-                  'heroTitle',
-                  'heroImage',
-                  'purchaseNotes',
-                  'bankAccount',
-                  'transferNotes',
-                ].includes(key),
-              }"
-            >
-              {{ contentLabels[key] }}
-              <textarea
-                v-if="
-                  [
-                    'introduction',
-                    'heroTitle',
-                    'purchaseNotes',
-                    'transferNotes',
-                  ].includes(key)
-                "
-                v-model="content[key]"
-                :rows="key === 'heroTitle' ? 2 : 3"
-                :required="['introduction', 'heroTitle'].includes(key)"
-              />
-              <input
-                v-else
-                v-model="content[key]"
-                :required="
-                  ['brandName', 'heroSubtitle', 'heroImage'].includes(key)
-                "
-              />
+            <div v-for="key in group.keys" :key="key">
+              <h4>{{ contentLabels[key] }}</h4>
+              <p>{{ content[key] || "尚未配置" }}</p>
               <img
                 v-if="key === 'heroImage' && content.heroImage"
                 :src="content.heroImage"
                 alt="首页图片预览"
                 class="brand-image"
               />
-            </label>
+            </div>
           </div>
         </section>
-        <footer class="surface save-bar">
-          <label
-            >修改原因<input
-              v-model="reason"
-              required
-              maxlength="200"
-              placeholder="说明本次调整的内容"
-          /></label>
-          <button class="primary" :disabled="busy">
-            {{ busy ? "保存中…" : "保存品牌资料" }}
-          </button>
-        </footer>
-      </fieldset>
-    </form>
+      </div>
+      <AdminDialog
+        v-if="editingContent"
+        title="编辑品牌资料"
+        :busy="busy"
+        wide
+        @close="editingContent = false"
+      >
+        <AdminForm class="content-layout" @submit="saveContent">
+          <p v-if="error" class="message error" role="alert">{{ error }}</p>
+          <fieldset
+            class="form-controls content-sections"
+            :disabled="busy || loading || !loaded"
+          >
+            <section
+              v-for="group in contentGroups"
+              :key="group.title"
+              class="surface content-group"
+            >
+              <header class="panel-heading">
+                <div>
+                  <h3>{{ group.title }}</h3>
+                  <p>{{ group.description }}</p>
+                </div>
+              </header>
+              <div class="field-grid">
+                <label
+                  v-for="key in group.keys"
+                  :key="key"
+                  :class="{
+                    'full-field': [
+                      'introduction',
+                      'heroTitle',
+                      'heroImage',
+                      'purchaseNotes',
+                      'bankAccount',
+                      'transferNotes',
+                    ].includes(key),
+                  }"
+                >
+                  {{ contentLabels[key] }}
+                  <textarea
+                    v-if="
+                      [
+                        'introduction',
+                        'heroTitle',
+                        'purchaseNotes',
+                        'transferNotes',
+                      ].includes(key)
+                    "
+                    v-model="contentForm[key]"
+                    :rows="key === 'heroTitle' ? 2 : 3"
+                    :required="['introduction', 'heroTitle'].includes(key)"
+                  />
+                  <input
+                    v-else
+                    v-model="contentForm[key]"
+                    :required="
+                      ['brandName', 'heroSubtitle', 'heroImage'].includes(key)
+                    "
+                  />
+                  <img
+                    v-if="key === 'heroImage' && contentForm.heroImage"
+                    :src="contentForm.heroImage"
+                    alt="首页图片预览"
+                    class="brand-image"
+                  />
+                </label>
+              </div>
+            </section>
+          </fieldset>
+          <footer class="surface save-bar">
+            <label
+              >修改原因<input
+                v-model="reason"
+                :disabled="busy || loading"
+                required
+                maxlength="200"
+                placeholder="说明本次调整的内容"
+            /></label>
+            <div class="dialog-actions">
+              <button
+                type="button"
+                :disabled="busy"
+                @click="editingContent = false"
+              >
+                取消
+              </button>
+              <button class="primary" :disabled="busy">
+                {{ busy ? "保存中…" : "保存品牌资料" }}
+              </button>
+            </div>
+          </footer>
+        </AdminForm>
+      </AdminDialog>
+    </template>
 
     <template v-else>
       <header class="catalog-heading">
@@ -366,21 +471,31 @@ function saveProduct() {
             >维护商品信息、身份价格与库存
           </p>
         </div>
-        <button
-          class="primary"
-          type="button"
-          :disabled="busy || loading || !loaded"
-          @click="edit()"
-        >
-          <span aria-hidden="true">＋</span> 新增商品
-        </button>
+        <div class="button-row">
+          <button
+            class="secondary"
+            type="button"
+            :disabled="busy || loading || !loaded"
+            @click="editCategory()"
+          >
+            新增分类
+          </button>
+          <button
+            class="primary"
+            type="button"
+            :disabled="busy || loading || !loaded"
+            @click="edit()"
+          >
+            <span aria-hidden="true">＋</span> 新增商品
+          </button>
+        </div>
       </header>
 
       <details class="surface category-panel" open>
         <summary>
           <span
             >商品分类 <span class="count">{{ categories.length }}</span></span
-          ><span class="summary-hint">分类名称、排序与启停</span>
+          ><span class="summary-hint">点击分类编辑名称、排序与启停</span>
         </summary>
         <div class="category-content">
           <div class="category-list" aria-label="选择分类进行编辑">
@@ -389,9 +504,10 @@ function saveProduct() {
               :key="c.id"
               class="category-chip"
               type="button"
-              :aria-pressed="category.id === c.id"
+              :aria-pressed="editingCategory && category.id === c.id"
               :disabled="busy || loading"
-              @click="category = { ...c, active: Boolean(c.active) }"
+              @click="editCategory(c)"
+              :aria-label="'编辑分类：' + c.name"
             >
               {{ c.name }} <span>{{ c.active ? "启用" : "停用" }}</span>
             </button>
@@ -399,259 +515,249 @@ function saveProduct() {
               尚未配置分类，请先新增分类，再配置商品。
             </p>
           </div>
-          <form
-            @submit.prevent="
-              act(async () => {
-                await api(
-                  '/admin/categories' + (category.id ? '/' + category.id : ''),
-                  {
-                    method: category.id ? 'PUT' : 'POST',
-                    body: {
-                      name: category.name,
-                      sort: Number(category.sort),
-                      active: category.active,
-                      reason,
-                    },
-                  },
-                );
-                category = { id: 0, name: '', sort: 0, active: true };
-              })
-            "
-          >
-            <fieldset
-              class="form-controls category-form"
-              :disabled="busy || loading || !loaded"
-            >
-              <label
-                >分类名称<input v-model="category.name" required maxlength="40"
-              /></label>
-              <label
-                >排序<input
-                  v-model.number="category.sort"
-                  type="number"
-                  min="0"
-                  max="9999"
-                  required
-              /></label>
-              <label class="check-label"
-                ><input v-model="category.active" type="checkbox" />启用</label
-              >
-              <label class="category-reason"
-                >修改原因<input v-model="reason" required maxlength="200"
-              /></label>
-              <div class="button-row">
-                <button class="secondary" :disabled="busy">
-                  {{ category.id ? "保存分类" : "新增分类" }}</button
-                ><button
-                  v-if="category.id"
-                  type="button"
-                  @click="category = { id: 0, name: '', sort: 0, active: true }"
-                >
-                  取消编辑
-                </button>
-              </div>
-            </fieldset>
-          </form>
         </div>
       </details>
 
-      <form
-        v-if="editing"
-        class="surface product-editor"
-        @submit.prevent="saveProduct"
+      <AdminDialog
+        v-if="editingCategory"
+        :title="category.id ? '编辑分类' : '新增分类'"
+        :busy="busy"
+        @close="editingCategory = false"
       >
-        <header class="panel-heading editor-heading">
-          <div>
-            <h3>{{ form.id ? "编辑商品" : "新增商品" }}</h3>
-            <p>
-              {{
-                form.id
-                  ? form.name
-                  : "填写商品与规格信息，勾选「上架」后保存即可上架。"
-              }}
-            </p>
-          </div>
-          <button type="button" :disabled="busy" @click="editing = false">
-            取消
-          </button>
-        </header>
-        <fieldset class="form-controls" :disabled="busy || loading">
-          <section class="editor-section">
-            <h4>基本信息</h4>
-            <div class="field-grid">
-              <label
-                >商品名<input
-                  ref="productNameInput"
-                  v-model="form.name"
-                  required
-                  maxlength="80"
-              /></label>
-              <label
-                >分类<select v-model.number="form.categoryId" required>
-                  <option :value="0" disabled>请选择分类</option>
-                  <option v-for="c in categories" :key="c.id" :value="c.id">
-                    {{ c.name }}{{ c.active ? "" : "（停用）" }}
-                  </option>
-                </select></label
-              >
-              <p v-if="!categories.length" class="field-help full-field">
-                请先在上方「商品分类」中新增分类。
-              </p>
-              <label class="full-field"
-                >副标题<input v-model="form.subtitle" maxlength="160"
-              /></label>
-              <label class="full-field"
-                >商品说明<textarea
-                  v-model="form.description"
-                  required
-                  rows="3"
-                />
-              </label>
-            </div>
-            <div class="publishing-options">
-              <label class="check-label"
-                ><input v-model="form.active" type="checkbox" />上架</label
-              >
-              <label class="check-label"
-                ><input
-                  v-model="form.featured"
-                  type="checkbox"
-                />首页臻选</label
-              >
-              <span>{{
-                form.active
-                  ? "保存后商品为已上架状态"
-                  : "保存后商品为已下架状态"
-              }}</span>
-            </div>
-          </section>
-          <section class="editor-section">
-            <h4>商品图片</h4>
-            <div class="field-grid">
-              <div class="image-field">
-                <div class="image-placeholder image-preview">
-                  <img
-                    v-if="form.image"
-                    :src="form.image"
-                    alt="列表图片预览"
-                  /><span v-else>列表图</span>
-                </div>
-                <label
-                  >列表图片地址<input
-                    v-model="form.image"
-                    required
-                    placeholder="https://… 或 /assets/…"
-                /></label>
-              </div>
-              <div class="image-field">
-                <div class="image-placeholder image-preview">
-                  <img
-                    v-if="form.detailImage"
-                    :src="form.detailImage"
-                    alt="详情图片预览"
-                  /><span v-else>详情图</span>
-                </div>
-                <label
-                  >详情图片地址<input
-                    v-model="form.detailImage"
-                    required
-                    placeholder="https://… 或 /assets/…"
-                /></label>
-              </div>
-            </div>
-          </section>
-          <section class="editor-section">
-            <div class="panel-heading">
-              <div>
-                <h4>
-                  规格与价格 <span class="count">{{ form.skus.length }}</span>
-                </h4>
-                <p>价格留空表示该身份暂不可购买。主理人价不得高于店主价。</p>
-              </div>
+        <AdminForm @submit="saveCategory">
+          <p v-if="error" class="message error" role="alert">{{ error }}</p>
+          <fieldset
+            class="form-controls field-grid"
+            :disabled="busy || loading || !loaded"
+          >
+            <label
+              >分类名称<input v-model="category.name" required maxlength="40"
+            /></label>
+            <label
+              >排序<input
+                v-model.number="category.sort"
+                type="number"
+                min="0"
+                max="9999"
+                required
+            /></label>
+            <label class="check-label"
+              ><input v-model="category.active" type="checkbox" />启用</label
+            >
+            <label class="full-field"
+              >修改原因<input v-model="reason" required maxlength="200"
+            /></label>
+            <div class="dialog-actions full-field">
               <button
-                class="secondary"
                 type="button"
-                @click="
-                  form.skus.push({
-                    name: '',
-                    unit: '件',
-                    retail: '',
-                    store: '',
-                    principal: '',
-                    stock: 0,
-                    active: true,
-                  })
-                "
+                :disabled="busy"
+                @click="editingCategory = false"
               >
-                添加规格
+                取消
+              </button>
+              <button class="primary" :disabled="busy">
+                {{ busy ? "保存中…" : "保存分类" }}
               </button>
             </div>
-            <div class="sku-list">
-              <fieldset v-for="(s, i) in form.skus" :key="i" class="sku-card">
-                <legend>规格 {{ i + 1 }}</legend>
-                <div class="sku-form">
-                  <label>名称<input v-model="s.name" required /></label>
-                  <label>单位<input v-model="s.unit" required /></label>
+          </fieldset>
+        </AdminForm>
+      </AdminDialog>
+
+      <AdminDialog
+        v-if="editing"
+        :title="form.id ? '编辑商品' : '新增商品'"
+        :busy="busy"
+        wide
+        @close="editing = false"
+      >
+        <AdminForm class="surface product-editor" @submit="saveProduct">
+          <p v-if="error" class="message error" role="alert">{{ error }}</p>
+          <fieldset class="form-controls" :disabled="busy || loading">
+            <section class="editor-section">
+              <h4>基本信息</h4>
+              <div class="field-grid">
+                <label
+                  >商品名<input
+                    ref="productNameInput"
+                    v-model="form.name"
+                    required
+                    maxlength="80"
+                /></label>
+                <label
+                  >分类<AdminSelect v-model.number="form.categoryId" required>
+                    <option value="" disabled>请选择分类</option>
+                    <option v-for="c in categories" :key="c.id" :value="c.id">
+                      {{ c.name }}{{ c.active ? "" : "（停用）" }}
+                    </option>
+                  </AdminSelect></label
+                >
+                <p v-if="!categories.length" class="field-help full-field">
+                  请取消当前编辑，在「商品分类」中新增分类后再添加商品。
+                </p>
+                <label class="full-field"
+                  >副标题<input v-model="form.subtitle" maxlength="160"
+                /></label>
+                <label class="full-field"
+                  >商品说明<textarea
+                    v-model="form.description"
+                    required
+                    rows="3"
+                  />
+                </label>
+              </div>
+              <div class="publishing-options">
+                <label class="check-label"
+                  ><input v-model="form.active" type="checkbox" />上架</label
+                >
+                <label class="check-label"
+                  ><input
+                    v-model="form.featured"
+                    type="checkbox"
+                  />首页臻选</label
+                >
+                <span>{{
+                  form.active
+                    ? "保存后商品为已上架状态"
+                    : "保存后商品为已下架状态"
+                }}</span>
+              </div>
+            </section>
+            <section class="editor-section">
+              <h4>商品图片</h4>
+              <div class="field-grid">
+                <div class="image-field">
+                  <div class="image-placeholder image-preview">
+                    <img
+                      v-if="form.image"
+                      :src="form.image"
+                      alt="列表图片预览"
+                    /><span v-else>列表图</span>
+                  </div>
                   <label
-                    >零售价（元）<input
-                      v-model="s.retail"
-                      inputmode="decimal"
-                      placeholder="暂不可购买"
-                  /></label>
-                  <label
-                    >店主价（元）<input
-                      v-model="s.store"
-                      inputmode="decimal"
-                      placeholder="暂不可购买"
-                  /></label>
-                  <label
-                    >主理人价（元）<input
-                      v-model="s.principal"
-                      inputmode="decimal"
-                      placeholder="暂不可购买"
-                  /></label>
-                  <label
-                    >总库存<input
-                      v-model.number="s.stock"
-                      type="number"
-                      :min="s.reserved || 0"
+                    >列表图片地址<input
+                      v-model="form.image"
                       required
+                      placeholder="https://… 或 /assets/…"
                   /></label>
                 </div>
-                <div class="sku-footer">
-                  <label class="check-label"
-                    ><input v-model="s.active" type="checkbox" />可售</label
-                  ><span v-if="s.reserved" class="field-help"
-                    >已占用 {{ s.reserved
-                    }}{{ s.unit }}，总库存不得低于已占用库存。</span
-                  ><button
-                    v-if="form.skus.length > 1"
-                    type="button"
-                    @click="form.skus.splice(i, 1)"
-                  >
-                    移除规格
-                  </button>
+                <div class="image-field">
+                  <div class="image-placeholder image-preview">
+                    <img
+                      v-if="form.detailImage"
+                      :src="form.detailImage"
+                      alt="详情图片预览"
+                    /><span v-else>详情图</span>
+                  </div>
+                  <label
+                    >详情图片地址<input
+                      v-model="form.detailImage"
+                      required
+                      placeholder="https://… 或 /assets/…"
+                  /></label>
                 </div>
-              </fieldset>
-            </div>
-          </section>
+              </div>
+            </section>
+            <section class="editor-section">
+              <div class="panel-heading">
+                <div>
+                  <h4>
+                    规格与价格 <span class="count">{{ form.skus.length }}</span>
+                  </h4>
+                  <p>价格留空表示该身份暂不可购买。主理人价不得高于店主价。</p>
+                </div>
+                <button
+                  class="secondary"
+                  type="button"
+                  @click="
+                    form.skus.push({
+                      name: '',
+                      unit: '件',
+                      retail: '',
+                      store: '',
+                      principal: '',
+                      stock: 0,
+                      active: true,
+                    })
+                  "
+                >
+                  添加规格
+                </button>
+              </div>
+              <div class="sku-list">
+                <fieldset v-for="(s, i) in form.skus" :key="i" class="sku-card">
+                  <legend>规格 {{ i + 1 }}</legend>
+                  <div class="sku-form">
+                    <label>名称<input v-model="s.name" required /></label>
+                    <label>单位<input v-model="s.unit" required /></label>
+                    <label
+                      >零售价（元）<input
+                        v-model="s.retail"
+                        inputmode="decimal"
+                        pattern="[0-9]+([.][0-9]{1,2})?"
+                        data-error-message="价格需为非负金额，最多两位小数"
+                        placeholder="暂不可购买"
+                    /></label>
+                    <label
+                      >店主价（元）<input
+                        v-model="s.store"
+                        inputmode="decimal"
+                        pattern="[0-9]+([.][0-9]{1,2})?"
+                        data-error-message="价格需为非负金额，最多两位小数"
+                        placeholder="暂不可购买"
+                    /></label>
+                    <label
+                      >主理人价（元）<input
+                        v-model="s.principal"
+                        inputmode="decimal"
+                        pattern="[0-9]+([.][0-9]{1,2})?"
+                        data-error-message="价格需为非负金额，最多两位小数"
+                        placeholder="暂不可购买"
+                    /></label>
+                    <label
+                      >总库存<input
+                        v-model.number="s.stock"
+                        type="number"
+                        :min="s.reserved || 0"
+                        required
+                    /></label>
+                  </div>
+                  <div class="sku-footer">
+                    <label class="check-label"
+                      ><input v-model="s.active" type="checkbox" />可售</label
+                    ><span v-if="s.reserved" class="field-help"
+                      >已占用 {{ s.reserved
+                      }}{{ s.unit }}，总库存不得低于已占用库存。</span
+                    ><button
+                      v-if="form.skus.length > 1"
+                      type="button"
+                      @click="form.skus.splice(i, 1)"
+                    >
+                      移除规格
+                    </button>
+                  </div>
+                </fieldset>
+              </div>
+            </section>
+          </fieldset>
           <footer class="save-bar editor-save">
             <label
               >修改原因<input
                 v-model="reason"
+                :disabled="busy || loading"
                 required
                 maxlength="200"
                 placeholder="说明本次商品、价格或库存调整"
             /></label>
-            <div class="button-row">
-              <button type="button" @click="editing = false">取消</button
+            <div class="dialog-actions">
+              <button type="button" :disabled="busy" @click="editing = false">
+                取消</button
               ><button class="primary" :disabled="busy">
                 {{ busy ? "保存中…" : "保存商品" }}
               </button>
             </div>
           </footer>
-        </fieldset>
-      </form>
+        </AdminForm>
+      </AdminDialog>
 
       <section class="surface catalog-panel">
         <header class="catalog-toolbar">
@@ -671,20 +777,20 @@ function saveProduct() {
             /></label>
             <label
               ><span class="sr-only">按分类筛选</span
-              ><select v-model.number="categoryFilter">
+              ><AdminSelect v-model.number="categoryFilter">
                 <option :value="0">全部分类</option>
                 <option v-for="c in categories" :key="c.id" :value="c.id">
                   {{ c.name }}
                 </option>
-              </select></label
+              </AdminSelect></label
             >
             <label
               ><span class="sr-only">按状态筛选</span
-              ><select v-model="statusFilter">
+              ><AdminSelect v-model="statusFilter">
                 <option value="">全部状态</option>
                 <option value="active">已上架</option>
                 <option value="inactive">已下架</option>
-              </select></label
+              </AdminSelect></label
             >
             <button v-if="hasFilters" type="button" @click="resetFilters">
               重置筛选
@@ -1103,6 +1209,24 @@ function saveProduct() {
 .sku-footer button {
   margin-left: auto;
   color: var(--admin-accent);
+}
+.business-settings .admin-dialog .product-editor {
+  border: 0;
+  overflow: visible;
+}
+.admin-dialog .save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 16px 20px;
+  background: white;
+  border-top: 1px solid var(--admin-border);
+}
+.admin-dialog .save-bar .dialog-actions {
+  position: static;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 .editor-save {
   border-top: 1px solid var(--admin-border);

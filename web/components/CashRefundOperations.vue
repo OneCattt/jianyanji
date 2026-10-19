@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { api } from "../client";
+import AdminDialog from "./AdminDialog.vue";
+import AdminForm from "./AdminForm.vue";
+import AdminSelect from "./AdminSelect.vue";
+import AdminDatePicker from "./AdminDatePicker.vue";
+const creating = ref(false);
 const userInput = ref<HTMLInputElement | null>(null);
 const rows = ref<any[]>([]),
   receipts = ref<any[]>([]),
@@ -65,6 +70,13 @@ async function query() {
     receiptId.value = 0;
   }, false);
 }
+function openCreate() {
+  receiptId.value = 0;
+  amount.value = "";
+  reason.value = "";
+  error.value = "";
+  creating.value = true;
+}
 async function create() {
   await run(async () => {
     await api("/admin/cash-refunds", {
@@ -77,9 +89,11 @@ async function create() {
         requestKey: crypto.randomUUID(),
       },
     });
+    creating.value = false;
   });
 }
 function open(r: any) {
+  error.value = "";
   selected.value = r;
   outcome.value = "success";
   confirmed.value = false;
@@ -116,6 +130,15 @@ async function resolve() {
       </div>
       <button
         type="button"
+        class="primary"
+        :disabled="busy || !wallet"
+        :aria-describedby="!wallet ? 'cash-refund-create-help' : undefined"
+        @click="openCreate"
+      >
+        人工受理未用积分退现金
+      </button>
+      <button
+        type="button"
         class="secondary"
         :disabled="busy"
         @click="run(load, false)"
@@ -123,6 +146,9 @@ async function resolve() {
         刷新记录
       </button>
     </header>
+    <p v-if="!wallet" id="cash-refund-create-help">
+      请先查询原收款及积分，再受理退现金。
+    </p>
     <p v-if="error" class="message error" role="alert">{{ error }}</p>
     <p v-if="notice" class="message success" role="status">{{ notice }}</p>
     <ol class="process-guide" aria-label="退现金办理流程">
@@ -148,8 +174,8 @@ async function resolve() {
         </div>
       </li>
     </ol>
-    <div class="application-grid" :class="{ 'has-wallet': wallet }">
-      <form class="surface query-form" @submit.prevent="query">
+    <div class="application-grid">
+      <AdminForm class="surface query-form" @submit="query">
         <div class="section-heading">
           <h3>核实原收款与未用积分</h3>
           <p>输入申请人的用户编号，核对可退款来源。</p>
@@ -178,116 +204,8 @@ async function resolve() {
         <p v-else class="empty-hint">
           查询后可查看积分余额，并选择原公司订货收款办理退现金。
         </p>
-      </form>
-      <form
-        v-if="wallet"
-        class="surface application-form"
-        @submit.prevent="create"
-      >
-        <div class="section-heading">
-          <h3>人工受理未用积分退现金</h3>
-          <p>
-            产品包款、已消费积分和其他人的收款不能作为退款来源。办理时先占用，实际退款后才扣回积分。
-          </p>
-        </div>
-        <label
-          >原公司订货收款<select v-model.number="receiptId" required>
-            <option :value="0" disabled>请选择原收款</option>
-            <option
-              v-for="r in receipts.filter((r) => r.purpose === 'points')"
-              :key="r.id"
-              :value="r.id"
-            >
-              #{{ r.id }} · {{ r.external_transaction_id }} · 原收{{
-                money(r.amount_cents)
-              }}
-              已退{{ money(r.cash_refunded_cents) }}
-            </option>
-          </select></label
-        >
-        <p
-          v-if="!receipts.some((r) => r.purpose === 'points')"
-          class="empty-hint"
-        >
-          该用户暂无原公司订货收款可选。请核对用户编号和原收款记录后重新查询。
-        </p>
-        <label
-          >本次退款（元）<input v-model="amount" inputmode="decimal" required
-        /></label>
-        <label
-          >申请原因<input v-model="reason" required maxlength="200"
-        /></label>
-        <div class="form-actions">
-          <button class="primary" :disabled="busy || !receiptId">
-            确认受理并占用积分
-          </button>
-        </div>
-      </form>
+      </AdminForm>
     </div>
-    <form v-if="selected" class="surface result-form" @submit.prevent="resolve">
-      <div class="section-heading">
-        <h3>登记实际处理结果 · {{ selected.number }}</h3>
-        <p>
-          本次金额
-          <strong class="refund-amount">{{
-            money(selected.amount_cents)
-          }}</strong>
-        </p>
-      </div>
-      <div class="result-fields">
-        <label
-          >结果<select v-model="outcome">
-            <option value="success">实际已退款成功</option>
-            <option value="unknown">结果待核查，保留占用</option>
-            <option value="failed">核实退款失败，释放占用</option>
-            <option value="rejected">驳回未付款申请，释放占用</option>
-          </select></label
-        >
-        <label
-          >实际收款人<input
-            v-model="recipient"
-            :required="outcome === 'success'"
-        /></label>
-        <label
-          >实际付款时间<input
-            v-model="paidAt"
-            type="datetime-local"
-            :required="outcome === 'success'"
-        /></label>
-        <label
-          >实际转账或核查凭证<input
-            v-model="proof"
-            :required="
-              outcome === 'success' ||
-              (selected.status === 'unknown' &&
-                ['failed', 'rejected'].includes(outcome))
-            "
-        /></label>
-        <div class="confirmations">
-          <label class="check-label"
-            ><input
-              v-model="confirmed"
-              type="checkbox"
-            />确认已经实际退现金</label
-          >
-          <label class="check-label"
-            ><input
-              v-model="confirmedNoPayment"
-              type="checkbox"
-            />已核实款项未退，允许释放积分占用</label
-          >
-        </div>
-        <label class="full-width"
-          >处理原因<input v-model="reason" required maxlength="200"
-        /></label>
-      </div>
-      <div class="form-actions">
-        <button class="primary" :disabled="busy">保存实际处理结果</button
-        ><button type="button" class="secondary" @click="selected = null">
-          取消
-        </button>
-      </div>
-    </form>
     <section class="surface records">
       <div class="section-heading">
         <h3>积分余额退款记录</h3>
@@ -359,6 +277,135 @@ async function resolve() {
         </table>
       </div>
     </section>
+    <AdminDialog
+      v-if="creating"
+      title="人工受理未用积分退现金"
+      :busy="busy"
+      @close="!busy && (creating = false)"
+    >
+      <p v-if="error" class="message error" role="alert">{{ error }}</p>
+      <AdminForm class="surface application-form" @submit="create">
+        <div class="section-heading">
+          <h3>人工受理未用积分退现金</h3>
+          <p>
+            产品包款、已消费积分和其他人的收款不能作为退款来源。办理时先占用，实际退款后才扣回积分。
+          </p>
+        </div>
+        <label
+          >原公司订货收款<AdminSelect v-model.number="receiptId" required>
+            <option :value="0" disabled>请选择原收款</option>
+            <option
+              v-for="r in receipts.filter((r) => r.purpose === 'points')"
+              :key="r.id"
+              :value="r.id"
+            >
+              #{{ r.id }} · {{ r.external_transaction_id }} · 原收{{
+                money(r.amount_cents)
+              }}
+              已退{{ money(r.cash_refunded_cents) }}
+            </option>
+          </AdminSelect></label
+        >
+        <p
+          v-if="!receipts.some((r) => r.purpose === 'points')"
+          class="empty-hint"
+        >
+          该用户暂无原公司订货收款可选。请核对用户编号和原收款记录后重新查询。
+        </p>
+        <label
+          >本次退款（元）<input v-model="amount" inputmode="decimal" required
+        /></label>
+        <label
+          >申请原因<input v-model="reason" required maxlength="200"
+        /></label>
+        <div class="dialog-actions">
+          <button type="button" :disabled="busy" @click="creating = false">
+            取消
+          </button>
+          <button class="primary" :disabled="busy || !receiptId">
+            确认受理并占用积分
+          </button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
+    <AdminDialog
+      v-if="selected"
+      :title="'登记实际处理结果 · ' + selected.number"
+      :busy="busy"
+      wide
+      @close="!busy && (selected = null)"
+    >
+      <p v-if="error" class="message error" role="alert">{{ error }}</p>
+      <AdminForm v-if="selected" class="surface result-form" @submit="resolve">
+        <div class="section-heading">
+          <h3>登记实际处理结果 · {{ selected.number }}</h3>
+          <p>
+            本次金额
+            <strong class="refund-amount">{{
+              money(selected.amount_cents)
+            }}</strong>
+          </p>
+        </div>
+        <div class="result-fields">
+          <label
+            >结果<AdminSelect v-model="outcome">
+              <option value="success">实际已退款成功</option>
+              <option value="unknown">结果待核查，保留占用</option>
+              <option value="failed">核实退款失败，释放占用</option>
+              <option value="rejected">驳回未付款申请，释放占用</option>
+            </AdminSelect></label
+          >
+          <label
+            >实际收款人<input
+              v-model="recipient"
+              :required="outcome === 'success'"
+          /></label>
+          <label
+            >实际付款时间<AdminDatePicker
+              v-model="paidAt"
+              type="datetime-local"
+              :required="outcome === 'success'"
+          /></label>
+          <label
+            >实际转账或核查凭证<input
+              v-model="proof"
+              :required="
+                outcome === 'success' ||
+                (selected.status === 'unknown' &&
+                  ['failed', 'rejected'].includes(outcome))
+              "
+          /></label>
+          <div class="confirmations">
+            <label class="check-label"
+              ><input
+                v-model="confirmed"
+                type="checkbox"
+              />确认已经实际退现金</label
+            >
+            <label class="check-label"
+              ><input
+                v-model="confirmedNoPayment"
+                type="checkbox"
+              />已核实款项未退，允许释放积分占用</label
+            >
+          </div>
+          <label class="full-width"
+            >处理原因<input v-model="reason" required maxlength="200"
+          /></label>
+        </div>
+        <div class="dialog-actions">
+          <button
+            type="button"
+            class="secondary"
+            :disabled="busy"
+            @click="selected = null"
+          >
+            取消
+          </button>
+          <button class="primary" :disabled="busy">保存实际处理结果</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
   </section>
 </template>
 <style scoped>

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { api } from "../client";
+import AdminDialog from "./AdminDialog.vue";
+import AdminForm from "./AdminForm.vue";
+import AdminSelect from "./AdminSelect.vue";
 
 interface Shipping {
   provinces: string[];
@@ -79,6 +82,8 @@ const search = ref(""),
   paymentState = ref("");
 const shippingLoaded = ref(false),
   shippingConfigured = ref(false);
+const editingShipping = ref(false);
+const savedShipping = ref<Shipping | null>(null);
 const form = ref({
   provinces: "",
   fee: "",
@@ -168,6 +173,7 @@ async function load() {
       shippingLoaded.value = false;
       const result = await api<Shipping | null>("/admin/shipping-settings");
       if (current !== generation) return;
+      savedShipping.value = result;
       shippingConfigured.value = result !== null;
       form.value = {
         provinces: result?.provinces.join("\n") ?? "",
@@ -209,6 +215,18 @@ watch(
   { immediate: true },
 );
 
+function openShipping() {
+  const result = savedShipping.value;
+  form.value = {
+    provinces: result?.provinces.join("\n") ?? "",
+    fee: result ? (result.feeCents / 100).toFixed(2) : "",
+    instructions: result?.instructions ?? "",
+    pendingMinutes: result ? String(result.pendingMinutes) : "",
+    reason: "",
+  };
+  error.value = "";
+  editingShipping.value = true;
+}
 function toCents(value: string) {
   if (!/^\d+(\.\d{1,2})?$/.test(value))
     throw new Error("运费请输入非负金额，最多两位小数");
@@ -264,7 +282,9 @@ async function saveShipping() {
       pendingMinutes: String(result.pendingMinutes),
       reason: "",
     };
+    savedShipping.value = result;
     shippingConfigured.value = true;
+    editingShipping.value = false;
     notice.value = "配送配置已保存；历史订单的成交依据保留。";
   } catch (e) {
     report(e);
@@ -320,65 +340,33 @@ async function saveShipping() {
       正在读取{{ active === "shipping" ? "配送配置" : "订单记录" }}…
     </p>
     <template v-else-if="active === 'shipping'">
-      <form
-        v-if="shippingLoaded"
-        class="shipping-form surface"
-        @submit.prevent="saveShipping"
-      >
-        <p v-if="!shippingConfigured" class="unconfigured">
-          配送尚未配置，请完整填写后保存。未配置时购买端无法下单。
-        </p>
-        <fieldset :disabled="saving">
-          <label
-            >配送省份<textarea
-              v-model="form.provinces"
-              rows="6"
-              required
-              placeholder="每行填写一个完整省份名称，如：浙江省"
-            /><small
-              >须与收货地址省份一致；支持按行或逗号分隔。不在范围内的地址不可下单。</small
-            ></label
-          >
-          <div class="shipping-fields">
-            <label
-              >固定运费（元）<input
-                v-model="form.fee"
-                required
-                inputmode="decimal"
-                pattern="[0-9]+(\.[0-9]{1,2})?"
-                placeholder="0.00"
-              /><small>0 表示包邮；最多两位小数。</small></label
-            ><label
-              >待付款有效期（分钟）<input
-                v-model="form.pendingMinutes"
-                required
-                inputmode="numeric"
-                pattern="[0-9]+"
-                placeholder="5～1440"
-              /><small>范围 5～1440 分钟。</small></label
-            >
+      <article v-if="shippingLoaded" class="surface order-detail">
+        <div class="section-heading">
+          <h3>{{ shippingConfigured ? "当前配送配置" : "配送尚未配置" }}</h3>
+          <button class="primary" :disabled="saving" @click="openShipping">
+            {{ shippingConfigured ? "编辑配送配置" : "新增配送配置" }}
+          </button>
+        </div>
+        <dl v-if="savedShipping" class="facts">
+          <div>
+            <dt>配送省份</dt>
+            <dd>{{ savedShipping.provinces.join("、") }}</dd>
           </div>
-          <label
-            >发货说明<textarea
-              v-model="form.instructions"
-              required
-              maxlength="2000"
-              rows="4"
-              placeholder="填写真实发货安排及配送说明"
-            />
-          </label>
-          <label
-            >修改原因<input
-              v-model="form.reason"
-              required
-              maxlength="200"
-              placeholder="用于操作记录与后续核对"
-          /></label>
-        </fieldset>
-        <button class="primary save-shipping" :disabled="saving">
-          {{ saving ? "保存中…" : "保存配送配置" }}
-        </button>
-      </form>
+          <div>
+            <dt>固定运费</dt>
+            <dd>{{ money(savedShipping.feeCents) }}</dd>
+          </div>
+          <div>
+            <dt>待付款有效期</dt>
+            <dd>{{ savedShipping.pendingMinutes }} 分钟</dd>
+          </div>
+          <div>
+            <dt>发货说明</dt>
+            <dd>{{ savedShipping.instructions }}</dd>
+          </div>
+        </dl>
+        <p v-else>未配置时购买端无法下单，请新增配送配置。</p>
+      </article>
       <p v-else class="empty">暂未读取到配送配置，请刷新重试。</p>
     </template>
     <template v-else-if="selected">
@@ -575,21 +563,21 @@ async function saveShipping() {
     </template>
     <template v-else>
       <section class="surface order-list">
-        <form class="order-filters" @submit.prevent>
+        <AdminForm class="order-filters">
           <label
             >搜索订单 / 购买者<input
               v-model="search"
               type="search"
               placeholder="订单号、用户 ID、收货人或电话" /></label
           ><label
-            >订单状态<select v-model="status">
+            >订单状态<AdminSelect v-model="status">
               <option value="">全部状态</option>
               <option v-for="value in states" :key="value" :value="value">
                 {{ orderStates[value] ?? value }}
               </option>
-            </select></label
+            </AdminSelect></label
           ><label
-            >支付状态<select v-model="paymentState">
+            >支付状态<AdminSelect v-model="paymentState">
               <option value="">全部状态</option>
               <option
                 v-for="value in paymentOptions"
@@ -598,9 +586,9 @@ async function saveShipping() {
               >
                 {{ paymentStates[value] ?? value }}
               </option>
-            </select></label
+            </AdminSelect></label
           >
-        </form>
+        </AdminForm>
         <p class="list-caption">
           当前读取最新 {{ orders.length }} 笔（接口最多返回 200 笔），筛选后
           {{ filtered.length }} 笔。
@@ -652,6 +640,78 @@ async function saveShipping() {
         </div>
       </section>
     </template>
+    <AdminDialog
+      v-if="editingShipping"
+      title="配送与待付款配置"
+      :busy="saving"
+      @close="!saving && (editingShipping = false)"
+    >
+      <p v-if="error" class="message error" role="alert">{{ error }}</p>
+      <AdminForm class="shipping-form surface" @submit="saveShipping">
+        <p v-if="!shippingConfigured" class="unconfigured">
+          配送尚未配置，请完整填写后保存。未配置时购买端无法下单。
+        </p>
+        <fieldset :disabled="saving">
+          <label
+            >配送省份<textarea
+              v-model="form.provinces"
+              rows="6"
+              required
+              placeholder="每行填写一个完整省份名称，如：浙江省"
+            /><small
+              >须与收货地址省份一致；支持按行或逗号分隔。不在范围内的地址不可下单。</small
+            ></label
+          >
+          <div class="shipping-fields">
+            <label
+              >固定运费（元）<input
+                v-model="form.fee"
+                required
+                inputmode="decimal"
+                pattern="[0-9]+(\.[0-9]{1,2})?"
+                placeholder="0.00"
+              /><small>0 表示包邮；最多两位小数。</small></label
+            ><label
+              >待付款有效期（分钟）<input
+                v-model="form.pendingMinutes"
+                required
+                inputmode="numeric"
+                pattern="[0-9]+"
+                placeholder="5～1440"
+              /><small>范围 5～1440 分钟。</small></label
+            >
+          </div>
+          <label
+            >发货说明<textarea
+              v-model="form.instructions"
+              required
+              maxlength="2000"
+              rows="4"
+              placeholder="填写真实发货安排及配送说明"
+            />
+          </label>
+          <label
+            >修改原因<input
+              v-model="form.reason"
+              required
+              maxlength="200"
+              placeholder="用于操作记录与后续核对"
+          /></label>
+        </fieldset>
+        <div class="dialog-actions">
+          <button
+            type="button"
+            :disabled="saving"
+            @click="editingShipping = false"
+          >
+            取消
+          </button>
+          <button class="primary save-shipping" :disabled="saving">
+            {{ saving ? "保存中…" : "保存配送配置" }}
+          </button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
   </section>
 </template>
 

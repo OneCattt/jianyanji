@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
+import AdminDialog from "./AdminDialog.vue";
+import AdminForm from "./AdminForm.vue";
+import AdminSelect from "./AdminSelect.vue";
+import AdminDatePicker from "./AdminDatePicker.vue";
 interface Reward {
   id: number;
   orderId: number;
@@ -37,7 +41,10 @@ interface Settlement {
   proof: string | null;
 }
 const activeArea = ref("rewards");
-const sourceInput = ref<HTMLInputElement | null>(null);
+type Dialog =
+  "settings" | "source" | "plan" | "result" | "recovery" | "reconcile";
+const dialog = ref<Dialog | "">("");
+const reconcileId = ref(0);
 const error = ref(""),
   notice = ref(""),
   busy = ref(false),
@@ -49,6 +56,7 @@ const error = ref(""),
     settlementDay: null as number | null,
   }),
   configured = ref(false);
+let savedSettings = { ...settings.value };
 const rewards = ref<Reward[]>([]),
   debts = ref<Debt[]>([]),
   settlements = ref<Settlement[]>([]),
@@ -119,6 +127,7 @@ async function load() {
       storeRewardCents: amount(s.storeRewardCents),
       principalRewardCents: amount(s.principalRewardCents),
     };
+  savedSettings = { ...settings.value };
   rewards.value = r;
   debts.value = d;
   settlements.value = p;
@@ -126,13 +135,14 @@ async function load() {
     r.some((x) => x.id === id && x.eligible && x.remainingCents > 0),
   );
 }
-async function act(work: () => Promise<void>) {
+async function act(work: () => Promise<void>, closeOnSuccess = false) {
   if (busy.value) return;
   busy.value = true;
   error.value = "";
   notice.value = "";
   try {
     await work();
+    if (closeOnSuccess) dialog.value = "";
     await load();
     notice.value = "操作记录已保存";
   } catch (e) {
@@ -153,7 +163,7 @@ function saveSettings() {
         reason: reason.value,
       },
     });
-  });
+  }, true);
 }
 function readSource() {
   return act(async () => {
@@ -173,8 +183,7 @@ function register() {
         reason: reason.value,
       },
     });
-    basis.value = null;
-  });
+  }, true);
 }
 function plan() {
   return act(async () => {
@@ -193,7 +202,7 @@ function plan() {
     });
     planKey = crypto.randomUUID();
     selected.value = [];
-  });
+  }, true);
 }
 function saveResult() {
   return act(async () => {
@@ -210,8 +219,7 @@ function saveResult() {
         reason: reason.value,
       },
     });
-    result.value.id = 0;
-  });
+  }, true);
 }
 function recover() {
   return act(async () => {
@@ -227,21 +235,63 @@ function recover() {
       },
     });
     recoveryKey = crypto.randomUUID();
-    recovery.value = { reversalId: 0, amount: "", receivedAt: "", proof: "" };
-  });
+  }, true);
 }
 function showDetail(id: number) {
   return act(async () => {
     detail.value = await api("/admin/rewards/" + id);
   });
 }
-function reconcile(id: number) {
+function reconcile() {
   return act(async () => {
-    detail.value = await api("/admin/rewards/" + id + "/reconcile", {
-      method: "POST",
-      body: { reason: reason.value },
-    });
-  });
+    detail.value = await api(
+      "/admin/rewards/" + reconcileId.value + "/reconcile",
+      {
+        method: "POST",
+        body: { reason: reason.value },
+      },
+    );
+  }, true);
+}
+function openDialog(next: Dialog) {
+  if (busy.value) return;
+  error.value = "";
+  notice.value = "";
+  reason.value = "";
+  if (next === "settings") settings.value = { ...savedSettings };
+  if (next === "plan") payee.value = "";
+  if (next === "source") {
+    sourceId.value = undefined;
+    basis.value = null;
+    registrationAmount.value = "";
+  }
+  dialog.value = next;
+}
+function closeDialog() {
+  if (busy.value) return;
+  if (dialog.value === "settings") settings.value = { ...savedSettings };
+  dialog.value = "";
+  error.value = "";
+}
+function openResult(settlement: Settlement) {
+  if (busy.value) return;
+  result.value = { id: settlement.id, status: "paid", paidAt: "", proof: "" };
+  openDialog("result");
+}
+function openRecovery(debt: Debt) {
+  if (busy.value) return;
+  recovery.value = {
+    reversalId: debt.id,
+    amount: amount(debt.remainingCents),
+    receivedAt: "",
+    proof: "",
+  };
+  openDialog("recovery");
+}
+function openReconcile(id: number) {
+  if (busy.value) return;
+  reconcileId.value = id;
+  openDialog("reconcile");
 }
 </script>
 <template>
@@ -251,62 +301,44 @@ function reconcile(id: number) {
         <h2>奖励与线下月结</h2>
         <p>人工核算登记 · 公司线下转账 · 与订货积分分别记账</p>
       </div>
-      <button class="secondary" :disabled="busy" @click="act(load)">
-        刷新
-      </button>
+      <div class="form-actions">
+        <button type="button" :disabled="busy" @click="openDialog('settings')">
+          奖励参数
+        </button>
+        <button type="button" :disabled="busy" @click="openDialog('source')">
+          登记来源奖励
+        </button>
+        <button
+          type="button"
+          class="primary"
+          :disabled="
+            busy || !configured || !selected.length || selectedUser.size !== 1
+          "
+          @click="openDialog('plan')"
+        >
+          创建月结单
+        </button>
+        <button class="secondary" :disabled="busy" @click="act(load)">
+          刷新
+        </button>
+      </div>
     </header>
-    <p v-if="error" role="alert" class="message error">{{ error }}</p>
+    <p v-if="error && !dialog" role="alert" class="message error">
+      {{ error }}
+    </p>
     <p v-if="notice" role="status" class="message success">{{ notice }}</p>
-    <div class="surface operation-context">
-      <label class="reason"
-        >本次操作原因<input
-          v-model="reason"
-          maxlength="1000"
-          placeholder="填写核对依据，写入操作记录"
-      /></label>
-      <p class="hint">
-        保存参数、登记奖励、核实付款或追回前，请填写本次操作原因。
-      </p>
-    </div>
+
     <details>
       <summary>
         真实奖励档位与结算参数 ·
         {{ configured ? "已配置" : "尚未配置，不能月结" }}
       </summary>
-      <form @submit.prevent="saveSettings" class="form-grid">
-        <label
-          >邀请店主固定奖励（元）<input
-            v-model="settings.storeRewardCents"
-            inputmode="decimal"
-            required /></label
-        ><label
-          >邀请主理人固定奖励（元）<input
-            v-model="settings.principalRewardCents"
-            inputmode="decimal"
-            required
-        /></label>
-        <p>
-          统一售后期：{{
-            settings.afterSalesDays === null
-              ? "尚未配置"
-              : settings.afterSalesDays + " 天"
-          }}。请在订单售后设置维护，历史奖励按原订单期限核对。
-        </p>
-        <label
-          >每月集中结算日<input
-            v-model.number="settings.settlementDay"
-            type="number"
-            min="1"
-            max="28"
-            required
-        /></label>
-        <p>
-          仅作用于后续业务；历史来源沿用原快照。具体金额和日期须由品牌方确认。
-        </p>
-        <div class="form-actions">
-          <button class="primary" :disabled="busy || !reason">保存参数</button>
-        </div>
-      </form>
+      <p>
+        邀请店主奖励：{{ settings.storeRewardCents || "未配置" }} 元 ·
+        邀请主理人奖励：{{ settings.principalRewardCents || "未配置" }} 元 ·
+        每月结算日：{{ settings.settlementDay || "未配置" }}
+      </p>
+      <p>参数仅作用于后续业务；历史来源沿用原快照。</p>
     </details>
     <nav class="area-nav" aria-label="奖励业务区域">
       <button
@@ -334,47 +366,8 @@ function reconcile(id: number) {
     <div v-show="activeArea === 'rewards'" class="area-content">
       <section class="surface">
         <div class="section-heading">
-          <h3>人工登记来源奖励</h3>
-          <p>先读取订单依据，再核对金额并登记奖励。</p>
-        </div>
-        <form @submit.prevent="readSource" class="inline">
-          <label
-            >来源订单 ID<input
-              ref="sourceInput"
-              v-model.number="sourceId"
-              type="number"
-              min="1"
-              required /></label
-          ><button :disabled="busy">读取原始核算依据</button>
-        </form>
-        <p v-if="!basis" class="empty-hint">
-          输入来源订单 ID，读取原始核算依据后可填写人工核对金额。
-        </p>
-        <form v-if="basis" @submit.prevent="register" class="source-basis">
-          <p>
-            {{ basis.orderNumber }} ·
-            {{ basis.kind === "onboarding" ? "入驻奖励" : "店主订货收益" }} ·
-            收款代理 #{{ basis.userId }}
-          </p>
-          <pre>{{ JSON.stringify(basis.snapshot, null, 2) }}</pre>
-          <label
-            >人工核对金额（元）<input
-              v-model="registrationAmount"
-              required
-              inputmode="decimal"
-          /></label>
-          <p>价差不含运费；入驻奖励归直接邀请人。登记不代表付款。</p>
-          <div class="form-actions">
-            <button class="primary" :disabled="busy || !reason">
-              确认登记
-            </button>
-          </div>
-        </form>
-      </section>
-      <section class="surface">
-        <div class="section-heading">
           <h3>奖励来源与到期检查</h3>
-          <p>勾选同一对象的可结算奖励，在下方创建月结单。</p>
+          <p>勾选同一对象的可结算奖励，点击顶部按钮创建月结单。</p>
         </div>
         <div class="table-wrap">
           <table>
@@ -415,7 +408,7 @@ function reconcile(id: number) {
                 <td>
                   <button :disabled="busy" @click="showDetail(r.id)">
                     明细</button
-                  ><button :disabled="busy || !reason" @click="reconcile(r.id)">
+                  ><button :disabled="busy" @click="openReconcile(r.id)">
                     核对退款冲回
                   </button>
                 </td>
@@ -427,7 +420,8 @@ function reconcile(id: number) {
                   <button
                     type="button"
                     class="secondary"
-                    @click="sourceInput?.focus()"
+                    :disabled="busy"
+                    @click="openDialog('source')"
                   >
                     填写来源订单
                   </button>
@@ -436,9 +430,9 @@ function reconcile(id: number) {
             </tbody>
           </table>
         </div>
-        <form @submit.prevent="plan" class="form-grid settlement-plan">
+        <div class="settlement-plan">
           <div class="form-heading">
-            <h4>创建月结单</h4>
+            <h4>月结选择汇总</h4>
             <p>
               已选择 {{ selected.length }} 项奖励<span
                 v-if="selectedUser.size > 1"
@@ -448,10 +442,6 @@ function reconcile(id: number) {
               >
             </p>
           </div>
-          <label>结算月份<input v-model="month" type="month" required /></label
-          ><label
-            >实际收款人<input v-model="payee" required maxlength="100"
-          /></label>
           <div class="settlement-totals">
             <div>
               <span>应付</span><strong>¥{{ amount(totals.gross) }}</strong>
@@ -463,26 +453,7 @@ function reconcile(id: number) {
               <span>净付</span><strong>¥{{ amount(totals.net) }}</strong>
             </div>
           </div>
-          <p>
-            集中结算日：{{
-              configured ? `每月 ${settings.settlementDay} 日` : "未配置"
-            }}。抵扣在核实结算后入账。
-          </p>
-          <div class="form-actions">
-            <button
-              class="primary"
-              :disabled="
-                busy ||
-                !configured ||
-                !selected.length ||
-                selectedUser.size !== 1 ||
-                !reason
-              "
-            >
-              创建待付款月结单
-            </button>
-          </div>
-        </form>
+        </div>
       </section>
     </div>
     <section v-show="activeArea === 'settlements'" class="surface">
@@ -524,9 +495,7 @@ function reconcile(id: number) {
                 <button
                   v-if="!['paid', 'cancelled'].includes(s.status)"
                   :disabled="busy"
-                  @click="
-                    result = { id: s.id, status: 'paid', paidAt: '', proof: '' }
-                  "
+                  @click="openResult(s)"
                 >
                   登记实际结果
                 </button>
@@ -548,40 +517,6 @@ function reconcile(id: number) {
           </tbody>
         </table>
       </div>
-      <form
-        v-if="result.id"
-        @submit.prevent="saveResult"
-        class="form-grid inset-form"
-      >
-        <p>核实结算单 #{{ result.id }}；系统不会发起银行转账。</p>
-        <label
-          >实际结果<select v-model="result.status">
-            <option value="paid">已核实付款 / 全额抵扣</option>
-            <option value="failed">明确付款失败</option>
-            <option value="unknown">结果待核实</option>
-            <option value="cancelled">取消未付计划</option>
-          </select></label
-        ><template v-if="result.status === 'paid'"
-          ><label
-            >实际付款 / 抵扣确认时间<input
-              v-model="result.paidAt"
-              type="datetime-local"
-              required /></label
-          ><label
-            >付款或全额抵扣凭证<textarea
-              v-model="result.proof"
-              required
-              placeholder="银行流水号、凭证存储地址或抵扣核对依据"
-            /></label
-        ></template>
-        <div class="form-actions">
-          <button class="primary" :disabled="busy || !reason">
-            保存核实结果</button
-          ><button type="button" class="secondary" @click="result.id = 0">
-            关闭
-          </button>
-        </div>
-      </form>
     </section>
     <section v-show="activeArea === 'recovery'" class="surface">
       <div class="section-heading">
@@ -611,17 +546,7 @@ function reconcile(id: number) {
               <td>¥{{ amount(d.recovered_cents) }}</td>
               <td>¥{{ amount(d.remainingCents) }}</td>
               <td>
-                <button
-                  :disabled="busy"
-                  @click="
-                    recovery = {
-                      reversalId: d.id,
-                      amount: amount(d.remainingCents),
-                      receivedAt: '',
-                      proof: '',
-                    }
-                  "
-                >
+                <button :disabled="busy" @click="openRecovery(d)">
                   登记实际收回
                 </button>
               </td>
@@ -643,35 +568,6 @@ function reconcile(id: number) {
           </tbody>
         </table>
       </div>
-      <form
-        v-if="recovery.reversalId"
-        @submit.prevent="recover"
-        class="form-grid inset-form"
-      >
-        <p>冲回 #{{ recovery.reversalId }} 的实际到账记录</p>
-        <label
-          >实际收回（元）<input
-            v-model="recovery.amount"
-            inputmode="decimal"
-            required /></label
-        ><label
-          >到账时间<input
-            v-model="recovery.receivedAt"
-            type="datetime-local"
-            required /></label
-        ><label>到账凭证<textarea v-model="recovery.proof" required /></label>
-        <div class="form-actions">
-          <button class="primary" :disabled="busy || !reason">
-            核实到账并登记</button
-          ><button
-            type="button"
-            class="secondary"
-            @click="recovery.reversalId = 0"
-          >
-            关闭
-          </button>
-        </div>
-      </form>
     </section>
     <section v-if="detail" class="surface">
       <header>
@@ -680,6 +576,326 @@ function reconcile(id: number) {
       </header>
       <pre>{{ JSON.stringify(detail, null, 2) }}</pre>
     </section>
+    <AdminDialog
+      v-if="dialog === 'settings'"
+      title="奖励参数"
+      :busy="busy"
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="message error">{{ error }}</p>
+      <AdminForm @submit="saveSettings" class="form-grid">
+        <label
+          >邀请店主固定奖励（元）<input
+            v-model="settings.storeRewardCents"
+            inputmode="decimal"
+            pattern="\d+(\.\d{1,2})?"
+            data-error-message="请输入金额，最多两位小数"
+            required /></label
+        ><label
+          >邀请主理人固定奖励（元）<input
+            v-model="settings.principalRewardCents"
+            inputmode="decimal"
+            pattern="\d+(\.\d{1,2})?"
+            data-error-message="请输入金额，最多两位小数"
+            required
+        /></label>
+        <p>
+          统一售后期：{{
+            settings.afterSalesDays === null
+              ? "尚未配置"
+              : settings.afterSalesDays + " 天"
+          }}。请在订单售后设置维护，历史奖励按原订单期限核对。
+        </p>
+        <label
+          >每月集中结算日<input
+            v-model.number="settings.settlementDay"
+            type="number"
+            min="1"
+            max="28"
+            required
+        /></label>
+        <p>
+          仅作用于后续业务；历史来源沿用原快照。具体金额和日期须由品牌方确认。
+        </p>
+        <label class="reason"
+          >本次操作原因<input
+            v-model="reason"
+            required
+            maxlength="1000"
+            placeholder="填写核对依据，写入操作记录"
+        /></label>
+        <div class="dialog-actions">
+          <button
+            type="button"
+            class="secondary"
+            :disabled="busy"
+            @click="closeDialog"
+          >
+            取消
+          </button>
+          <button class="primary" :disabled="busy">保存参数</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
+    <AdminDialog
+      v-if="dialog === 'source'"
+      title="来源核算与奖励登记"
+      :busy="busy"
+      wide
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="message error">{{ error }}</p>
+      <AdminForm @submit="readSource" class="inline">
+        <label
+          >来源订单 ID<input
+            v-model.number="sourceId"
+            @input="basis = null"
+            :disabled="busy"
+            type="number"
+            min="1"
+            required /></label
+        ><button :disabled="busy">读取原始核算依据</button>
+        <button
+          type="button"
+          class="secondary"
+          :disabled="busy"
+          @click="closeDialog"
+        >
+          取消
+        </button>
+      </AdminForm>
+      <p v-if="!basis" class="empty-hint">
+        输入来源订单 ID，读取原始核算依据后可填写人工核对金额。
+      </p>
+      <AdminForm v-if="basis" @submit="register" class="source-basis">
+        <p>
+          {{ basis.orderNumber }} ·
+          {{ basis.kind === "onboarding" ? "入驻奖励" : "店主订货收益" }} ·
+          收款代理 #{{ basis.userId }}
+        </p>
+        <pre>{{ JSON.stringify(basis.snapshot, null, 2) }}</pre>
+        <label
+          >人工核对金额（元）<input
+            v-model="registrationAmount"
+            required
+            inputmode="decimal"
+            pattern="\d+(\.\d{1,2})?"
+            data-error-message="请输入金额，最多两位小数"
+        /></label>
+        <p>价差不含运费；入驻奖励归直接邀请人。登记不代表付款。</p>
+        <label class="reason"
+          >本次操作原因<input
+            v-model="reason"
+            required
+            maxlength="1000"
+            placeholder="填写核对依据，写入操作记录"
+        /></label>
+        <div class="dialog-actions">
+          <button
+            type="button"
+            class="secondary"
+            :disabled="busy"
+            @click="closeDialog"
+          >
+            取消
+          </button>
+          <button class="primary" :disabled="busy">确认登记</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
+    <AdminDialog
+      v-if="dialog === 'plan'"
+      title="创建待付款月结单"
+      :busy="busy"
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="message error">{{ error }}</p>
+      <AdminForm @submit="plan" class="form-grid">
+        <div class="form-heading">
+          <h4>创建月结单</h4>
+          <p>
+            已选择 {{ selected.length }} 项奖励<span
+              v-if="selectedUser.size > 1"
+              class="selection-warning"
+            >
+              · 请选择同一对象的奖励</span
+            >
+          </p>
+        </div>
+        <label
+          >结算月份<AdminDatePicker
+            v-model="month"
+            type="month"
+            required /></label
+        ><label
+          >实际收款人<input v-model="payee" required maxlength="100"
+        /></label>
+        <div class="settlement-totals">
+          <div>
+            <span>应付</span><strong>¥{{ amount(totals.gross) }}</strong>
+          </div>
+          <div>
+            <span>同人抵扣</span><strong>¥{{ amount(totals.offset) }}</strong>
+          </div>
+          <div>
+            <span>净付</span><strong>¥{{ amount(totals.net) }}</strong>
+          </div>
+        </div>
+        <p>
+          集中结算日：{{
+            configured ? `每月 ${settings.settlementDay} 日` : "未配置"
+          }}。抵扣在核实结算后入账。
+        </p>
+        <label class="reason"
+          >本次操作原因<input
+            v-model="reason"
+            required
+            maxlength="1000"
+            placeholder="填写核对依据，写入操作记录"
+        /></label>
+        <div class="dialog-actions">
+          <button
+            type="button"
+            class="secondary"
+            :disabled="busy"
+            @click="closeDialog"
+          >
+            取消
+          </button>
+          <button
+            class="primary"
+            :disabled="
+              busy || !configured || !selected.length || selectedUser.size !== 1
+            "
+          >
+            创建待付款月结单
+          </button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
+    <AdminDialog
+      v-if="dialog === 'result'"
+      title="登记结算实际结果"
+      :busy="busy"
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="message error">{{ error }}</p>
+      <AdminForm @submit="saveResult" class="form-grid">
+        <p>核实结算单 #{{ result.id }}；系统不会发起银行转账。</p>
+        <label
+          >实际结果<AdminSelect v-model="result.status">
+            <option value="paid">已核实付款 / 全额抵扣</option>
+            <option value="failed">明确付款失败</option>
+            <option value="unknown">结果待核实</option>
+            <option value="cancelled">取消未付计划</option>
+          </AdminSelect></label
+        ><template v-if="result.status === 'paid'"
+          ><label
+            >实际付款 / 抵扣确认时间<AdminDatePicker
+              v-model="result.paidAt"
+              type="datetime-local"
+              required /></label
+          ><label
+            >付款或全额抵扣凭证<textarea
+              v-model="result.proof"
+              required
+              placeholder="银行流水号、凭证存储地址或抵扣核对依据"
+            /></label
+        ></template>
+        <label class="reason"
+          >本次操作原因<input
+            v-model="reason"
+            required
+            maxlength="1000"
+            placeholder="填写核对依据，写入操作记录"
+        /></label>
+        <div class="dialog-actions">
+          <button
+            type="button"
+            class="secondary"
+            :disabled="busy"
+            @click="closeDialog"
+          >
+            取消
+          </button>
+          <button class="primary" :disabled="busy">保存核实结果</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
+    <AdminDialog
+      v-if="dialog === 'recovery'"
+      title="登记人工实际追回"
+      :busy="busy"
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="message error">{{ error }}</p>
+      <AdminForm @submit="recover" class="form-grid">
+        <p>冲回 #{{ recovery.reversalId }} 的实际到账记录</p>
+        <label
+          >实际收回（元）<input
+            v-model="recovery.amount"
+            inputmode="decimal"
+            pattern="\d+(\.\d{1,2})?"
+            data-error-message="请输入金额，最多两位小数"
+            required /></label
+        ><label
+          >到账时间<AdminDatePicker
+            v-model="recovery.receivedAt"
+            type="datetime-local"
+            required /></label
+        ><label>到账凭证<textarea v-model="recovery.proof" required /></label>
+        <label class="reason"
+          >本次操作原因<input
+            v-model="reason"
+            required
+            maxlength="1000"
+            placeholder="填写核对依据，写入操作记录"
+        /></label>
+        <div class="dialog-actions">
+          <button
+            type="button"
+            class="secondary"
+            :disabled="busy"
+            @click="closeDialog"
+          >
+            取消
+          </button>
+          <button class="primary" :disabled="busy">核实到账并登记</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
+    <AdminDialog
+      v-if="dialog === 'reconcile'"
+      title="核对退款冲回"
+      :busy="busy"
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="message error">{{ error }}</p>
+      <AdminForm class="form-grid" @submit="reconcile">
+        <p>
+          核对奖励 #{{ reconcileId }}
+          来源订单的退款并记录冲回；已付奖励优先抵扣同一人后续应结算奖励，不足部分持续记录待追回。
+        </p>
+        <label class="reason"
+          >本次操作原因<input
+            v-model="reason"
+            required
+            maxlength="1000"
+            placeholder="填写核对依据，写入操作记录"
+        /></label>
+        <div class="dialog-actions">
+          <button
+            type="button"
+            class="secondary"
+            :disabled="busy"
+            @click="closeDialog"
+          >
+            取消
+          </button>
+          <button class="primary" :disabled="busy">确认核对退款冲回</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
   </section>
 </template>
 <style scoped>

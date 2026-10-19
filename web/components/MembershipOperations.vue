@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { api } from "../client";
+import AdminDialog from "./AdminDialog.vue";
+import AdminForm from "./AdminForm.vue";
+import AdminSelect from "./AdminSelect.vue";
+import AdminDatePicker from "./AdminDatePicker.vue";
 const props = withDefaults(defineProps<{ permissions?: string[] }>(), {
   permissions: () => ["onboarding:manage", "finance:manage", "catalog:manage"],
 });
@@ -52,6 +56,9 @@ type PackageForm = Omit<Package, "amountCents" | "valueCents" | "lines"> & {
   value: string;
   lines: { skuId: number; quantity: number; unit: string }[];
 };
+const dialog = ref<"packages" | "receipt" | "review" | null>(null);
+const packageDraft = ref<PackageForm[]>([]);
+const reviewDecision = ref<"approved" | "rejected">("approved");
 const packages = ref<PackageForm[]>([]),
   applications = ref<Application[]>([]),
   selected = ref<Application | null>(null),
@@ -152,7 +159,7 @@ async function load() {
 }
 async function save() {
   await run(async () => {
-    const payload = packages.value.map((p) => {
+    const payload = packageDraft.value.map((p) => {
       const { amount, value, lines, ...rest } = p;
       return {
         ...rest,
@@ -170,11 +177,30 @@ async function save() {
       body: { packages: payload, reason: reason.value },
     });
     await load();
+    dialog.value = null;
     notice.value = "产品包权益、条件与货款已保存；历史申请保持原快照";
   });
 }
+function openPackages() {
+  packageDraft.value = packages.value.map((p) => ({
+    ...p,
+    lines: p.lines.map((line) => ({ ...line })),
+  }));
+  reason.value = "";
+  error.value = "";
+  dialog.value = "packages";
+}
+function closeDialog() {
+  if (!busy.value) dialog.value = null;
+}
 function select(a: Application) {
   selected.value = a;
+}
+function openApplicationDialog(kind: "receipt" | "review") {
+  const a = selected.value;
+  if (!a) return;
+  error.value = "";
+  reviewDecision.value = "approved";
   receipt.value = {
     amount: money(a.package_snapshot.amountCents),
     sourceChannel: "bank",
@@ -192,6 +218,7 @@ function select(a: Application) {
     relationshipsConfirmed: false,
     reason: "",
   };
+  dialog.value = kind;
 }
 async function collect() {
   if (!selected.value) return;
@@ -211,6 +238,7 @@ async function collect() {
       },
     });
     await load();
+    dialog.value = null;
     notice.value = "已核实收款、扣实物库存并生成交付订单，身份仍须独立审批";
   });
 }
@@ -236,6 +264,7 @@ async function decide(decision: "approved" | "rejected") {
       },
     });
     await load();
+    dialog.value = null;
     notice.value =
       decision === "approved"
         ? "代理身份已启用，商品交付状态请在订单中继续核对"
@@ -251,8 +280,13 @@ onMounted(() => run(load));
       <p class="muted">
         产品包只接受公司转款，用于实际商品交付，不发订货积分。两档入驻奖励从“奖励规则”读取，售后期从统一售后政策读取。
       </p>
+      <div class="inline">
+        <button :disabled="busy" @click="openPackages">配置入驻产品包</button>
+      </div>
     </header>
-    <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
+    <p v-if="error && !dialog" role="alert" class="feedback error">
+      {{ error }}
+    </p>
     <p v-if="notice" role="status" class="feedback notice">{{ notice }}</p>
     <section class="surface application-list" aria-label="入驻申请列表">
       <div class="heading">
@@ -350,71 +384,32 @@ onMounted(() => run(load));
           </li>
         </ul>
       </header>
+      <div class="inline">
+        <button
+          v-if="
+            selected.status === 'submitted' &&
+            !selected.receipt &&
+            props.permissions.includes('finance:manage')
+          "
+          :disabled="busy"
+          @click="openApplicationDialog('receipt')"
+        >
+          核实真实到账
+        </button>
+        <button
+          v-if="selected.status === 'submitted'"
+          :disabled="busy"
+          @click="openApplicationDialog('review')"
+        >
+          审核代理身份
+        </button>
+        <button :disabled="busy" @click="selected = null">关闭详情</button>
+      </div>
       <div class="review-workspace">
         <section
-          v-if="
-            selected.receipt ||
-            selected.order ||
-            (selected.status === 'submitted' &&
-              props.permissions.includes('finance:manage'))
-          "
+          v-if="selected.receipt || selected.order"
           class="workflow-panel"
         >
-          <form
-            v-if="
-              selected.status === 'submitted' &&
-              !selected.receipt &&
-              props.permissions.includes('finance:manage')
-            "
-            class="grid"
-            @submit.prevent="collect"
-          >
-            <h4 class="wide">核实真实到账并安排实物交付</h4>
-            <label
-              >到账货款（元）<input
-                v-model="receipt.amount"
-                required
-                inputmode="decimal" /></label
-            ><label
-              >收款渠道<select v-model="receipt.sourceChannel">
-                <option value="bank">公司银行账户</option>
-                <option value="wechat_company">公司微信收款</option>
-              </select></label
-            ><label
-              >收款账户标识<input
-                v-model="receipt.accountRef"
-                required
-                maxlength="200" /></label
-            ><label
-              >原始流水号<input
-                v-model="receipt.externalTransactionId"
-                required
-                maxlength="200" /></label
-            ><label
-              >实际到账时间<input
-                v-model="receipt.receivedAt"
-                required
-                type="datetime-local" /></label
-            ><label
-              >凭证地址 / 归档编号<input
-                v-model="receipt.evidence"
-                required
-                maxlength="1000" /></label
-            ><label
-              >核实说明<input
-                v-model="receipt.reason"
-                required
-                maxlength="200" /></label
-            ><label class="check"
-              ><input
-                v-model="receipt.verified"
-                type="checkbox"
-                required
-              />我已核实公司实际到账</label
-            ><button class="primary" :disabled="busy">
-              确认收款并建立交付单
-            </button>
-          </form>
           <p v-if="selected.receipt">
             原收款 #{{ selected.receipt.id }} ·
             {{ selected.receipt.external_transaction_id }}
@@ -426,59 +421,18 @@ onMounted(() => run(load));
             }}（请在订单与交付中安排发货）
           </p>
         </section>
-        <form
-          v-if="selected.status === 'submitted'"
-          class="grid workflow-panel review"
-          @submit.prevent="decide('approved')"
-        >
-          <h4 class="wide">独立审批身份与邀请归属</h4>
-          <p v-if="!selected.receipt" class="muted wide">
-            通过身份审批前，须先完成公司到账核实。
-          </p>
-          <label
-            >确认直接邀请人编号（无邀请人留空）<input
-              v-model="review.inviterId"
-              type="number"
-              min="1" /></label
-          ><label
-            >品牌方确认归属主理人编号<input
-              v-model="review.principalId"
-              type="number"
-              min="1"
-              required /></label
-          ><label class="check"
-            ><input
-              v-model="review.conditionsMet"
-              type="checkbox"
-              required
-            />入驻资格已核实符合当次条件</label
-          ><label class="check"
-            ><input
-              v-model="review.relationshipsConfirmed"
-              type="checkbox"
-              required
-            />邀请人和归属主理人已分别确认</label
-          ><label class="wide"
-            >审批原因<input v-model="review.reason" required maxlength="200"
-          /></label>
-          <div class="inline wide">
-            <button class="primary" :disabled="busy || !selected.receipt">
-              通过并启用身份</button
-            ><button
-              type="button"
-              :disabled="busy || !review.reason"
-              @click="decide('rejected')"
-            >
-              驳回并记录原因</button
-            ><button type="button" @click="selected = null">关闭</button>
-          </div>
-        </form>
       </div>
     </article>
-    <details class="surface package-settings">
-      <summary>维护两类身份权益与入驻产品包</summary>
-      <form class="settings" @submit.prevent="save">
-        <fieldset v-for="p in packages" :key="p.targetIdentity">
+    <AdminDialog
+      v-if="dialog === 'packages'"
+      title="配置入驻产品包"
+      :busy="busy"
+      wide
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
+      <AdminForm class="settings" @submit="save">
+        <fieldset v-for="p in packageDraft" :key="p.targetIdentity">
           <legend>
             {{ p.targetIdentity === "B" ? "调肤主理人" : "调肤店主" }}
           </legend>
@@ -491,11 +445,15 @@ onMounted(() => run(load));
             ><label
               >入驻货款（元）<input
                 v-model="p.amount"
+                pattern="[0-9]+([.][0-9]{1,2})?"
+                data-error-message="请填写最多两位小数的金额"
                 inputmode="decimal"
                 required /></label
             ><label
               >产品包展示价值（元）<input
                 v-model="p.value"
+                pattern="[0-9]+([.][0-9]{1,2})?"
+                data-error-message="请填写最多两位小数的金额"
                 inputmode="decimal"
                 required /></label
             ><label
@@ -552,6 +510,8 @@ onMounted(() => run(load));
             ><label
               >分摊单价（元）<input
                 v-model="line.unit"
+                pattern="[0-9]+([.][0-9]{1,2})?"
+                data-error-message="请填写最多两位小数的金额"
                 inputmode="decimal"
                 required /></label
             ><button
@@ -570,10 +530,143 @@ onMounted(() => run(load));
           </button>
         </fieldset>
         <label
-          >修改原因<input v-model="reason" maxlength="200" required /></label
-        ><button class="primary" :disabled="busy">保存两类产品包</button>
-      </form>
-    </details>
+          >修改原因<input v-model="reason" maxlength="200" required
+        /></label>
+        <div class="dialog-actions wide">
+          <button type="button" :disabled="busy" @click="closeDialog">
+            取消
+          </button>
+          <button class="primary" :disabled="busy">保存两类产品包</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
+    <AdminDialog
+      v-if="dialog === 'receipt' && selected"
+      :title="'入驻核款 · 申请 #' + selected.id"
+      :busy="busy"
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
+      <AdminForm class="grid" @submit="collect">
+        <h4 class="wide">核实真实到账并安排实物交付</h4>
+        <label
+          >到账货款（元）<input
+            v-model="receipt.amount"
+            pattern="[0-9]+([.][0-9]{1,2})?"
+            data-error-message="请填写最多两位小数的金额"
+            required
+            inputmode="decimal" /></label
+        ><label
+          >收款渠道<AdminSelect v-model="receipt.sourceChannel">
+            <option value="bank">公司银行账户</option>
+            <option value="wechat_company">公司微信收款</option>
+          </AdminSelect></label
+        ><label
+          >收款账户标识<input
+            v-model="receipt.accountRef"
+            required
+            maxlength="200" /></label
+        ><label
+          >原始流水号<input
+            v-model="receipt.externalTransactionId"
+            required
+            maxlength="200" /></label
+        ><label
+          >实际到账时间<AdminDatePicker
+            v-model="receipt.receivedAt"
+            required
+            type="datetime-local" /></label
+        ><label
+          >凭证地址 / 归档编号<input
+            v-model="receipt.evidence"
+            required
+            maxlength="1000" /></label
+        ><label
+          >核实说明<input
+            v-model="receipt.reason"
+            required
+            maxlength="200" /></label
+        ><label class="check"
+          ><input
+            v-model="receipt.verified"
+            type="checkbox"
+            required
+          />我已核实公司实际到账</label
+        >
+        <div class="dialog-actions wide">
+          <button type="button" :disabled="busy" @click="closeDialog">
+            取消
+          </button>
+          <button class="primary" :disabled="busy">确认收款并建立交付单</button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
+    <AdminDialog
+      v-if="dialog === 'review' && selected"
+      :title="'身份审核 · 申请 #' + selected.id"
+      :busy="busy"
+      @close="closeDialog"
+    >
+      <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
+      <AdminForm class="grid review" @submit="decide(reviewDecision)">
+        <h4 class="wide">独立审批身份与邀请归属</h4>
+        <p v-if="!selected.receipt" class="muted wide">
+          通过身份审批前，须先完成公司到账核实。
+        </p>
+        <label class="wide"
+          >审核结果<AdminSelect v-model="reviewDecision">
+            <option value="approved">通过并启用身份</option>
+            <option value="rejected">驳回并记录原因</option>
+          </AdminSelect></label
+        >
+        <template v-if="reviewDecision === 'approved'">
+          <label
+            >确认直接邀请人编号（无邀请人留空）<input
+              v-model="review.inviterId"
+              type="number"
+              min="1" /></label
+          ><label
+            >品牌方确认归属主理人编号<input
+              v-model="review.principalId"
+              type="number"
+              min="1"
+              required /></label
+          ><label class="check"
+            ><input
+              v-model="review.conditionsMet"
+              type="checkbox"
+              required
+            />入驻资格已核实符合当次条件</label
+          ><label class="check"
+            ><input
+              v-model="review.relationshipsConfirmed"
+              type="checkbox"
+              required
+            />邀请人和归属主理人已分别确认</label
+          >
+        </template>
+        <label class="wide"
+          >审批原因<input v-model="review.reason" required maxlength="200"
+        /></label>
+        <div class="dialog-actions wide">
+          <button type="button" :disabled="busy" @click="closeDialog">
+            取消
+          </button>
+          <button
+            class="primary"
+            :disabled="
+              busy || (reviewDecision === 'approved' && !selected.receipt)
+            "
+          >
+            {{
+              reviewDecision === "approved"
+                ? "通过并启用身份"
+                : "驳回并记录原因"
+            }}
+          </button>
+        </div>
+      </AdminForm>
+    </AdminDialog>
   </section>
 </template>
 <style scoped>
@@ -738,7 +831,7 @@ small {
 }
 .review-workspace {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 16px;
 }
@@ -773,15 +866,6 @@ tr.selected {
   text-align: center;
   color: var(--admin-muted);
 }
-summary {
-  cursor: pointer;
-  color: var(--admin-ink);
-  font-weight: 600;
-}
-summary::marker {
-  color: var(--admin-accent);
-}
-summary:focus-visible,
 .table-wrap:focus-visible {
   outline: 2px solid var(--admin-accent);
   outline-offset: 3px;
