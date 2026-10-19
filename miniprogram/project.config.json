@@ -1,0 +1,8 @@
+{
+  "appid": "touristappid",
+  "projectname": "清欣简妍肌",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "setting": { "es6": true, "enhance": true, "urlCheck": true },
+  "libVersion": "3.7.0"
+}

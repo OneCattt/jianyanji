@@ -1,0 +1,22 @@
+{
+  "pages": ["pages/home/index", "pages/mall/index", "pages/profile/index"],
+  "window": {
+    "navigationBarTitleText": "清欣简妍肌",
+    "navigationBarBackgroundColor": "#fbfcfa",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#fbfcfa"
+  },
+  "tabBar": {
+    "color": "#8b9892",
+    "selectedColor": "#12665c",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "首页" },
+      { "pagePath": "pages/mall/index", "text": "商城" },
+      { "pagePath": "pages/profile/index", "text": "我的" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,168 @@
+page {
+  background: #fbfcfa;
+  color: #233d38;
+  font-family: -apple-system, "PingFang SC", sans-serif;
+  font-size: 28rpx;
+}
+view,
+input,
+button {
+  box-sizing: border-box;
+}
+.page {
+  padding: 44rpx 48rpx calc(55rpx + env(safe-area-inset-bottom));
+}
+.eyebrow {
+  font-size: 20rpx;
+  letter-spacing: 4rpx;
+  color: #12665c;
+}
+.title {
+  font-family: "Songti SC", serif;
+  font-size: 56rpx;
+  letter-spacing: 4rpx;
+  margin: 22rpx 0;
+}
+.sub {
+  font-size: 24rpx;
+  color: #76867f;
+  line-height: 1.9;
+}
+.primary {
+  margin: 38rpx 0 0;
+  background: #12665c;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  line-height: 92rpx;
+  min-height: 92rpx;
+}
+.primary::after,
+button::after {
+  border: 0;
+}
+.secondary {
+  background: #edf3ee;
+  color: #12665c;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  line-height: 84rpx;
+  margin-top: 24rpx;
+}
+.card {
+  background: #e4efe9;
+  border: 1rpx solid #d8e6dc;
+  border-radius: 24rpx;
+  padding: 40rpx;
+  margin-top: 38rpx;
+}
+.identity-row {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+.avatar {
+  width: 94rpx;
+  height: 94rpx;
+  background: #fbfcfa;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 94rpx;
+  font-size: 40rpx;
+  color: #12665c;
+}
+.name {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+.tag {
+  display: inline-block;
+  border: 1rpx solid #abc7b7;
+  border-radius: 6rpx;
+  font-size: 20rpx;
+  color: #356b50;
+  padding: 4rpx 12rpx;
+  margin-top: 12rpx;
+}
+.card .sub {
+  margin-top: 32rpx;
+}
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  margin: 48rpx 0 20rpx;
+}
+.label {
+  font-size: 24rpx;
+  color: #76867f;
+  margin: 28rpx 0 12rpx;
+}
+input {
+  height: 90rpx;
+  border: 1rpx solid #d9e3de;
+  background: white;
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+}
+.help {
+  font-size: 22rpx;
+  color: #76867f;
+  line-height: 1.9;
+  margin-top: 24rpx;
+}
+.logout {
+  font-size: 24rpx;
+  color: #76867f;
+  text-align: center;
+  background: none;
+  margin-top: 35rpx;
+}
+.dev {
+  margin-top: 48rpx;
+  border-top: 1rpx dashed #cbd9ce;
+  padding-top: 24rpx;
+  font-size: 22rpx;
+  color: #76867f;
+}
+.error {
+  background: #fff0ec;
+  color: #9c3b2d;
+  padding: 24rpx;
+  font-size: 24rpx;
+  margin-top: 24rpx;
+  border-radius: 12rpx;
+}
+.brand-hero {
+  position: relative;
+  background: #e3eee7;
+  padding: 65rpx 48rpx 70rpx;
+  overflow: hidden;
+  min-height: 550rpx;
+}
+.brand-hero .title {
+  font-size: 65rpx;
+  line-height: 1.6;
+  margin: 28rpx 0;
+}
+.leaf {
+  position: absolute;
+  right: -15rpx;
+  bottom: 30rpx;
+  width: 190rpx;
+  height: 360rpx;
+  border-radius: 95% 0 95% 0;
+  background: #aac3a544;
+  transform: rotate(-18deg);
+  border: 1rpx solid #9cb69955;
+}
+.welcome {
+  padding: 45rpx 48rpx;
+}
+.welcome .section-title {
+  margin-top: 24rpx;
+}
+.empty {
+  text-align: center;
+  padding-top: 120rpx;
+}
