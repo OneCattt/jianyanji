@@ -443,15 +443,24 @@ public class IdentityController {
         return obj(
                 "items",
                 db.list(
-                        // 只对本页记录关联姓名，不逐条查询账号；已移除账号保留原审计编号。
+                        // 仅关联本页的操作者及操作对象，避免逐条查询；原始编号继续保留供详情追溯。
                         "SELECT a.*,CASE WHEN a.actor_kind='staff' THEN s.display_name "
-                                + "WHEN a.actor_kind='user' THEN u.nickname ELSE NULL END AS actor_name "
+                                + "WHEN a.actor_kind='user' THEN u.nickname ELSE NULL END AS actor_name,"
+                                + "CASE WHEN a.object_type='staff' THEN target_staff.display_name "
+                                + "WHEN a.object_type='user' THEN target_user.nickname ELSE NULL END AS object_name,"
+                                + "target_staff.username AS object_username "
                                 + "FROM (SELECT a.id,a.actor_kind,a.actor_id,a.action,a.object_type,a.object_id,"
                                 + "a.result,a.reason,a.request_id,a.create_time FROM audit_events a WHERE "
                                 + where
                                 + " ORDER BY a.id DESC LIMIT 30 OFFSET ?) a "
                                 + "LEFT JOIN staff s ON a.actor_kind='staff' AND s.id=a.actor_id AND s.is_deleted=0 "
                                 + "LEFT JOIN users u ON a.actor_kind='user' AND u.id=a.actor_id AND u.is_deleted=0 "
+                                + "LEFT JOIN staff target_staff ON a.object_type='staff' "
+                                + "AND a.object_id REGEXP '^[0-9]+$' AND target_staff.id=CAST(a.object_id AS UNSIGNED) "
+                                + "AND target_staff.is_deleted=0 "
+                                + "LEFT JOIN users target_user ON a.object_type='user' "
+                                + "AND a.object_id REGEXP '^[0-9]+$' AND target_user.id=CAST(a.object_id AS UNSIGNED) "
+                                + "AND target_user.is_deleted=0 "
                                 + "ORDER BY a.id DESC",
                         args.toArray()),
                 "page",

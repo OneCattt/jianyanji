@@ -30,6 +30,8 @@ export interface Audit {
   action: string;
   object_type: string;
   object_id: string;
+  object_name?: string | null;
+  object_username?: string | null;
   result: string;
   reason: string;
   request_id: string;

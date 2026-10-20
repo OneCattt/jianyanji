@@ -114,6 +114,17 @@ export function auditAction(event: Audit): string {
 export function auditObject(event: Audit): string {
   const type = auditObjectNames[event.object_type] || "业务对象";
   const id = event.object_id;
+  if (event.object_type === "staff") {
+    if (event.object_name && event.object_username)
+      return `${event.object_name}（${event.object_username}）`;
+    return (
+      event.object_name ||
+      event.object_username ||
+      (id === "unknown" ? "未识别的工作人员账号" : "工作人员（账号信息不可用）")
+    );
+  }
+  if (event.object_type === "user" && id !== "wechat")
+    return event.object_name || "用户（资料不可用）";
   if (event.object_type === "permission")
     return permissionNames[id as Permission] || "功能权限（查看详情）";
   if (event.object_type === "settings" && id === "course_rights")
