@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackToast from "./FeedbackToast.vue";
 import { computed, ref } from "vue";
 import AdminSelect from "./AdminSelect.vue";
 const props = defineProps<{ permissions: readonly string[] }>();
@@ -56,6 +57,7 @@ async function download() {
 }
 </script>
 <template>
+  <FeedbackToast v-model:error="error" />
   <details v-if="options.length" class="surface">
     <summary>财务业务导出</summary>
     <p>
@@ -81,9 +83,8 @@ async function download() {
     <label
       >继续导出的最后一行 ID<input v-model="beforeId" inputmode="numeric"
     /></label>
-    <button type="button" :disabled="busy" @click="download">
+    <button class="secondary" type="button" :disabled="busy" @click="download">
       {{ busy ? "正在导出…" : "下载 CSV" }}
     </button>
-    <p v-if="error" role="alert" class="message error">{{ error }}</p>
   </details>
 </template>

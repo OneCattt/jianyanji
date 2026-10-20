@@ -394,17 +394,18 @@ const actionNames: Record<string, string> = {
 };
 </script>
 <template>
+  <FeedbackToast v-model:notice="notice" v-model:error="error" />
   <div v-if="loading" class="loading-screen">正在确认登录状态…</div>
   <main v-else-if="!me" class="admin-login">
     <aside class="login-story">
-      <a href="/" class="brand-logo-link" aria-label="清欣简妍肌首页"
+      <span class="brand-logo-link"
         ><img
           class="brand-logo-image"
           src="/brand/logo-horizontal-red.svg"
           alt="清欣简妍肌"
           width="680"
           height="200"
-      /></a>
+      /></span>
       <div>
         <span class="eyebrow">品牌方管理后台</span>
         <h1>有序经营，<br />让关照更从容。</h1>
@@ -436,10 +437,8 @@ const actionNames: Record<string, string> = {
             maxlength="128"
             placeholder="请输入密码"
         /></label>
-        <p v-if="error" class="message error" role="alert">{{ error }}</p>
         <button class="primary full" :disabled="busy">
           {{ busy ? "正在登录…" : "进入管理后台" }} <span>↗</span></button
-        ><a class="back-link" href="/">← 返回清欣简妍肌</a
         ><small>账号尚未开通？请联系品牌管理员。</small>
       </AdminForm>
     </section>
@@ -447,14 +446,14 @@ const actionNames: Record<string, string> = {
   <div v-else class="admin-shell">
     <aside class="sidebar" :class="{ 'menu-expanded': menuExpanded }">
       <div class="sidebar-brand">
-        <a href="/" class="brand-logo-link" aria-label="清欣简妍肌首页"
+        <span class="brand-logo-link"
           ><img
             class="brand-logo-image"
             src="/brand/logo-horizontal-red.svg"
             alt="清欣简妍肌"
             width="680"
             height="200"
-        /></a>
+        /></span>
         <button
           class="mobile-menu icon-button"
           :aria-expanded="menuExpanded"
@@ -510,9 +509,6 @@ const actionNames: Record<string, string> = {
             sectionTitle
           }}</strong>
         </div>
-        <a href="/" target="_blank" rel="noopener"
-          >查看小程序体验 <ArrowUpRight :size="14" aria-hidden="true"
-        /></a>
       </header>
       <main class="admin-content">
         <div class="admin-heading">
@@ -554,11 +550,6 @@ const actionNames: Record<string, string> = {
             }}</span>
           </div>
         </div>
-        <FeedbackToast
-          v-model:notice="notice"
-          v-model:error="error"
-          :show-error="!modal"
-        />
         <template v-if="section === 'overview'">
           <section
             v-if="quickEntries.length"
@@ -729,9 +720,10 @@ const actionNames: Record<string, string> = {
                   </td>
                   <td>
                     <div class="row-actions">
-                      <button @click="open('edit', person)">授权 / 状态</button
+                      <button class="secondary" @click="open('edit', person)">
+                        授权 / 状态</button
                       ><button
-                        class="danger-text"
+                        class="secondary danger-text"
                         @click="open('remove', person)"
                       >
                         移除
@@ -1015,7 +1007,6 @@ const actionNames: Record<string, string> = {
             placeholder="说明本次新增、授权、停用或移除的原因"
           ></textarea>
         </label>
-        <p v-if="error" class="message error" role="alert">{{ error }}</p>
         <div class="dialog-actions">
           <button
             type="button"

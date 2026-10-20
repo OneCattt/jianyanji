@@ -250,11 +250,7 @@ onMounted(() => run(load));
     <p class="admin-business-note">
       产品包货款用于商品交付，不发订货积分；入驻奖励按奖励规则核算，售后期按统一售后政策执行。
     </p>
-    <FeedbackToast
-      v-model:notice="notice"
-      v-model:error="error"
-      :show-error="!dialog"
-    />
+    <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <section class="surface application-list" aria-label="入驻申请列表">
       <div class="heading">
         <div>
@@ -309,6 +305,7 @@ onMounted(() => run(load));
               </td>
               <td>
                 <button
+                  class="secondary"
                   :aria-pressed="selected?.id === a.id"
                   @click="select(a)"
                 >
@@ -360,6 +357,7 @@ onMounted(() => run(load));
       </header>
       <div class="inline">
         <button
+          class="secondary"
           v-if="
             selected.status === 'submitted' &&
             !selected.receipt &&
@@ -370,7 +368,9 @@ onMounted(() => run(load));
         >
           核实真实到账
         </button>
-        <button :disabled="busy" @click="selected = null">关闭详情</button>
+        <button class="secondary" :disabled="busy" @click="selected = null">
+          关闭详情
+        </button>
       </div>
       <div class="review-workspace">
         <section
@@ -397,7 +397,6 @@ onMounted(() => run(load));
       wide
       @close="closeDialog"
     >
-      <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
       <AdminForm class="settings" @submit="save">
         <fieldset v-for="p in packageDraft" :key="p.targetIdentity">
           <legend>
@@ -485,6 +484,7 @@ onMounted(() => run(load));
                 inputmode="decimal"
                 required /></label
             ><button
+              class="secondary"
               v-if="p.lines.length > 1"
               type="button"
               @click="p.lines.splice(i, 1)"
@@ -493,6 +493,7 @@ onMounted(() => run(load));
             </button>
           </div>
           <button
+            class="secondary"
             type="button"
             @click="p.lines.push({ skuId: 0, quantity: 1, unit: '' })"
           >
@@ -504,6 +505,7 @@ onMounted(() => run(load));
         /></label>
         <div class="dialog-actions wide">
           <button
+            class="secondary"
             type="button"
             :disabled="busy || uploadingImage"
             @click="closeDialog"
@@ -522,7 +524,6 @@ onMounted(() => run(load));
       :busy="busy"
       @close="closeDialog"
     >
-      <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
       <AdminForm class="grid" @submit="collect">
         <h4 class="wide">核实真实到账并安排实物交付</h4>
         <label
@@ -570,7 +571,12 @@ onMounted(() => run(load));
           />我已核实公司实际到账</label
         >
         <div class="dialog-actions wide">
-          <button type="button" :disabled="busy" @click="closeDialog">
+          <button
+            class="secondary"
+            type="button"
+            :disabled="busy"
+            @click="closeDialog"
+          >
             取消
           </button>
           <button class="primary" :disabled="busy">确认收款并建立交付单</button>

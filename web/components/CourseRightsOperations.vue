@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackToast from "./FeedbackToast.vue";
 import "../content-operations.css";
 import { onMounted, ref } from "vue";
 import {
@@ -65,13 +66,12 @@ async function save() {
 }
 </script>
 <template>
+  <FeedbackToast v-model:error="error" v-model:notice="notice" />
   <section class="table-panel content-operations">
     <div class="panel-heading"><h2>课程与成长权益</h2></div>
     <p class="muted">
       维护各身份实际权益、课程介绍和联系指引。公开展示权益对比，本人权益按当前有效身份显示。
     </p>
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <p v-if="notice" role="status">{{ notice }}</p>
     <AdminForm class="content-editor" v-if="loaded" @submit="save"
       ><fieldset v-for="role in roles" :key="role.id" :disabled="busy">
         <legend>{{ role.name }}</legend>

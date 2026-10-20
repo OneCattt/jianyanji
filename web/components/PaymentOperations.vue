@@ -246,11 +246,7 @@ onMounted(() => act(load));
 </script>
 <template>
   <section class="payment-operations" :aria-busy="busy">
-    <FeedbackToast
-      v-model:notice="notice"
-      v-model:error="error"
-      :show-error="!dialog && !correcting"
-    />
+    <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <section class="surface order-list">
       <header class="section-heading">
         <div>
@@ -271,7 +267,7 @@ onMounted(() => act(load));
               {{ label }}
             </option>
           </AdminSelect></label
-        ><button :disabled="busy">刷新订单</button>
+        ><button class="secondary" :disabled="busy">刷新订单</button>
       </AdminForm>
       <p v-if="busy" class="loading" role="status">正在读取或处理订单…</p>
       <div class="table-wrap">
@@ -303,7 +299,11 @@ onMounted(() => act(load));
               <td>{{ paymentLabels[o.payment_state] || o.payment_state }}</td>
               <td>¥{{ money(o.total_cents) }}</td>
               <td>
-                <button :disabled="busy" @click="act(() => select(o.id))">
+                <button
+                  class="secondary"
+                  :disabled="busy"
+                  @click="act(() => select(o.id))"
+                >
                   查看与处理
                 </button>
               </td>
@@ -319,7 +319,7 @@ onMounted(() => act(load));
           <small>当前处理订单</small>
           <h3>{{ selected.number }}</h3>
         </div>
-        <button @click="selected = null">收起</button>
+        <button class="secondary" @click="selected = null">收起</button>
       </header>
       <p class="delivery-address">
         {{ selected.snapshot.address.recipient }} ·
@@ -349,9 +349,14 @@ onMounted(() => act(load));
           支付返回确认中时，请查询原交易；需要关闭时，系统核实渠道结果后才释放库存。
         </p>
         <div class="actions">
-          <button :disabled="busy" @click="act(() => refreshPayment())">
+          <button
+            class="secondary"
+            :disabled="busy"
+            @click="act(() => refreshPayment())"
+          >
             查询原支付</button
           ><button
+            class="primary"
             :disabled="busy || selected.payment_state === 'paid'"
             @click="openClose"
           >
@@ -382,7 +387,7 @@ onMounted(() => act(load));
               }}</small
             >
           </div>
-          <button :disabled="busy" @click="openCorrection(s)">
+          <button class="secondary" :disabled="busy" @click="openCorrection(s)">
             纠正物流信息
           </button>
         </div>
@@ -445,7 +450,6 @@ onMounted(() => act(load));
       :wide="dialog === 'ship'"
       @close="!busy && (dialog = '')"
     >
-      <p v-if="error" class="message error" role="alert">{{ error }}</p>
       <p>当前订单：{{ selected.number }}</p>
       <AdminForm
         v-if="dialog === 'close'"
@@ -461,10 +465,15 @@ onMounted(() => act(load));
           >操作原因<input v-model="reason" required maxlength="200"
         /></label>
         <div class="dialog-actions">
-          <button type="button" :disabled="busy" @click="dialog = ''">
+          <button
+            class="secondary"
+            type="button"
+            :disabled="busy"
+            @click="dialog = ''"
+          >
             取消
           </button>
-          <button :disabled="busy">核查并关闭未付交易</button>
+          <button class="primary" :disabled="busy">核查并关闭未付交易</button>
         </div>
       </AdminForm>
       <template v-else>
@@ -518,10 +527,15 @@ onMounted(() => act(load));
             >操作原因<input v-model="reason" required maxlength="200"
           /></label>
           <div class="dialog-actions">
-            <button type="button" :disabled="busy" @click="dialog = ''">
+            <button
+              class="secondary"
+              type="button"
+              :disabled="busy"
+              @click="dialog = ''"
+            >
               取消
             </button>
-            <button :disabled="busy">确认发货</button>
+            <button class="primary" :disabled="busy">确认发货</button>
           </div>
         </AdminForm>
       </template>
@@ -532,7 +546,6 @@ onMounted(() => act(load));
       :busy="busy"
       @close="!busy && (correcting = null)"
     >
-      <p v-if="error" class="message error" role="alert">{{ error }}</p>
       <AdminForm v-if="correcting" @submit="act(correct, '物流纠正记录已保存')">
         <label>物流公司<input v-model="correcting.carrier" required /></label
         ><label
@@ -545,10 +558,15 @@ onMounted(() => act(load));
           >操作原因<input v-model="reason" required maxlength="200"
         /></label>
         <div class="dialog-actions">
-          <button type="button" :disabled="busy" @click="correcting = null">
+          <button
+            class="secondary"
+            type="button"
+            :disabled="busy"
+            @click="correcting = null"
+          >
             取消
           </button>
-          <button :disabled="busy">保留记录并纠正</button>
+          <button class="primary" :disabled="busy">保留记录并纠正</button>
         </div>
       </AdminForm>
     </AdminDialog>

@@ -1,4 +1,4 @@
-/* 品牌后台独立样式，避免影响小程序体验页。 */
+/* 品牌后台页面、表单和控件的统一样式。 */
 .admin-shell,
 .admin-login {
   --admin-accent: #8d2638;
@@ -96,12 +96,23 @@
   white-space: nowrap;
 }
 .admin-shell .secondary {
-  border-color: #d5d8df;
+  border: 1px solid #d5d8df;
   color: #414650;
   background: white;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .admin-shell .secondary:hover:not(:disabled) {
+  border-color: #aeb4c0;
   background: #f2f3f6;
+}
+.admin-shell .section-heading {
+  margin-top: 0;
+}
+.admin-shell .row-actions {
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .admin-shell .sidebar {
   position: fixed;
@@ -1013,6 +1024,7 @@
   margin: 0;
 }
 .admin-shell .admin-dialog .dialog-actions {
+  grid-column: 1 / -1;
   position: sticky;
   bottom: 0;
   z-index: 2;

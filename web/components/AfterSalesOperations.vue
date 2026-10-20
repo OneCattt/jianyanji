@@ -179,16 +179,16 @@ async function submit() {
 </script>
 <template>
   <section class="aftersales" :aria-busy="busy">
-    <FeedbackToast
-      v-model:notice="notice"
-      v-model:error="error"
-      :show-error="!setupDialog && !action"
-    />
+    <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <div class="setup-panels">
       <section class="surface setup-panel">
         <div class="section-heading">
           <h3>售后政策</h3>
-          <button :disabled="busy" @click="openSetup('policy')">
+          <button
+            class="secondary"
+            :disabled="busy"
+            @click="openSetup('policy')"
+          >
             编辑售后政策
           </button>
         </div>
@@ -223,18 +223,30 @@ async function submit() {
         <p v-if="r.policy.exceptionReason">
           品牌方特批：{{ r.policy.exceptionReason }}
         </p>
-        <p v-if="r.last_error" class="message error">{{ r.last_error }}</p>
+        <details v-if="r.last_error" class="refund-error-detail">
+          <summary>查看退款异常</summary>
+          <p>{{ r.last_error }}</p>
+        </details>
         <p v-for="l in r.lines" :key="l.lineId">
           商品行 #{{ l.lineId }}：退{{ l.quantity }}件，需收回{{
             l.returnQuantity
           }}件
         </p>
         <div class="actions">
-          <button v-if="r.status === 'requested'" @click="open(r, 'approve')">
+          <button
+            class="secondary"
+            v-if="r.status === 'requested'"
+            @click="open(r, 'approve')"
+          >
             审核同意</button
-          ><button v-if="r.status === 'requested'" @click="open(r, 'reject')">
+          ><button
+            class="secondary"
+            v-if="r.status === 'requested'"
+            @click="open(r, 'reject')"
+          >
             驳回</button
           ><button
+            class="secondary"
             v-if="
               r.status !== 'requested' &&
               r.status !== 'rejected' &&
@@ -246,12 +258,19 @@ async function submit() {
             登记实际退货验收</button
           ><template
             v-if="props.canFinance && ['approved', 'failed'].includes(r.status)"
-            ><button @click="open(r, 'wechat')">原微信退款</button
-            ><button @click="open(r, 'points')">退回原积分</button
-            ><button v-if="r.kind === 'package'" @click="open(r, 'offline')">
+            ><button class="secondary" @click="open(r, 'wechat')">
+              原微信退款</button
+            ><button class="secondary" @click="open(r, 'points')">
+              退回原积分</button
+            ><button
+              class="secondary"
+              v-if="r.kind === 'package'"
+              @click="open(r, 'offline')"
+            >
               登记产品包实际线下退款
             </button></template
           ><button
+            class="secondary"
             v-if="
               props.canFinance &&
               ['processing', 'unknown', 'failed'].includes(r.status)
@@ -268,10 +287,9 @@ async function submit() {
       v-if="setupDialog"
       :title="setupDialog === 'policy' ? '编辑售后政策' : '客服受理商品售后'"
       :busy="busy"
-      wide
+      :wide="setupDialog === 'create'"
       @close="!busy && (setupDialog = '')"
     >
-      <p v-if="error" class="message error" role="alert">{{ error }}</p>
       <template v-if="setupDialog === 'policy'">
         <AdminForm class="form-grid setup-form" @submit="savePolicy">
           <label
@@ -291,7 +309,12 @@ async function submit() {
             >修改原因<input v-model="reason" required
           /></label>
           <div class="dialog-actions wide-field">
-            <button type="button" :disabled="busy" @click="setupDialog = ''">
+            <button
+              class="secondary"
+              type="button"
+              :disabled="busy"
+              @click="setupDialog = ''"
+            >
               取消
             </button>
             <button class="primary" :disabled="busy">保存政策</button>
@@ -361,7 +384,12 @@ async function submit() {
                 maxlength="200" /></label
           ></template>
           <div class="dialog-actions wide-field">
-            <button type="button" :disabled="busy" @click="setupDialog = ''">
+            <button
+              class="secondary"
+              type="button"
+              :disabled="busy"
+              @click="setupDialog = ''"
+            >
               取消
             </button>
             <button class="primary" :disabled="busy || !current">
@@ -375,10 +403,8 @@ async function submit() {
       v-if="selected && action"
       :title="'处理售后 ' + selected.number"
       :busy="busy"
-      wide
       @close="!busy && (action = '')"
     >
-      <p v-if="error" class="message error" role="alert">{{ error }}</p>
       <AdminForm class="form-grid" @submit="submit">
         <template
           v-if="
@@ -423,7 +449,12 @@ async function submit() {
           >处理原因<input v-model="reason" required maxlength="200"
         /></label>
         <div class="dialog-actions wide-field">
-          <button type="button" :disabled="busy" @click="action = ''">
+          <button
+            class="secondary"
+            type="button"
+            :disabled="busy"
+            @click="action = ''"
+          >
             取消
           </button>
           <button class="primary" :disabled="busy">确认处理</button>
@@ -599,6 +630,13 @@ h3 {
 }
 .refund-record .actions {
   margin-top: 12px;
+}
+.refund-error-detail {
+  margin-top: 8px;
+  color: var(--admin-accent);
+}
+.refund-error-detail summary {
+  cursor: pointer;
 }
 button {
   max-width: 100%;

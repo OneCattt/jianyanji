@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackToast from "./FeedbackToast.vue";
 import { onBeforeUnmount, ref, useId, watch } from "vue";
 import { ImagePlus, Upload } from "lucide-vue-next";
 import { uploadImage, type ImagePurpose } from "../image-upload";
@@ -56,6 +57,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <FeedbackToast v-model:error="error" />
   <div class="image-uploader" data-admin-control :aria-busy="busy">
     <div class="image-uploader-preview">
       <img
@@ -116,7 +118,6 @@ onBeforeUnmount(() => {
       <span v-if="busy" class="sr-only" role="status"
         >{{ label }}正在上传，{{ progress }}%</span
       >
-      <p v-if="error" class="image-uploader-error" role="alert">{{ error }}</p>
     </div>
   </div>
 </template>
@@ -190,12 +191,6 @@ onBeforeUnmount(() => {
   color: var(--admin-muted);
   font-size: 11px;
   line-height: 1.6;
-}
-.image-uploader-controls .image-uploader-error {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
 }
 .image-uploader-remove {
   border: 0;

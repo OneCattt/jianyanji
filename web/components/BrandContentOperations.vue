@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackToast from "./FeedbackToast.vue";
 import "../content-operations.css";
 import { onMounted, ref } from "vue";
 import { contentApi, type BrandPost, type PostInput } from "../content-client";
@@ -123,6 +124,7 @@ onMounted(load);
 </script>
 
 <template>
+  <FeedbackToast v-model:error="error" v-model:notice="notice" />
   <section class="table-panel content-operations">
     <div class="panel-heading">
       <h2>品牌种草内容</h2>
@@ -132,8 +134,6 @@ onMounted(load);
       保存后为草稿，经审核再发布。短视频使用已配置媒体域名的 MP4
       地址，封面可直接上传。
     </p>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
     <div class="table-scroll">
       <table>
         <thead>
@@ -150,23 +150,28 @@ onMounted(load);
             <td>{{ post.type === "video" ? "短视频" : "图文" }}</td>
             <td>{{ names[post.status] }}</td>
             <td class="actions">
-              <button @click="edit(post)">编辑</button
+              <button class="secondary" @click="edit(post)">编辑</button
               ><button
+                class="secondary"
                 v-if="post.status === 'draft'"
                 @click="choose(post, 'review')"
               >
                 审核通过</button
               ><button
+                class="secondary"
                 v-if="post.status === 'reviewed'"
                 @click="choose(post, 'publish')"
               >
                 发布</button
               ><button
+                class="secondary"
                 v-if="post.status === 'published'"
                 @click="choose(post, 'unpublish')"
               >
                 下架</button
-              ><button @click="choose(post, 'remove')">移除</button>
+              ><button class="secondary" @click="choose(post, 'remove')">
+                移除
+              </button>
             </td>
           </tr>
           <tr v-if="!posts.length">
@@ -239,10 +244,19 @@ onMounted(load);
       <label
         >修改原因<input v-model="form.reason" required maxlength="200"
       /></label>
-      <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <button class="primary" type="submit" :disabled="busy || uploading">
-        {{ busy ? "保存中…" : "保存草稿" }}
-      </button>
+      <div class="dialog-actions">
+        <button
+          class="secondary"
+          type="button"
+          :disabled="busy || uploading"
+          @click="editing = false"
+        >
+          取消
+        </button>
+        <button class="primary" type="submit" :disabled="busy || uploading">
+          {{ busy ? "保存中…" : "保存草稿" }}
+        </button>
+      </div>
     </AdminForm>
   </AdminDialog>
   <AdminDialog
@@ -265,10 +279,17 @@ onMounted(load);
       <label
         >操作原因<input v-model="actionReason" required maxlength="200"
       /></label>
-      <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <button class="primary" type="submit" :disabled="busy">
-        确认
-      </button></AdminForm
+      <div class="dialog-actions">
+        <button
+          class="secondary"
+          type="button"
+          :disabled="busy"
+          @click="action = null"
+        >
+          取消
+        </button>
+        <button class="primary" type="submit" :disabled="busy">确认</button>
+      </div></AdminForm
     ></AdminDialog
   >
 </template>

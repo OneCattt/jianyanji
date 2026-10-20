@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { CircleCheck, CircleX, X } from "lucide-vue-next";
 
-const props = withDefaults(defineProps<{ showError?: boolean }>(), {
-  showError: true,
-});
 const notice = defineModel<string>("notice", { default: "" });
 const error = defineModel<string>("error", { default: "" });
-const isError = computed(() => props.showError && Boolean(error.value));
+const toast = ref<HTMLElement>();
+const target = ref<HTMLElement | string>("body");
+const isError = computed(() => Boolean(error.value));
 const message = computed(() => (isError.value ? error.value : notice.value));
 let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -20,20 +19,29 @@ function dismiss() {
 }
 watch(
   [message, isError],
-  () => {
+  async () => {
     clearTimer();
+    // 弹窗外的内容会被原生 dialog 设为不可交互，浮层需挂在当前弹窗内。
+    target.value =
+      document.querySelector<HTMLDialogElement>("dialog[open]") || "body";
+    await nextTick();
+    // 使用浏览器顶层展示，确保原生弹窗打开时提示也可见且不占据表单空间。
+    if (message.value && toast.value && !toast.value.matches(":popover-open"))
+      toast.value.showPopover();
     if (message.value && !isError.value) timer = setTimeout(dismiss, 3000);
   },
-  { immediate: true },
+  { immediate: true, flush: "post" },
 );
 onBeforeUnmount(clearTimer);
 </script>
 
 <template>
-  <Teleport to="body">
+  <Teleport :to="target">
     <Transition name="feedback-toast">
       <div
         v-if="message"
+        ref="toast"
+        popover="manual"
         class="feedback-toast"
         :class="{ 'feedback-toast-error': isError }"
         :role="isError ? 'alert' : 'status'"
@@ -65,7 +73,10 @@ onBeforeUnmount(clearTimer);
 .feedback-toast {
   position: fixed;
   top: calc(20px + env(safe-area-inset-top));
+  right: auto;
+  bottom: auto;
   left: 50%;
+  margin: 0;
   z-index: 2000;
   display: flex;
   align-items: center;

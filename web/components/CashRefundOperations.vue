@@ -135,11 +135,7 @@ async function resolve() {
         人工受理未用积分退现金
       </button>
     </Teleport>
-    <FeedbackToast
-      v-model:notice="notice"
-      v-model:error="error"
-      :show-error="!creating && !selected"
-    />
+    <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <ol class="process-guide" aria-label="退现金办理流程">
       <li>
         <span class="step-number">1</span>
@@ -272,7 +268,6 @@ async function resolve() {
       :busy="busy"
       @close="!busy && (creating = false)"
     >
-      <p v-if="error" class="message error" role="alert">{{ error }}</p>
       <AdminForm class="surface application-form" @submit="create">
         <div class="section-heading">
           <p>
@@ -307,7 +302,12 @@ async function resolve() {
           >申请原因<input v-model="reason" required maxlength="200"
         /></label>
         <div class="dialog-actions">
-          <button type="button" :disabled="busy" @click="creating = false">
+          <button
+            class="secondary"
+            type="button"
+            :disabled="busy"
+            @click="creating = false"
+          >
             取消
           </button>
           <button class="primary" :disabled="busy || !receiptId">
@@ -320,10 +320,8 @@ async function resolve() {
       v-if="selected"
       :title="'登记实际处理结果 · ' + selected.number"
       :busy="busy"
-      wide
       @close="!busy && (selected = null)"
     >
-      <p v-if="error" class="message error" role="alert">{{ error }}</p>
       <AdminForm v-if="selected" class="surface result-form" @submit="resolve">
         <div class="section-heading">
           <p>

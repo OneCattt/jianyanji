@@ -196,11 +196,7 @@ onMounted(() => run(refresh));
       仅登记已核实的真实到账。1 元对应 1
       积分，不赠送、不过期；产品包款请到入驻申请核款。
     </p>
-    <FeedbackToast
-      v-model:notice="notice"
-      v-model:error="error"
-      :show-error="!dialog"
-    />
+    <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <div class="wallet-workspace">
       <div class="account-workspace">
         <section class="surface account-query" aria-label="钱包与收款查询">
@@ -223,7 +219,7 @@ onMounted(() => run(refresh));
               >原银行 / 公司微信流水<input
                 v-model="externalTransactionId"
                 maxlength="200" /></label
-            ><button :disabled="busy">查询钱包和收款</button>
+            ><button class="secondary" :disabled="busy">查询钱包和收款</button>
           </AdminForm>
         </section>
         <div v-if="wallet" class="surface wallet-detail">
@@ -266,7 +262,11 @@ onMounted(() => run(refresh));
                     {{ money(lot.held_cents) }}
                   </td>
                   <td>
-                    <button :disabled="busy" @click="openCorrection(lot.id)">
+                    <button
+                      class="secondary"
+                      :disabled="busy"
+                      @click="openCorrection(lot.id)"
+                    >
                       来源差额纠正
                     </button>
                   </td>
@@ -347,7 +347,6 @@ onMounted(() => run(refresh));
       :busy="busy"
       @close="closeDialog"
     >
-      <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
       <AdminForm class="fields receipt-form" @submit="confirmReceipt">
         <h3>核实订货到账并发积分</h3>
         <label
@@ -407,7 +406,12 @@ onMounted(() => run(refresh));
           />我已核实公司真实到账、收款人和原流水，非仅核对转款截图</label
         >
         <div class="dialog-actions">
-          <button type="button" :disabled="busy" @click="closeDialog">
+          <button
+            class="secondary"
+            type="button"
+            :disabled="busy"
+            @click="closeDialog"
+          >
             取消
           </button>
           <button class="primary" :disabled="busy">确认到账并发积分</button>
@@ -420,7 +424,6 @@ onMounted(() => run(refresh));
       :busy="busy"
       @close="closeDialog"
     >
-      <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
       <AdminForm class="correction-form" @submit="correct">
         <h4>纠正原批次 #{{ correction.lotId }}</h4>
         <label
@@ -440,7 +443,12 @@ onMounted(() => run(refresh));
           仅能纠正该原批次未消费且未占用的积分，已消费差额须人工核实处理。
         </p>
         <div class="dialog-actions">
-          <button type="button" :disabled="busy" @click="closeDialog">
+          <button
+            class="secondary"
+            type="button"
+            :disabled="busy"
+            @click="closeDialog"
+          >
             取消
           </button>
           <button class="primary" :disabled="busy">保存纠正流水</button>

@@ -312,11 +312,7 @@ async function saveShipping() {
         配送配置
       </button>
     </nav>
-    <FeedbackToast
-      v-model:notice="notice"
-      v-model:error="error"
-      :show-error="!editingShipping"
-    />
+    <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <p v-if="loading" class="loading" role="status">
       正在读取{{ active === "shipping" ? "配送配置" : "订单记录" }}…
     </p>
@@ -627,7 +623,6 @@ async function saveShipping() {
       :busy="saving"
       @close="!saving && (editingShipping = false)"
     >
-      <p v-if="error" class="message error" role="alert">{{ error }}</p>
       <AdminForm class="shipping-form surface" @submit="saveShipping">
         <p v-if="!shippingConfigured" class="unconfigured">
           配送尚未配置，请完整填写后保存。未配置时购买端无法下单。

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import FeedbackToast from "./FeedbackToast.vue";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, useId } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
@@ -42,6 +42,7 @@ interface Settlement {
   proof: string | null;
 }
 const activeArea = ref("rewards");
+const sourceOrderInputId = useId();
 type Dialog =
   "settings" | "source" | "plan" | "result" | "recovery" | "reconcile";
 const dialog = ref<Dialog | "">("");
@@ -339,11 +340,7 @@ function openReconcile(id: number) {
     <p class="admin-business-note">
       奖励由公司线下转账结算，与订货积分分别记账。
     </p>
-    <FeedbackToast
-      v-model:notice="notice"
-      v-model:error="error"
-      :show-error="!dialog"
-    />
+    <FeedbackToast v-model:notice="notice" v-model:error="error" />
 
     <details>
       <summary>
@@ -424,9 +421,17 @@ function openReconcile(id: number) {
                   {{ statusName(r.status) }}<small>{{ r.reason }}</small>
                 </td>
                 <td>
-                  <button :disabled="busy" @click="showDetail(r.id)">
+                  <button
+                    class="secondary"
+                    :disabled="busy"
+                    @click="showDetail(r.id)"
+                  >
                     明细</button
-                  ><button :disabled="busy" @click="openReconcile(r.id)">
+                  ><button
+                    class="secondary"
+                    :disabled="busy"
+                    @click="openReconcile(r.id)"
+                  >
                     核对退款冲回
                   </button>
                 </td>
@@ -511,6 +516,7 @@ function openReconcile(id: number) {
               </td>
               <td>
                 <button
+                  class="secondary"
                   v-if="!['paid', 'cancelled'].includes(s.status)"
                   :disabled="busy"
                   @click="openResult(s)"
@@ -564,7 +570,11 @@ function openReconcile(id: number) {
               <td>¥{{ amount(d.recovered_cents) }}</td>
               <td>¥{{ amount(d.remainingCents) }}</td>
               <td>
-                <button :disabled="busy" @click="openRecovery(d)">
+                <button
+                  class="secondary"
+                  :disabled="busy"
+                  @click="openRecovery(d)"
+                >
                   登记实际收回
                 </button>
               </td>
@@ -590,7 +600,7 @@ function openReconcile(id: number) {
     <section v-if="detail" class="surface">
       <header>
         <h3>奖励 #{{ detail.id }} 追溯明细</h3>
-        <button @click="detail = null">收起</button>
+        <button class="secondary" @click="detail = null">收起</button>
       </header>
       <pre>{{ JSON.stringify(detail, null, 2) }}</pre>
     </section>
@@ -600,7 +610,6 @@ function openReconcile(id: number) {
       :busy="busy"
       @close="closeDialog"
     >
-      <p v-if="error" role="alert" class="message error">{{ error }}</p>
       <AdminForm @submit="saveSettings" class="form-grid">
         <p>
           店主邀请店主：双方各 500 元；主理人直邀店主：1,000
@@ -648,33 +657,52 @@ function openReconcile(id: number) {
       v-if="dialog === 'source'"
       title="来源核算与奖励登记"
       :busy="busy"
-      wide
       @close="closeDialog"
     >
-      <p v-if="error" role="alert" class="message error">{{ error }}</p>
-      <AdminForm @submit="readSource" class="inline">
-        <label
-          >来源订单 ID<input
-            v-model.number="sourceId"
-            @input="basis = null"
-            :disabled="busy"
-            type="number"
-            min="1"
-            required /></label
-        ><button :disabled="busy">读取原始核算依据</button>
-        <button
-          type="button"
-          class="secondary"
-          :disabled="busy"
-          @click="closeDialog"
-        >
-          取消
-        </button>
+      <p class="source-intro">先核对来源订单，再登记对应收益人的奖励。</p>
+      <AdminForm @submit="readSource" class="source-lookup">
+        <label :for="sourceOrderInputId" class="source-order-label">
+          <span aria-hidden="true" class="required-mark">*</span>来源订单 ID
+        </label>
+        <div class="source-query-row">
+          <div class="source-query-input">
+            <input
+              :id="sourceOrderInputId"
+              v-model.number="sourceId"
+              @input="basis = null"
+              :disabled="busy"
+              type="number"
+              min="1"
+              placeholder="请输入来源订单 ID"
+              required
+            />
+          </div>
+          <button type="submit" class="primary" :disabled="busy">
+            {{ busy ? "正在读取…" : "读取原始核算依据" }}
+          </button>
+        </div>
       </AdminForm>
-      <p v-if="!basis" class="empty-hint">
-        输入来源订单 ID，读取原始核算依据后可填写人工核对金额。
-      </p>
       <AdminForm v-if="basis" @submit="register" class="source-basis">
+        <section class="source-summary" aria-label="来源订单核算摘要">
+          <div class="source-order-copy">
+            <span class="source-caption">来源订单</span>
+            <strong>{{ basis.orderNumber }}</strong>
+            <p>
+              {{
+                basis.kind === "onboarding"
+                  ? "入驻奖励"
+                  : basis.kind === "retail"
+                    ? "零售佣金"
+                    : "店主订货收益"
+              }}
+              · 收益人 #{{ basis.userId }}
+            </p>
+          </div>
+          <div class="source-calculated-amount">
+            <span class="source-caption">原业务核算金额</span>
+            <strong>¥{{ amount(basis.amountCents) }}</strong>
+          </div>
+        </section>
         <label v-if="sourceCandidates.length > 1"
           >本次收益人<AdminSelect
             v-model.number="recipientId"
@@ -698,18 +726,10 @@ function openReconcile(id: number) {
             </option>
           </AdminSelect></label
         >
-        <p>
-          {{ basis.orderNumber }} ·
-          {{
-            basis.kind === "onboarding"
-              ? "入驻奖励"
-              : basis.kind === "retail"
-                ? "零售佣金"
-                : "店主订货收益"
-          }}
-          · 收款代理 #{{ basis.userId }}
-        </p>
-        <pre>{{ JSON.stringify(basis.snapshot, null, 2) }}</pre>
+        <details class="source-evidence">
+          <summary>查看原始核算依据</summary>
+          <pre>{{ JSON.stringify(basis.snapshot, null, 2) }}</pre>
+        </details>
         <label
           >人工核对金额（元）<input
             v-model="registrationAmount"
@@ -722,12 +742,14 @@ function openReconcile(id: number) {
           普通商品收益不含运费和福利品；入驻奖励按原来源分别登记每位收益人。登记不代表付款。
         </p>
         <label class="reason"
-          >本次操作原因<input
+          >本次操作原因<textarea
             v-model="reason"
             required
             maxlength="1000"
+            rows="3"
             placeholder="填写核对依据，写入操作记录"
-        /></label>
+          />
+        </label>
         <div class="dialog-actions">
           <button
             type="button"
@@ -740,6 +762,16 @@ function openReconcile(id: number) {
           <button class="primary" :disabled="busy">确认登记</button>
         </div>
       </AdminForm>
+      <div v-else class="dialog-actions">
+        <button
+          type="button"
+          class="secondary"
+          :disabled="busy"
+          @click="closeDialog"
+        >
+          取消
+        </button>
+      </div>
     </AdminDialog>
     <AdminDialog
       v-if="dialog === 'plan'"
@@ -747,7 +779,6 @@ function openReconcile(id: number) {
       :busy="busy"
       @close="closeDialog"
     >
-      <p v-if="error" role="alert" class="message error">{{ error }}</p>
       <AdminForm @submit="plan" class="form-grid">
         <div class="form-heading">
           <h4>创建月结单</h4>
@@ -817,7 +848,6 @@ function openReconcile(id: number) {
       :busy="busy"
       @close="closeDialog"
     >
-      <p v-if="error" role="alert" class="message error">{{ error }}</p>
       <AdminForm @submit="saveResult" class="form-grid">
         <p>核实结算单 #{{ result.id }}；系统不会发起银行转账。</p>
         <label
@@ -866,7 +896,6 @@ function openReconcile(id: number) {
       :busy="busy"
       @close="closeDialog"
     >
-      <p v-if="error" role="alert" class="message error">{{ error }}</p>
       <AdminForm @submit="recover" class="form-grid">
         <p>冲回 #{{ recovery.reversalId }} 的实际到账记录</p>
         <label
@@ -908,7 +937,6 @@ function openReconcile(id: number) {
       :busy="busy"
       @close="closeDialog"
     >
-      <p v-if="error" role="alert" class="message error">{{ error }}</p>
       <AdminForm class="form-grid" @submit="reconcile">
         <p>
           核对奖励 #{{ reconcileId }}
@@ -1006,6 +1034,7 @@ summary {
   margin-top: 16px;
 }
 .form-grid p,
+.form-grid .reason,
 .form-heading,
 .form-actions,
 .settlement-totals {
@@ -1108,7 +1137,83 @@ pre {
   margin-top: 16px;
 }
 .source-basis label {
-  max-width: 360px;
+  max-width: none;
+}
+.source-intro {
+  margin-bottom: 20px;
+}
+.admin-form.source-lookup {
+  gap: 8px;
+}
+.source-lookup .source-order-label {
+  display: block;
+  line-height: 20px;
+}
+.required-mark {
+  margin-right: 5px;
+  color: #bd3047;
+}
+.source-query-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.source-query-input {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.source-query-row > button {
+  flex-shrink: 0;
+  min-height: 40px;
+}
+.source-lookup + .source-basis,
+.source-lookup + .dialog-actions {
+  margin-top: 24px;
+}
+.source-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-bg);
+}
+.source-order-copy,
+.source-calculated-amount {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.source-caption {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.source-calculated-amount {
+  text-align: right;
+}
+.source-calculated-amount strong {
+  color: var(--admin-accent);
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+.source-evidence {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.source-evidence summary {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.source-evidence pre {
+  margin-top: 10px;
 }
 .settlement-plan,
 .inset-form {
@@ -1204,6 +1309,20 @@ p.success {
   }
   .inline button {
     width: 100%;
+  }
+  .source-query-row {
+    flex-direction: column;
+  }
+  .source-query-input,
+  .source-query-row > button {
+    width: 100%;
+  }
+  .source-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .source-calculated-amount {
+    text-align: left;
   }
   .settlement-totals {
     gap: 8px;

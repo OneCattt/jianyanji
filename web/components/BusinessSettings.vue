@@ -312,11 +312,7 @@ function saveProduct() {
 </script>
 <template>
   <section class="business-settings" :aria-busy="loading || busy">
-    <FeedbackToast
-      v-model:notice="notice"
-      v-model:error="error"
-      :show-error="!editing && !editingCategory && !editingContent"
-    >
+    <FeedbackToast v-model:notice="notice" v-model:error="error">
       <button
         v-if="loadFailed"
         type="button"
@@ -375,7 +371,6 @@ function saveProduct() {
         @close="editingContent = false"
       >
         <AdminForm class="content-layout" @submit="saveContent">
-          <p v-if="error" class="message error" role="alert">{{ error }}</p>
           <fieldset
             class="form-controls content-sections"
             :disabled="busy || loading || !loaded"
@@ -524,7 +519,6 @@ function saveProduct() {
         @close="editingCategory = false"
       >
         <AdminForm @submit="saveCategory">
-          <p v-if="error" class="message error" role="alert">{{ error }}</p>
           <fieldset
             class="form-controls field-grid"
             :disabled="busy || loading || !loaded"
@@ -570,7 +564,6 @@ function saveProduct() {
         @close="editing = false"
       >
         <AdminForm class="surface product-editor" @submit="saveProduct">
-          <p v-if="error" class="message error" role="alert">{{ error }}</p>
           <fieldset class="form-controls" :disabled="busy || loading">
             <section class="editor-section">
               <h4>基本信息</h4>
@@ -824,7 +817,7 @@ function saveProduct() {
                 </td>
                 <td>
                   <button
-                    class="edit-button"
+                    class="secondary edit-button"
                     type="button"
                     :disabled="busy || loading"
                     :aria-label="'编辑商品：' + p.name"
