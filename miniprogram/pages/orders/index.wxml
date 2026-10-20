@@ -1,5 +1,4 @@
 <view class="qx jy-orders">
-  <view class="jy-header"><button class="jy-back" bindtap="back" aria-label="返回"><image src="/pages/order/assets/list-imgIcon.png"/></button><text>我的订单</text></view>
   <view class="jy-tabs"><button wx:for="{{tabs}}" wx:key="*this" data-index="{{index}}" class="{{tab===index?'selected':''}}" bindtap="select">{{item}}</button></view>
   <view class="jy-list">
     <view wx:if="{{error}}" class="jy-error" role="alert">{{error}}<button bindtap="load">重试</button></view>

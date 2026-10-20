@@ -1,5 +1,5 @@
 {
-  "appid": "wx2e35638025bcf720",
+  "appid": "wxe1232feae5c3d589",
   "projectname": "清欣简妍肌",
   "compileType": "miniprogram",
   "miniprogramRoot": "./",
@@ -32,5 +32,6 @@
     "ignore": [],
     "include": []
   },
-  "editorSetting": {}
+  "editorSetting": {},
+  "isGameTourist": false
 }

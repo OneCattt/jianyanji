@@ -1,5 +1,8 @@
 {
-  "navigationStyle": "custom",
+  "navigationStyle": "default",
   "enablePullDownRefresh": true,
-  "backgroundColor": "#f2ece4"
+  "backgroundColor": "#f2ece4",
+  "navigationBarTitleText": "我的订单",
+  "navigationBarBackgroundColor": "#f8f5ee",
+  "navigationBarTextStyle": "black"
 }

@@ -10,6 +10,8 @@ Page({
     heroImage: "/assets/figma/Home-imgImage.png",
   },
   async onShow() {
+    const tabBar = this.getTabBar && this.getTabBar();
+    if (tabBar) tabBar.setData({ selected: 0 });
     try {
       const [r, p] = await Promise.all([
         request("/public/content"),

@@ -7,36 +7,6 @@ page {
   color: #251d1a;
   font-size: 19.947rpx;
 }
-.jy-header {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 127.66rpx;
-  padding-top: env(safe-area-inset-top);
-  box-sizing: content-box;
-  background: #f8f5eef5;
-  border-bottom: 1.995rpx solid #4530261f;
-  font:
-    31.915rpx STSong,
-    "Songti SC",
-    serif;
-  letter-spacing: 1.995rpx;
-}
-.jy-header .jy-back {
-  position: absolute;
-  left: 19.947rpx;
-  top: calc(33.91rpx + env(safe-area-inset-top));
-  width: 71.809rpx;
-  height: 67.819rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.jy-back image {
-  width: 39.894rpx;
-  height: 39.894rpx;
-}
 .jy-list {
   padding: 23.936rpx 27.926rpx 55.851rpx;
 }

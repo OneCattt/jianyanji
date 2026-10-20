@@ -1,6 +1,6 @@
-// 真机使用已配置 request 合法域名的 HTTPS 地址；此处不放 AppSecret。
+// 微信公众平台的 request 合法域名需配置为 https://api.jianyanji.cn；此处不放 AppSecret。
 module.exports = {
-  apiBase: "http://127.0.0.1:3100/api",
+  apiBase: "https://api.jianyanji.cn/api",
   // 仅开发工具本地体验可手动开启，服务端也必须显式开启 DEV_AUTH。
-  devAuth: true,
+  devAuth: false,
 };

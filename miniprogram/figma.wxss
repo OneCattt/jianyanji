@@ -3,10 +3,12 @@
   color: #251d1a;
   font-family: "PingFang SC", sans-serif;
   font-size: 23.936rpx;
-  min-height: 100%;
+  min-height: 100vh;
   padding-bottom: 51.862rpx;
 }
 .qx button {
+  width: auto;
+  min-width: 0;
   font: inherit;
   border: 0;
   margin: 0;
@@ -224,6 +226,16 @@
   width: 100%;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+.qx-info-arrow {
+  width: 18rpx;
+  height: 18rpx;
+  border-top: 3rpx solid currentColor;
+  border-right: 3rpx solid currentColor;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+  margin-left: 24rpx;
 }
 .qx-shop-head {
   background: #f3ece2;
@@ -258,13 +270,28 @@
   box-sizing: border-box;
 }
 .qx-categories button {
-  display: inline-block;
-  padding: 13.963rpx 29.92rpx;
-  border: 1.995rpx solid #4530261f;
-  border-radius: 39.894rpx;
-  margin-right: 17.952rpx;
-  color: #8e8178;
-  font-size: 21.941rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 28rpx;
+  border: 1rpx solid #d5c6b8;
+  border-radius: 999rpx;
+  margin-right: 16rpx;
+  background: #fffdfa;
+  color: #655348;
+  font-size: 26rpx;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+.qx-categories button:last-child {
+  margin-right: 0;
+}
+.qx-categories .category-pressed {
+  opacity: 0.7;
 }
 .qx button.chosen {
   background: #8d1724;
@@ -433,6 +460,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.qx-fixed > .qx-text {
+  flex-shrink: 0;
 }
 .qx-cart-line {
   display: flex;

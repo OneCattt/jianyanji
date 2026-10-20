@@ -1,9 +1,4 @@
 <view class="qx jy-orders jy-detail">
-  <view class="jy-header"
-    ><button class="jy-back" bindtap="back" aria-label="返回">
-      <image src="assets/detail-imgIcon.png" /></button
-    ><text>订单详情</text></view
-  >
   <view wx:if="{{error}}" class="jy-error"
     >{{error}}<button bindtap="load">重新查询</button></view
   >

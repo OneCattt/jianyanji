@@ -1,5 +1,8 @@
 {
-  "navigationStyle": "custom",
+  "navigationStyle": "default",
   "enablePullDownRefresh": true,
-  "backgroundTextStyle": "dark"
+  "backgroundTextStyle": "dark",
+  "navigationBarTitleText": "收益台账",
+  "navigationBarBackgroundColor": "#f8f5ee",
+  "navigationBarTextStyle": "black"
 }

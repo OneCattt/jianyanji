@@ -1,0 +1,33 @@
+.qx-mall {
+  padding-bottom: calc(288rpx + max(24rpx, env(safe-area-inset-bottom)));
+}
+
+.qx .qx-cart-float {
+  position: fixed;
+  right: 36rpx;
+  /* 与底部导航保持间距，并避开设备底部安全区。 */
+  bottom: calc(156rpx + max(24rpx, env(safe-area-inset-bottom)));
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96rpx;
+  height: 96rpx;
+  min-width: 48px;
+  min-height: 48px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: #fffdfa;
+  box-shadow: 0 6rpx 24rpx rgba(70, 51, 42, 0.16);
+}
+
+.qx-cart-float image {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.qx .qx-cart-float-pressed {
+  background: #f3ece2;
+  box-shadow: 0 3rpx 12rpx rgba(70, 51, 42, 0.12);
+}

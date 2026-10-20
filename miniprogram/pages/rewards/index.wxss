@@ -11,6 +11,8 @@ page {
   flex-direction: column;
 }
 .reward-page button {
+  width: auto;
+  min-width: 0;
   border: 0;
   margin: 0;
   padding: 0;
@@ -22,35 +24,6 @@ page {
 }
 .reward-page button::after {
   border: 0;
-}
-.reward-header {
-  height: 127.66rpx;
-  padding: 0 19.95rpx 25.93rpx;
-  background: rgba(248, 245, 238, 0.96);
-  display: grid;
-  grid-template-columns: 95.74rpx 1fr 95.74rpx;
-  align-items: end;
-  border-bottom: 1rpx solid #4530261f;
-}
-.reward-header > text {
-  text-align: center;
-  font:
-    31.91rpx/47.87rpx STSong,
-    "Songti SC",
-    serif;
-  letter-spacing: 1.995rpx;
-  padding-bottom: 13.96rpx;
-}
-.reward-header .back {
-  width: 71.81rpx;
-  height: 67.82rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.back image {
-  width: 39.89rpx;
-  height: 39.89rpx;
 }
 .reward-summary {
   height: 345.08rpx;
@@ -119,10 +92,9 @@ page {
 }
 .reward-list {
   background: #fffdfa;
-  min-height: 993.35rpx;
   padding: 0 29.92rpx;
 }
-.reward-row {
+.reward-page .reward-row {
   display: flex !important;
   gap: 21.94rpx;
   padding: 31.91rpx 0 !important;

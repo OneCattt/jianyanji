@@ -1,6 +1,8 @@
 {
-  "navigationStyle": "custom",
+  "navigationStyle": "default",
   "navigationBarTitleText": "积分明细",
+  "navigationBarBackgroundColor": "#f8f5ee",
+  "navigationBarTextStyle": "black",
   "enablePullDownRefresh": true,
   "backgroundColor": "#f2ece4"
 }

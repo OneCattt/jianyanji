@@ -1,6 +1,6 @@
 @import "figma.wxss";
 page {
-  background: #fbfcfa;
+  background: #f8f5ee;
   color: #233d38;
   font-family: -apple-system, "PingFang SC", sans-serif;
   font-size: 28rpx;

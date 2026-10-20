@@ -1,9 +1,4 @@
 <view class="qx wallet-page">
-  <view class="wallet-header"
-    ><button bindtap="back" aria-label="返回">
-      <image src="assets/back.png" /></button
-    ><text>积分明细</text><view></view
-  ></view>
   <view class="wallet-card">
     <view class="wallet-card-row"
       ><text>可用积分</text><button bindtap="transfer">公司转款</button></view
@@ -61,10 +56,13 @@
       ><view class="wallet-icon {{item.delta_cents>0?'positive':''}}"
         ><image src="assets/{{item.icon}}.png" /></view
       ><view class="wallet-copy"
-        ><view>{{item.title}}</view
-        ><text>{{item.source}} · {{item.dateText}}</text></view
-      ><text class="wallet-delta {{item.delta_cents>0?'credit':''}}"
-        >{{item.deltaText}}</text
+        ><view class="wallet-entry-head"
+          ><text class="wallet-entry-title">{{item.title}}</text
+          ><text class="wallet-delta {{item.delta_cents>0?'credit':''}}"
+            >{{item.deltaText}}</text
+          ></view
+        ><text class="wallet-entry-source">{{item.source}}</text
+        ><text class="wallet-entry-date">{{item.dateText}}</text></view
       ></view
     >
     <view wx:if="{{!visible.length}}" class="wallet-empty"

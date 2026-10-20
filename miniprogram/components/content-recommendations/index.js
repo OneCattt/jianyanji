@@ -20,9 +20,6 @@ Component({
         url: "/pages/post/index?id=" + e.currentTarget.dataset.id,
       });
     },
-    courses() {
-      wx.navigateTo({ url: "/pages/courses/index" });
-    },
     all() {
       wx.switchTab({ url: "/pages/seeds/index" });
     },

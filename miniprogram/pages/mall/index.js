@@ -12,6 +12,8 @@ Page({
     wx.navigateTo({ url: "/pages/cart/index" });
   },
   async onShow() {
+    const tabBar = this.getTabBar && this.getTabBar();
+    if (tabBar) tabBar.setData({ selected: 1 });
     await this.load();
   },
   async load() {

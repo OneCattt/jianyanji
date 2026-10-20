@@ -12,6 +12,8 @@ page {
   padding-bottom: calc(207.447rpx + env(safe-area-inset-bottom));
 }
 .mine button {
+  width: auto;
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -265,6 +267,9 @@ page {
   display: flex;
   align-items: center;
   gap: 3.989rpx;
+  min-height: 44px;
+  justify-content: flex-end;
+  flex-shrink: 0;
   color: #8e8178;
   font-size: 21.941rpx;
   line-height: 32.912rpx;
