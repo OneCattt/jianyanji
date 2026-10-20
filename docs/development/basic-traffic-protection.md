@@ -51,13 +51,13 @@ python3 scripts/check-edge-security.py --nginx /usr/sbin/nginx
 
 ## OSS：公开商品图片与敏感凭证分开
 
-当前商品编辑支持填写 HTTPS 图片地址，项目尚未接入 OSS SDK 上传和私有图片签名服务。不要把访问密钥放入小程序、网页、仓库或聊天。
+后台公开图片通过服务端签发短期凭证，由浏览器直接上传 OSS，配置与验证见 [后台图片直传 OSS](oss-image-upload.md)。私有凭证上传尚未接入。不要把访问密钥放入小程序、网页、仓库或聊天。
 
-1. **商品图片 Bucket**：杭州、标准存储，桶 ACL 保持私有；只存打算对消费者展示的图片，统一放在 `products/` 前缀。先在控制台上传经过压缩的图片，建议单图 100～300KB，不上传视频和大型原图。
+1. **商品图片 Bucket**：杭州、标准存储，桶 ACL 保持私有；只存打算对消费者展示的图片，统一放在 `products/` 前缀。后台支持选择图片直传，建议单图压缩至 100～300KB，不上传视频和大型原图。
 2. 商品上线时，替换 `deploy/oss/public-products-policy.json` 中的 Bucket 名，使用 Bucket Policy 仅允许匿名 `GetObject` 读取 `products/*`。不授予匿名上传、列举或删除权限。如果“阻止公共访问”阻止了该授权，仅在确认这个 Bucket 专门用于公开商品图后调整该 Bucket 的设置，不关闭账户级防护或敏感 Bucket 的保护。
 3. 在商品 Bucket 的防盗链中添加实际网站来源（例如 `https://example.com/*`）和小程序来源 `https://servicewechat.com/实际小程序APPID/*`，关闭允许空 Referer。不要填写 `*` 通配所有网站。项目已将跨站 Referrer 策略改为只带来源，避免浏览器图片因没有 Referer 被误拦。须分别用真实网页、开发者工具和微信真机验证，不能只凭 Referer 规则推断已生效。
 4. **付款凭证、用户隐私附件**使用另一个私有 Bucket，保持阻止公共访问；不配置任何匿名读取策略，不给用户保存永久公开链接。当前尚无 OSS 私有凭证上传入口，暂不将凭证文件放入商品桶。
-5. 后续接入上传服务时，给专用 RAM 身份使用 `deploy/oss/uploader-policy.json`，替换 Bucket 名后只允许写入 `products/*`。该模板不允许读私有凭证、管理 Bucket 或修改访问策略，也不是现阶段必须创建的长期密钥。
+5. 给上传专用 RAM 身份使用 `deploy/oss/uploader-policy.json`，替换 Bucket 名后只允许写入 `products/*`。该模板不允许读私有凭证、管理 Bucket 或修改访问策略。按 [直传配置说明](oss-image-upload.md) 设置服务端凭据和 Bucket CORS。
 
 先验证：正常小程序/网页可看商品图；无 Referer 或无关网站来源的匿名请求被拒绝；匿名上传、列举被拒绝；私有凭证没有公开读取路径。Referer 可以伪造，仅用于降低盗链，不能保证防刷或限制账单。被拒绝的请求也可能存在计费项，不能把拒绝请求等同于零费用。
 

@@ -1,0 +1,90 @@
+{
+  "scope": "隔离库后台浏览器验收，非正式环境",
+  "response": [
+    {
+      "path": "/admin/exports/operations/qualifications",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 11395
+    },
+    {
+      "path": "/admin/exports/operations/orders",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 10117
+    },
+    {
+      "path": "/admin/exports/operations/aftersales",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 3770
+    },
+    {
+      "path": "/admin/exports/finance/receipts",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 8153
+    },
+    {
+      "path": "/admin/exports/finance/points?userId=1",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 96
+    },
+    {
+      "path": "/admin/exports/finance/payments?orderId=1",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 136
+    },
+    {
+      "path": "/admin/exports/finance/refunds",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 7195
+    },
+    {
+      "path": "/admin/exports/finance/cash-refunds",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 540
+    },
+    {
+      "path": "/admin/exports/finance/rewards",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 1432
+    },
+    {
+      "path": "/admin/exports/finance/settlements",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 1044
+    },
+    {
+      "path": "/admin/exports/finance/reversals",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 1898
+    },
+    {
+      "path": "/admin/exports/finance/offsets",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 183
+    },
+    {
+      "path": "/admin/exports/finance/recoveries",
+      "status": 200,
+      "type": "text/csv;charset=UTF-8",
+      "bytes": 345
+    }
+  ],
+  "errors": [],
+  "screenshots": [
+    "membership.png",
+    "content.png",
+    "courses.png",
+    "rewards.png"
+  ]
+}

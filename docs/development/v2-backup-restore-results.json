@@ -1,0 +1,317 @@
+{
+  "scope": "仅本机专用隔离库备份恢复；未操作正式库；新建空恢复库，保留两库及临时备份",
+  "recordedAt": "2026-10-20T12:41:37.598079+08:00",
+  "sourceDatabase": "java_rewards_test_v2_20261020",
+  "restoredDatabase": "java_rewards_test_v2_restore_61f68cdd3b",
+  "dumpPath": "/tmp/java_rewards_test_v2_restore_61f68cdd3b.sql",
+  "dumpSha256": "600e173bff22fa99251eb477ee6111a9a4816d7aa14cfdefae7ac24ce1ec71dd",
+  "dumpBytes": 5147057,
+  "tables": 38,
+  "allMatched": true,
+  "checks": [
+    {
+      "table": "addresses",
+      "sourceRows": 232,
+      "restoredRows": 232,
+      "sourceChecksum": "480879200",
+      "restoredChecksum": "480879200",
+      "matched": true
+    },
+    {
+      "table": "audit_events",
+      "sourceRows": 682,
+      "restoredRows": 682,
+      "sourceChecksum": "1906496286",
+      "restoredChecksum": "1906496286",
+      "matched": true
+    },
+    {
+      "table": "brand_posts",
+      "sourceRows": 3,
+      "restoredRows": 3,
+      "sourceChecksum": "2649288165",
+      "restoredChecksum": "2649288165",
+      "matched": true
+    },
+    {
+      "table": "business_mutex",
+      "sourceRows": 1,
+      "restoredRows": 1,
+      "sourceChecksum": "3340345327",
+      "restoredChecksum": "3340345327",
+      "matched": true
+    },
+    {
+      "table": "cart_items",
+      "sourceRows": 4,
+      "restoredRows": 4,
+      "sourceChecksum": "1734125126",
+      "restoredChecksum": "1734125126",
+      "matched": true
+    },
+    {
+      "table": "cash_refunds",
+      "sourceRows": 7,
+      "restoredRows": 7,
+      "sourceChecksum": "2353005767",
+      "restoredChecksum": "2353005767",
+      "matched": true
+    },
+    {
+      "table": "categories",
+      "sourceRows": 135,
+      "restoredRows": 135,
+      "sourceChecksum": "80122593",
+      "restoredChecksum": "80122593",
+      "matched": true
+    },
+    {
+      "table": "company_receipts",
+      "sourceRows": 121,
+      "restoredRows": 121,
+      "sourceChecksum": "909627883",
+      "restoredChecksum": "909627883",
+      "matched": true
+    },
+    {
+      "table": "flyway_schema_history",
+      "sourceRows": 10,
+      "restoredRows": 10,
+      "sourceChecksum": "2240749369",
+      "restoredChecksum": "2240749369",
+      "matched": true
+    },
+    {
+      "table": "onboarding_identity_events",
+      "sourceRows": 31,
+      "restoredRows": 31,
+      "sourceChecksum": "138534227",
+      "restoredChecksum": "138534227",
+      "matched": true
+    },
+    {
+      "table": "onboardings",
+      "sourceRows": 68,
+      "restoredRows": 68,
+      "sourceChecksum": "522916405",
+      "restoredChecksum": "522916405",
+      "matched": true
+    },
+    {
+      "table": "order_lines",
+      "sourceRows": 170,
+      "restoredRows": 170,
+      "sourceChecksum": "298586339",
+      "restoredChecksum": "298586339",
+      "matched": true
+    },
+    {
+      "table": "orders",
+      "sourceRows": 178,
+      "restoredRows": 178,
+      "sourceChecksum": "3170096802",
+      "restoredChecksum": "3170096802",
+      "matched": true
+    },
+    {
+      "table": "payment_attempts",
+      "sourceRows": 22,
+      "restoredRows": 22,
+      "sourceChecksum": "1311412307",
+      "restoredChecksum": "1311412307",
+      "matched": true
+    },
+    {
+      "table": "payment_events",
+      "sourceRows": 46,
+      "restoredRows": 46,
+      "sourceChecksum": "1196603685",
+      "restoredChecksum": "1196603685",
+      "matched": true
+    },
+    {
+      "table": "payments",
+      "sourceRows": 111,
+      "restoredRows": 111,
+      "sourceChecksum": "1093661312",
+      "restoredChecksum": "1093661312",
+      "matched": true
+    },
+    {
+      "table": "products",
+      "sourceRows": 139,
+      "restoredRows": 139,
+      "sourceChecksum": "3982900840",
+      "restoredChecksum": "3982900840",
+      "matched": true
+    },
+    {
+      "table": "qualifications",
+      "sourceRows": 154,
+      "restoredRows": 154,
+      "sourceChecksum": "2403208421",
+      "restoredChecksum": "2403208421",
+      "matched": true
+    },
+    {
+      "table": "quotes",
+      "sourceRows": 91,
+      "restoredRows": 91,
+      "sourceChecksum": "3256240587",
+      "restoredChecksum": "3256240587",
+      "matched": true
+    },
+    {
+      "table": "refunds",
+      "sourceRows": 92,
+      "restoredRows": 92,
+      "sourceChecksum": "3933174716",
+      "restoredChecksum": "3933174716",
+      "matched": true
+    },
+    {
+      "table": "returned_inventory",
+      "sourceRows": 6,
+      "restoredRows": 6,
+      "sourceChecksum": "2717055024",
+      "restoredChecksum": "2717055024",
+      "matched": true
+    },
+    {
+      "table": "reward_offsets",
+      "sourceRows": 2,
+      "restoredRows": 2,
+      "sourceChecksum": "2841223823",
+      "restoredChecksum": "2841223823",
+      "matched": true
+    },
+    {
+      "table": "reward_recoveries",
+      "sourceRows": 4,
+      "restoredRows": 4,
+      "sourceChecksum": "3344826370",
+      "restoredChecksum": "3344826370",
+      "matched": true
+    },
+    {
+      "table": "reward_reversals",
+      "sourceRows": 48,
+      "restoredRows": 48,
+      "sourceChecksum": "3329468707",
+      "restoredChecksum": "3329468707",
+      "matched": true
+    },
+    {
+      "table": "reward_settings",
+      "sourceRows": 1,
+      "restoredRows": 1,
+      "sourceChecksum": "822717655",
+      "restoredChecksum": "822717655",
+      "matched": true
+    },
+    {
+      "table": "reward_settlements",
+      "sourceRows": 8,
+      "restoredRows": 8,
+      "sourceChecksum": "3285857154",
+      "restoredChecksum": "3285857154",
+      "matched": true
+    },
+    {
+      "table": "rewards",
+      "sourceRows": 34,
+      "restoredRows": 34,
+      "sourceChecksum": "1810014204",
+      "restoredChecksum": "1810014204",
+      "matched": true
+    },
+    {
+      "table": "sessions",
+      "sourceRows": 104,
+      "restoredRows": 104,
+      "sourceChecksum": "2672945850",
+      "restoredChecksum": "2672945850",
+      "matched": true
+    },
+    {
+      "table": "settings",
+      "sourceRows": 5,
+      "restoredRows": 5,
+      "sourceChecksum": "3161466438",
+      "restoredChecksum": "3161466438",
+      "matched": true
+    },
+    {
+      "table": "shipment_corrections",
+      "sourceRows": 2,
+      "restoredRows": 2,
+      "sourceChecksum": "1145920235",
+      "restoredChecksum": "1145920235",
+      "matched": true
+    },
+    {
+      "table": "shipments",
+      "sourceRows": 22,
+      "restoredRows": 22,
+      "sourceChecksum": "3515050752",
+      "restoredChecksum": "3515050752",
+      "matched": true
+    },
+    {
+      "table": "skus",
+      "sourceRows": 145,
+      "restoredRows": 145,
+      "sourceChecksum": "2204584307",
+      "restoredChecksum": "2204584307",
+      "matched": true
+    },
+    {
+      "table": "staff",
+      "sourceRows": 57,
+      "restoredRows": 57,
+      "sourceChecksum": "386621103",
+      "restoredChecksum": "386621103",
+      "matched": true
+    },
+    {
+      "table": "team_handovers",
+      "sourceRows": 7,
+      "restoredRows": 7,
+      "sourceChecksum": "2960679436",
+      "restoredChecksum": "2960679436",
+      "matched": true
+    },
+    {
+      "table": "users",
+      "sourceRows": 325,
+      "restoredRows": 325,
+      "sourceChecksum": "3276895685",
+      "restoredChecksum": "3276895685",
+      "matched": true
+    },
+    {
+      "table": "wallet_ledger",
+      "sourceRows": 111,
+      "restoredRows": 111,
+      "sourceChecksum": "3095356455",
+      "restoredChecksum": "3095356455",
+      "matched": true
+    },
+    {
+      "table": "wallet_lots",
+      "sourceRows": 60,
+      "restoredRows": 60,
+      "sourceChecksum": "1461739817",
+      "restoredChecksum": "1461739817",
+      "matched": true
+    },
+    {
+      "table": "wallet_spend_allocations",
+      "sourceRows": 33,
+      "restoredRows": 33,
+      "sourceChecksum": "3587321681",
+      "restoredChecksum": "3587321681",
+      "matched": true
+    }
+  ]
+}

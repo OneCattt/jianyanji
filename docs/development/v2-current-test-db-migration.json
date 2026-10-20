@@ -1,0 +1,12 @@
+{
+  "scope": "用户授权直接升级项目当前测试库，不是隔离回归库",
+  "completedAt": "2026-10-20T05:04:53.177Z",
+  "database": "jianyanji_local",
+  "host": "127.0.0.1",
+  "port": 3308,
+  "versions": "V1–V10 全部成功，本次应用V4–V10",
+  "javaVersion": "1.8.0_452",
+  "backup": "/Users/jiangruliang/.codex/backups/jianyanji/pre-v2-KMgdgL/jianyanji_local-before-v4.sql",
+  "keyBusinessRowCountsUnchanged": true,
+  "verification": "business\trows_count\nusers\t3\norders\t0\npayments\t0\nrefunds\t0\nwallet_ledger\t0\ncompany_receipts\t0\nrewards\t0\nversion\tsuccess\n1\t1\n2\t1\n3\t1\n4\t1\n5\t1\n6\t1\n7\t1\n8\t1\n9\t1\n10\t1\nTABLE_NAME\tCOLUMN_NAME\nonboardings\trelation_confirmed\nonboardings\trelation_version\norder_lines\tprice_rule\norder_lines\tproduct_type\norder_lines\tretail_cents\nskus\tproduct_type\nskus\twelfare_cents\nusers\trelation_version\nusers\tshare_code\nTABLE_NAME\nbrand_posts\nqualifications\nteam_handovers\nINDEX_NAME\nreward_source_recipient_active\nCHECK_CLAUSE\n(`kind` in (_utf8mb4\\\\'onboarding\\\\',_utf8mb4\\\\'margin\\\\',_utf8mb4\\\\'retail\\\\'))\n"
+}

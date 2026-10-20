@@ -1,0 +1,321 @@
+{
+  "scope": "Java8全量回归，使用本机专用MySQL隔离库；外部微信为测试替身",
+  "recordedAt": "2026-10-20T12:40:27.067087+08:00",
+  "javaVersion": "1.8.0_452",
+  "database": "java_rewards_test_v2_20261020",
+  "total": {
+    "tests": 187,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "mysqlTests": 39,
+  "classes": [
+    {
+      "name": "com.jianyanji.aftersales.AftersalesRefundPreflightTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.002
+    },
+    {
+      "name": "com.jianyanji.aftersales.AftersalesRevocationReviewTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.01
+    },
+    {
+      "name": "com.jianyanji.aftersales.AftersalesServiceTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.024
+    },
+    {
+      "name": "com.jianyanji.aftersales.CustomerAftersalesMysqlTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.01
+    },
+    {
+      "name": "com.jianyanji.aftersales.CustomerAftersalesServiceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.004
+    },
+    {
+      "name": "com.jianyanji.aftersales.PaymentsAftersalesMysqlTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.43
+    },
+    {
+      "name": "com.jianyanji.catalog.CatalogControllerTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.211
+    },
+    {
+      "name": "com.jianyanji.catalog.CatalogServiceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.008
+    },
+    {
+      "name": "com.jianyanji.common.InputTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.0
+    },
+    {
+      "name": "com.jianyanji.common.ProxyAddressTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.422
+    },
+    {
+      "name": "com.jianyanji.content.BrandContentMysqlTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.024
+    },
+    {
+      "name": "com.jianyanji.content.BrandContentServiceTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.003
+    },
+    {
+      "name": "com.jianyanji.content.ContentPermissionTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.018
+    },
+    {
+      "name": "com.jianyanji.content.CourseRightsServiceTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.0
+    },
+    {
+      "name": "com.jianyanji.exports.FinanceExportControllerTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.031
+    },
+    {
+      "name": "com.jianyanji.exports.OperationsExportControllerTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.004
+    },
+    {
+      "name": "com.jianyanji.identity.PasswordsTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.203
+    },
+    {
+      "name": "com.jianyanji.media.ImageUploadControllerTest",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.095
+    },
+    {
+      "name": "com.jianyanji.media.OssUploadSignerTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.004
+    },
+    {
+      "name": "com.jianyanji.membership.MembershipBoundaryMysqlTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.006
+    },
+    {
+      "name": "com.jianyanji.membership.MembershipBoundaryTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.0
+    },
+    {
+      "name": "com.jianyanji.membership.MembershipMysqlTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.218
+    },
+    {
+      "name": "com.jianyanji.membership.MembershipServiceTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.004
+    },
+    {
+      "name": "com.jianyanji.membership.TeamControllerTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.004
+    },
+    {
+      "name": "com.jianyanji.orders.FulfillmentServiceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.001
+    },
+    {
+      "name": "com.jianyanji.orders.OrderControllerTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.002
+    },
+    {
+      "name": "com.jianyanji.orders.OrderInputTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.0
+    },
+    {
+      "name": "com.jianyanji.orders.OrderServiceTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.004
+    },
+    {
+      "name": "com.jianyanji.orders.OrdersMysqlTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.271
+    },
+    {
+      "name": "com.jianyanji.payments.PaymentServiceTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.522
+    },
+    {
+      "name": "com.jianyanji.payments.WechatPayClientTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.237
+    },
+    {
+      "name": "com.jianyanji.rewards.RewardsFundsContractTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 3.706
+    },
+    {
+      "name": "com.jianyanji.wallet.CashRefundServiceTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.013
+    },
+    {
+      "name": "com.jianyanji.wallet.WalletMysqlTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.145
+    },
+    {
+      "name": "com.jianyanji.wallet.WalletServiceTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.015
+    }
+  ],
+  "frontend": {
+    "typecheck": "passed",
+    "build": "passed",
+    "modules": 1803,
+    "native": {
+      "passed": true,
+      "wxml": 24,
+      "wxss": 25,
+      "js": 29,
+      "json": 28,
+      "registeredPages": 22,
+      "failures": []
+    },
+    "browser": {
+      "passed": true,
+      "exports": 13,
+      "pageErrors": 0,
+      "screenshots": 4
+    }
+  },
+  "backupRestore": {
+    "passed": true,
+    "tables": 38,
+    "evidence": "v2-backup-restore-results.json"
+  },
+  "externalAcceptance": "待真实微信／银行、真机分享视频、正式告警、品牌审核资料和上线交接"
+}
