@@ -135,7 +135,41 @@ class MiniListMysqlTest {
                     run+"-expired-"+i,i==1?other:uid,i==2?"unknown":"unpaid",run+"-expired-request-"+i);
             if(i==0)expired=order;else if(i==1)foreignExpired=order;else unknown=order;
         }
+        // 购物袋角标覆盖整袋总件数，未勾选也计入，逻辑删除和其他用户不混入。
+        assertEquals(41,l(lists.cartCount(uid),"count"));
+        db.update("UPDATE cart_items SET quantity=3,selected=0,update_user_id=0,update_time=CURRENT_TIMESTAMP(3) WHERE user_id=? AND sku_id=?",uid,skus.get(0));
+        db.update("UPDATE cart_items SET is_deleted=1,update_user_id=0,update_time=CURRENT_TIMESTAMP(3) WHERE user_id=? AND sku_id=?",uid,skus.get(1));
+        db.insert("INSERT INTO cart_items(user_id,sku_id,quantity,selected) VALUES(?,?,8,1)",other,skus.get(0));
+        assertEquals(42,l(lists.cartCount(uid),"count"));
+        assertEquals(8,l(lists.cartCount(other),"count"));
+        assertEquals(0,l(lists.cartCount(principal),"count"));
+
+        // 订单角标不受第一页二十笔限制，沿用未付过期规则，未知及处理中支付仍保留。
+        String[][] cases={
+                {"pending","unpaid","2099-01-01T00:00:00.000Z","0"},
+                {"pending","failed","2020-01-01T00:00:00.000Z","0"},
+                {"pending","processing","2020-01-01T00:00:00.000Z","0"},
+                {"awaiting_shipment","paid","2099-01-01T00:00:00.000Z","0"},
+                {"completed","paid","2099-01-01T00:00:00.000Z","0"},
+                {"closed","unpaid","2020-01-01T00:00:00.000Z","0"},
+                {"refunded","paid","2099-01-01T00:00:00.000Z","0"},
+                {"paid","paid","2099-01-01T00:00:00.000Z","1"}
+        };
+        for(int i=0;i<cases.length;i++) {
+            String[] row=cases[i];
+            db.insert("INSERT INTO orders(number,user_id,status,payment_state,payment_method,total_cents,goods_cents,shipping_cents,snapshot,expires_at,request_key,is_deleted) VALUES(?,?,?,?,'points',100,100,0,'{}',?,?,?)",
+                    run+"-badge-"+i,uid,row[0],row[1],row[2],run+"-badge-request-"+i,Integer.parseInt(row[3]));
+        }
+        ObjectNode counts=lists.orderCounts(uid);
+        assertEquals(3,l(counts,"pending"));assertEquals(22,l(counts,"paid"));
+        assertEquals(20,l(counts,"shipped"));assertEquals(1,l(counts,"completed"));
+        for(String key:Arrays.asList("pending","paid","shipped","completed")) {
+            assertEquals(0,l(lists.orderCounts(other),key));
+            assertEquals(0,l(lists.orderCounts(principal),key));
+        }
+        assertEquals("pending",s(orders.owned(expired,uid),"status"),"只读取角标不触发库存释放或订单状态写入");
         lists.mine("orders",user,1,20,0,null);
+        assertEquals(counts,lists.orderCounts(uid),"读取列表并释放过期订单后角标仍保持一致");
         assertEquals("closed",s(orders.owned(expired,uid),"status"));
         assertEquals("pending",s(orders.owned(foreignExpired,other),"status"));
         assertEquals("pending",s(orders.owned(unknown,uid),"status"));

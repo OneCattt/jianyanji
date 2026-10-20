@@ -60,11 +60,18 @@ test("身份确认后，邀请与钱包并行，设置和订单无需等待这�
   const { page, navigation } = runtime("profile", (url) => {
     calls.push(url);
     if (url === "/me") return Promise.resolve({ id: 7, identity: "B" });
+    if (url === "/mini/orders/counts")
+      return Promise.resolve({ pending: 0, paid: 0, shipped: 0, completed: 0 });
     return url === "/invitations/mine" ? invitation.promise : wallet.promise;
   });
   const loading = page.onShow();
   await tick();
-  assert.deepEqual(calls, ["/me", "/invitations/mine", "/mini/wallet"]);
+  assert.deepEqual(calls, [
+    "/me",
+    "/mini/orders/counts",
+    "/invitations/mine",
+    "/mini/wallet",
+  ]);
   assert.equal(page.data.busy, false);
   page.onNavigate({ currentTarget: { dataset: { key: "settings" } } });
   page.onNavigate({ currentTarget: { dataset: { key: "orders" } } });
@@ -77,7 +84,7 @@ test("身份确认后，邀请与钱包并行，设置和订单无需等待这�
   await loading;
   assert.equal(page.data.availablePoints, "12.34");
   await page.onShow();
-  assert.equal(calls.length, 3, "正常往返复用已读取资料");
+  assert.equal(calls.length, 4, "正常往返复用已读取资料和订单数量");
 });
 
 test("种草刷新保留原列表，默认请求二十条，失败后仍能阅读原内容", async () => {
@@ -103,6 +110,7 @@ test("商城首次二十条，触底才追加下一页，重复触底只发送�
   const { page } = runtime("mall", async (url) => {
     calls.push(url);
     if (url === "/public/categories") return [];
+    if (url === "/mini/cart/count") return { count: 1 };
     if (url.includes("page=2")) return next.promise;
     return {
       items: Array.from({ length: 20 }, (_, i) => ({ id: i + 1, skus: [] })),
@@ -113,12 +121,12 @@ test("商城首次二十条，触底才追加下一页，重复触底只发送�
   });
   await page.onShow();
   assert.equal(page.data.products.length, 20);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   await page.onShow();
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   const more = page.onReachBottom();
   await page.onReachBottom();
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
   next.resolve({
     items: [{ id: 21, skus: [] }],
     identity: "D",
@@ -129,7 +137,7 @@ test("商城首次二十条，触底才追加下一页，重复触底只发送�
   assert.equal(page.data.products.length, 21);
   assert.equal(page.data.products[20].id, 21);
   await page.onReachBottom();
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
 });
 
 test("加载下一页失败时保留内容和页码，重试仍读取同一页", async () => {

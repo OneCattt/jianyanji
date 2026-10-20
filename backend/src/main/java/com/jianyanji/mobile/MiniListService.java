@@ -133,6 +133,23 @@ public class MiniListService {
         return db.one("SELECT COUNT(*) AS kinds,COALESCE(SUM(c.quantity),0) AS pieces,COALESCE(SUM(("+price+")*c.quantity),0) AS totalCents FROM cart_items c JOIN skus s ON s.id=c.sku_id WHERE c.user_id=? AND c.selected=1 AND c.is_deleted=0",l(user,"id"));
     }
 
+    /** 购物袋角标为本人所有未删除项的总件数，包含未勾选项，空购物袋返回 count=0。 */
+    public ObjectNode cartCount(long uid) {
+        return db.one("SELECT COALESCE(SUM(quantity),0) AS count FROM cart_items WHERE user_id=? AND is_deleted=0", uid);
+    }
+
+    /**
+     * 订单角标单位为笔：pending 待核款、paid 待发货、shipped 运输中、completed 已完成。
+     * 已删除、关闭和全额退款的订单不计入；明确未付且已过期的订单遵循列表过期规则排除。
+     * 仅执行一次聚合，不装配订单快照、不触发库存释放或获取业务写锁。
+     */
+    public ObjectNode orderCounts(long uid) {
+        return db.one("SELECT COALESCE(SUM(status='pending' AND (payment_state NOT IN ('unpaid','failed') OR expires_at>=?)),0) AS pending,"
+                + "COALESCE(SUM(status IN ('paid','awaiting_shipment')),0) AS paid,"
+                + "COALESCE(SUM(status='shipped'),0) AS shipped,COALESCE(SUM(status='completed'),0) AS completed"
+                + " FROM orders WHERE user_id=? AND is_deleted=0", now(), uid);
+    }
+
     /** 结算时按需读取全部已选商品编号及数量，避免只结算已展示的一页。 */
     public ObjectNode selection(JsonNode user) {
         com.fasterxml.jackson.databind.node.ArrayNode items=arr();

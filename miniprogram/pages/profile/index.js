@@ -1,5 +1,6 @@
 const { request } = require("../../utils/api");
 const { isFresh, remember, session } = require("../../utils/state");
+const { loadBadge } = require("../../utils/badges");
 const destinations = {
   orders: "/pages/orders/index",
   team: "/pages/team/index",
@@ -16,6 +17,7 @@ const destinations = {
 Page({
   data: {
     user: null,
+    avatarText: "妍",
     shareCode: "",
     isAgent: false,
     busy: false,
@@ -25,6 +27,8 @@ Page({
     availablePoints: "—",
     walletLoaded: false,
     transferConfigured: false,
+    orderCounts: null,
+    orderCountsError: "",
     headerTop: 62,
     headerHeight: 250,
     orderShortcuts: [
@@ -111,11 +115,15 @@ Page({
   onShow() {
     const tabBar = this.getTabBar && this.getTabBar();
     if (tabBar) tabBar.setData({ selected: 3 });
-    if (!isFresh(this)) return this.refresh();
+    const profile = !isFresh(this) ? this.refresh() : Promise.resolve();
+    return Promise.all([profile, loadBadge(this, "orders")]);
+  },
+  loadOrderCounts() {
+    return loadBadge(this, "orders", true);
   },
   async onPullDownRefresh() {
     try {
-      await this.refresh();
+      await Promise.all([this.refresh(), loadBadge(this, "orders", true)]);
     } finally {
       wx.stopPullDownRefresh();
     }
@@ -124,6 +132,8 @@ Page({
     const changed = !user || !this.data.user || user.id !== this.data.user.id;
     this.setData({
       user,
+      ...(!user ? { orderCounts: null } : {}),
+      avatarText: Array.from(((user && user.nickname) || "").trim())[0] || "妍",
       isAgent: !!user && ["B", "C"].includes(user.identity),
       ...(changed
         ? {

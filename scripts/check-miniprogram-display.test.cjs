@@ -16,6 +16,7 @@ const pages = [
   "orders",
   "wallet",
   "rewards",
+  "profile",
 ];
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "jianyanji-display-"));
 const context = { window: {}, console };
@@ -51,6 +52,7 @@ function render(page, data) {
   }
   visit(context.$gwx(`pages/${page}/index.wxml`)(data));
   return {
+    nodes,
     hasClass: (value) =>
       nodes.some((node) => node.attr?.class?.split(" ").includes(value)),
     text: nodes
@@ -59,6 +61,60 @@ function render(page, data) {
       .join(""),
   };
 }
+
+test("购物袋角标隐藏零值、显示数量及99+，读屏保留真实件数", () => {
+  for (const count of [null, 0, 1, 99, 100]) {
+    const view = render("mall", {
+      cartCount: count,
+      products: [],
+      categories: [],
+    });
+    const badges = view.nodes.filter((node) =>
+      node.attr?.class?.includes("qx-cart-badge"),
+    );
+    assert.equal(badges.length, count > 0 ? 1 : 0);
+    if (count > 0)
+      assert.equal(
+        badges[0].children.join(""),
+        count > 99 ? "99+" : String(count),
+      );
+    assert.ok(
+      view.nodes.some(
+        (node) =>
+          node.attr?.ariaLabel ===
+          (count === null ? "打开购物袋" : `购物袋，共${count}件商品`),
+      ),
+    );
+  }
+});
+
+test("四个订单入口按各自状态显示笔数，零值隐藏、大数显示99+", () => {
+  const data = {
+    orderShortcuts: [
+      { tab: 1, name: "待核款", icon: "pending" },
+      { tab: 2, name: "待发货", icon: "paid" },
+      { tab: 3, name: "运输中", icon: "shipped" },
+      { tab: 4, name: "已完成", icon: "completed" },
+    ],
+    orderCounts: { pending: 1, paid: 2, shipped: 0, completed: 100 },
+  };
+  const view = render("profile", data);
+  const badges = view.nodes.filter((node) =>
+    node.attr?.class?.includes("mine-order-badge"),
+  );
+  assert.deepEqual(
+    badges.map((node) => node.children.join("")),
+    ["1", "2", "99+"],
+  );
+  assert.ok(
+    view.nodes.some((node) => node.attr?.ariaLabel === "已完成，100笔订单"),
+  );
+  assert.ok(
+    !render("profile", { ...data, orderCounts: null }).hasClass(
+      "mine-order-badge",
+    ),
+  );
+});
 
 test("商城有可售商品时不显示未上架或不可购买提示，也不留空错误条", () => {
   const view = render("mall", {

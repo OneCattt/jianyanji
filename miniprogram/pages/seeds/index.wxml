@@ -1,4 +1,5 @@
 <import src="../../templates/list-footer.wxml" />
+<tab-navigation title="种草空间" />
 <view class="qx qx-tabpage"><view class="qx-section"><view class="qx-caption">QINGXIN STORIES</view><view class="qx-h2">种草空间</view><view class="qx-about">品牌护理知识、产品使用与短视频</view>
   <button wx:for="{{items}}" wx:key="id" class="seed-card" data-id="{{item.id}}" bindtap="open" aria-label="阅读{{item.title}}"><image class="seed-cover" src="{{item.coverDisplay}}" mode="aspectFill" lazy-load /><view class="seed-copy"><view class="qx-badge">{{item.type==='video'?'短视频':'品牌图文'}}</view><view class="qx-label">{{item.title}}</view><view class="qx-muted">{{item.summary}}</view></view></button>
   <view wx:if="{{loaded && !items.length && !loading}}" class="qx-empty">品牌内容尚未发布</view><view wx:if="{{error}}" class="error">{{error}}<button class="qx-text" bindtap="retry">重试</button></view>

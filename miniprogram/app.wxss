@@ -1,4 +1,24 @@
 @import "figma.wxss";
+.qx-count-badge {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36rpx;
+  height: 36rpx;
+  padding: 0 8rpx;
+  border: 3rpx solid #fffdfa;
+  border-radius: 24rpx;
+  background: #8d1724;
+  color: #fffdfa;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 30rpx;
+  white-space: nowrap;
+}
+
 page {
   background: #f8f5ee;
   color: #233d38;

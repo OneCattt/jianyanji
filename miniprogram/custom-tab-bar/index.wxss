@@ -7,8 +7,8 @@
   display: flex;
   padding: 15.957rpx 35.904rpx 23.936rpx;
   padding-bottom: max(23.936rpx, env(safe-area-inset-bottom));
-  background: rgba(255, 253, 250, 0.94);
-  border-top: 1.995rpx solid rgba(70, 51, 42, 0.08);
+  background: #faf8f5;
+  border-top: 0.5px solid #efece6;
 
   box-sizing: border-box;
 }

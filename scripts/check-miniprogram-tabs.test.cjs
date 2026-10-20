@@ -7,6 +7,71 @@ const { createRequire } = require("./miniprogram-runtime.cjs");
 
 const root = path.resolve(__dirname, "../miniprogram");
 
+test("四个底部页签使用同一种导航绘制方式，浅色页首屏即包含导航占位", () => {
+  const app = JSON.parse(fs.readFileSync(path.join(root, "app.json"), "utf8"));
+  for (const tab of app.tabBar.list) {
+    const config = JSON.parse(
+      fs.readFileSync(path.join(root, tab.pagePath + ".json"), "utf8"),
+    );
+    assert.equal(config.navigationStyle, "custom", tab.pagePath);
+    if (tab.pagePath !== "pages/profile/index") {
+      assert.equal(
+        config.usingComponents["tab-navigation"],
+        "/components/tab-navigation/index",
+      );
+      assert.match(
+        fs.readFileSync(path.join(root, tab.pagePath + ".wxml"), "utf8"),
+        /<tab-navigation\s/,
+      );
+    }
+  }
+});
+
+test("会员资料避开状态栏与胶囊，浅色导航在首次绘制前已占据完整胶囊区域", () => {
+  for (const [width, statusBarHeight, top, bottom] of [
+    [375, 44, 50, 82],
+    [393, 59, 65, 97],
+    [360, 24, 30, 62],
+  ]) {
+    const wx = {
+      getWindowInfo: () => ({ windowWidth: width, statusBarHeight }),
+      getMenuButtonBoundingClientRect: () => ({
+        top,
+        bottom,
+        height: bottom - top,
+      }),
+    };
+    let page, component;
+    vm.runInNewContext(
+      fs.readFileSync(path.join(root, "pages/profile/index.js"), "utf8"),
+      {
+        wx,
+        Page: (definition) => (page = definition),
+        require: () => ({}),
+      },
+    );
+    page.data = structuredClone(page.data);
+    page.setData = (values) => Object.assign(page.data, values);
+    page.onLoad();
+    assert.ok(page.data.headerTop >= bottom + (12 * width) / 376);
+    assert.ok(
+      page.data.headerHeight - page.data.headerTop >= (180 * width) / 376,
+    );
+    vm.runInNewContext(
+      fs.readFileSync(
+        path.join(root, "components/tab-navigation/index.js"),
+        "utf8",
+      ),
+      {
+        wx,
+        Component: (definition) => (component = definition),
+      },
+    );
+    assert.ok(component.data.navigationHeight >= bottom);
+    assert.equal(component.data.statusBarHeight, statusBarHeight);
+  }
+});
+
 function createRuntime({ requestFails = false, navigationFails = false } = {}) {
   let route = "pages/home/index";
   let component;

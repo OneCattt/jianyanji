@@ -1,4 +1,8 @@
 {
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "tab-navigation": "/components/tab-navigation/index"
+  },
   "navigationBarTitleText": "臻选商城",
   "onReachBottomDistance": 120,
   "enablePullDownRefresh": true

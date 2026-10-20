@@ -2,12 +2,15 @@ const { request } = require("../../utils/api");
 const { decorate } = require("../../utils/catalog");
 const { listData, loadPage } = require("../../utils/list");
 const { isFresh, remember } = require("../../utils/state");
+const { loadBadge } = require("../../utils/badges");
 Page({
   data: {
     ...listData("products"),
     categories: [],
     categoryId: 0,
     identityName: "游客",
+    cartCount: null,
+    cartCountError: "",
     error: "",
   },
   cart() {
@@ -16,7 +19,14 @@ Page({
   onShow() {
     const tabBar = this.getTabBar && this.getTabBar();
     if (tabBar) tabBar.setData({ selected: 1 });
-    if (!isFresh(this) && !this.data.productsLoading) return this.load();
+    const products =
+      !isFresh(this) && !this.data.productsLoading
+        ? this.load()
+        : Promise.resolve();
+    return Promise.all([products, loadBadge(this, "cart")]);
+  },
+  loadCartCount() {
+    return loadBadge(this, "cart", true);
   },
   async load(reset = true) {
     const categoryId = this.data.categoryId;
@@ -43,7 +53,7 @@ Page({
   },
   async onPullDownRefresh() {
     try {
-      await this.load();
+      await Promise.all([this.load(), loadBadge(this, "cart", true)]);
     } finally {
       wx.stopPullDownRefresh();
     }

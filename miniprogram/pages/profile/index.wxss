@@ -284,6 +284,7 @@ page {
 }
 .mine .mine-order-shortcut {
   flex: 1;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -295,6 +296,29 @@ page {
 .mine-order-shortcut image {
   width: 43.883rpx;
   height: 43.883rpx;
+}
+.mine-order-icon {
+  position: relative;
+  width: 43.883rpx;
+  height: 43.883rpx;
+}
+.mine-order-badge {
+  top: -16rpx;
+  right: -24rpx;
+}
+.mine-count-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: #8d1724;
+}
+.mine-count-error button {
+  color: inherit;
+  font-size: inherit;
+  min-height: 44px;
 }
 .mine-menu {
   margin-top: 27.926rpx;

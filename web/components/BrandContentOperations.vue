@@ -4,6 +4,7 @@ import FeedbackToast from "./FeedbackToast.vue";
 import { computed, onMounted, ref } from "vue";
 import { contentApi, type BrandPost, type PostInput } from "../content-client";
 import ImageUploader from "./ImageUploader.vue";
+import ImageListUploader from "./ImageListUploader.vue";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
@@ -13,7 +14,9 @@ const busy = ref(false),
   notice = ref(""),
   editing = ref(false),
   selectedId = ref<number | null>(null),
-  uploading = ref(false);
+  coverUploading = ref(false),
+  imagesUploading = ref(false);
+const uploading = computed(() => coverUploading.value || imagesUploading.value);
 const names: Record<string, string> = {
   draft: "草稿",
   reviewed: "已审核",
@@ -32,7 +35,6 @@ const empty = (): PostInput => ({
   reason: "",
 });
 const form = ref<PostInput>(empty()),
-  images = ref(""),
   products = ref("");
 const action = ref<{ post: BrandPost; kind: string } | null>(null),
   actionReason = ref("");
@@ -52,14 +54,13 @@ function edit(post?: BrandPost) {
         summary: post.summary,
         body: post.body,
         cover: post.cover,
-        imageUrls: post.imageUrls,
+        imageUrls: [...post.imageUrls],
         videoUrl: post.video_url,
         durationSeconds: post.duration_seconds,
         productIds: post.productIds,
         reason: "",
       }
     : empty();
-  images.value = form.value.imageUrls.join("\n");
   products.value = form.value.productIds.join(",");
   editing.value = true;
   error.value = "";
@@ -91,10 +92,6 @@ async function save() {
   try {
     await contentApi.save(selectedId.value, {
       ...form.value,
-      imageUrls: images.value
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean),
       productIds,
       videoUrl: form.value.type === "video" ? form.value.videoUrl : "",
       durationSeconds:
@@ -286,7 +283,8 @@ const postColumns = [
         label="内容封面"
         purpose="content"
         required
-        @busy-change="uploading = $event"
+        :disabled="busy || uploading"
+        @busy-change="coverUploading = $event"
       />
       <label
         >正文<a-textarea
@@ -296,12 +294,11 @@ const postColumns = [
           :rows="8"
         />
       </label>
-      <label
-        >正文图片地址（每行一张，最多9张）<a-textarea
-          v-model:value="images"
-          :rows="3"
-        />
-      </label>
+      <ImageListUploader
+        v-model="form.imageUrls"
+        :disabled="busy || uploading"
+        @busy-change="imagesUploading = $event"
+      />
       <template v-if="form.type === 'video'"
         ><label
           >MP4 视频地址<a-input

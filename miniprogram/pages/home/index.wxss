@@ -1,0 +1,199 @@
+/* 首页采用品牌画报排版，样式限定在首页。 */
+page,
+.qx-home {
+  background: #faf8f5;
+}
+.qx-home .qx-hero {
+  height: 52vh;
+  max-height: 430px;
+}
+.qx-home .qx-hero-image {
+  top: 0;
+  right: auto;
+  bottom: auto;
+  width: 112%;
+  height: 150%;
+}
+.qx-home .qx-shade {
+  background: linear-gradient(
+    90deg,
+    rgba(55, 38, 32, 0.55) 0%,
+    rgba(55, 38, 32, 0) 75%
+  );
+}
+.qx-home .qx-hero-copy {
+  top: 48px;
+  left: 28px;
+  width: calc(100% - 56px);
+}
+.qx-home .qx-overline {
+  font-size: 10px;
+  line-height: 16px;
+  letter-spacing: 4px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.qx-home .qx-hero-title {
+  margin-top: 22px;
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 3px;
+}
+.qx-home .qx-hero-sub {
+  margin-top: 18px;
+  max-width: 295px;
+  font-size: 11px;
+  line-height: 1.9;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.88);
+}
+.qx-home .qx-hero-button {
+  display: inline-flex;
+  justify-content: space-between;
+  height: 40px;
+  margin: 26px 0 0;
+  padding: 0 24px;
+  gap: 20px;
+  border: 0.5px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(4px);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-align: left;
+}
+.qx-home .qx-hero-button text {
+  font-size: 20px;
+  line-height: 1;
+}
+.qx-home .qx-shortcuts {
+  height: 96px;
+  padding: 20px 16px;
+  align-items: center;
+  gap: 0;
+  background: #faf8f5;
+  border-bottom: 0.5px solid #eae4df;
+}
+.qx-home .qx-shortcuts button {
+  min-width: 0;
+  min-height: 56px;
+  text-align: center;
+}
+.home-entry-caption {
+  color: #a68b7c;
+  font-size: 10px;
+  line-height: 14px;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+.home-entry-title {
+  margin-top: 4px;
+  color: #2c221e;
+  font-family: STSong, "Songti SC", serif;
+  font-size: 16px;
+  line-height: 22px;
+  letter-spacing: 1px;
+}
+.qx-home .qx-shortcuts text {
+  margin-top: 3px;
+  color: #8c827d;
+  font-size: 12px;
+  line-height: 16px;
+}
+.home-entry-divider {
+  flex-shrink: 0;
+  height: 44px;
+  width: 1px;
+  background: #eae4df;
+}
+.qx-home .qx-section {
+  padding: 22px 28px 0;
+}
+.qx-home .qx-caption {
+  color: #a68b7c;
+  font-size: 9px;
+  line-height: 14px;
+  letter-spacing: 2px;
+}
+.qx-home .qx-h2 {
+  margin-top: 4px;
+  color: #2c221e;
+  font-size: 22px;
+  line-height: 32px;
+  letter-spacing: 2px;
+}
+.qx-home .qx-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 11px;
+  color: #8c827d;
+}
+.qx-home .qx-feature {
+  margin-top: 16px;
+  background: #f0eae2;
+}
+.qx-home .qx-feature-copy {
+  padding: 24px 16px;
+  min-width: 0;
+}
+.qx-home .qx-feature .qx-h2 {
+  font-size: 20px;
+  line-height: 1.5;
+  letter-spacing: 1px;
+}
+.qx-home .qx-badge {
+  background: transparent;
+  padding: 0;
+  color: #8c827d;
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+.qx-home .qx-primary {
+  background: #6e2c2c;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.qx-home .home-about {
+  margin-top: 16px;
+  padding-top: 32px;
+  border-top: 0.5px solid #eae4df;
+}
+.qx-home .qx-about {
+  font-size: 12px;
+  line-height: 2;
+}
+.qx-home .qx-info {
+  padding: 16px 0;
+  border-top: 0.5px solid #eae4df;
+  background: transparent;
+  color: #6e2c2c;
+  font-size: 14px;
+  line-height: 24px;
+  letter-spacing: 1px;
+}
+.qx-home .home-entry-pressed {
+  opacity: 0.7;
+}
+/* 矮屏收紧海报，给标题与商品边缘保留可见空间。 */
+@media (max-height: 840px) {
+  .qx-home .qx-hero {
+    height: calc(100vh - 414px);
+    min-height: 250px;
+  }
+  .qx-home .qx-hero-copy {
+    top: 28px;
+  }
+  .qx-home .qx-hero-title {
+    margin-top: 16px;
+    font-size: 30px;
+    line-height: 1.4;
+  }
+  .qx-home .qx-hero-sub {
+    margin-top: 12px;
+  }
+  .qx-home .qx-hero-button {
+    margin-top: 18px;
+  }
+}

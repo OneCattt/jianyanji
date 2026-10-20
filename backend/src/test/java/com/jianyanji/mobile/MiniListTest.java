@@ -115,7 +115,23 @@ class MiniListTest {
         verify(lists).products(null,1,20,null,false);
         when(access.user()).thenThrow(new BusinessException(401,"UNAUTHORIZED","请先登录"));
         mvc.perform(get("/api/mini/orders")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/mini/cart/count")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/mini/orders/counts")).andExpect(status().isUnauthorized());
         verifyNoMoreInteractions(lists);
+    }
+
+    @Test
+    void badgeCountsOnlyUseAuthenticatedUserEvenWhenCallerSuppliesAnotherId() throws Exception {
+        MiniListService lists=mock(MiniListService.class);Access access=mock(Access.class);
+        when(access.user()).thenReturn(obj("id",7));
+        when(lists.cartCount(7L)).thenReturn(obj("count",3));
+        when(lists.orderCounts(7L)).thenReturn(obj("pending",1,"paid",2,"shipped",0,"completed",4));
+        org.springframework.test.web.servlet.MockMvc mvc=MockMvcBuilders.standaloneSetup(new MiniListController(lists,access)).build();
+        mvc.perform(get("/api/mini/cart/count").param("userId","99"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.count").value(3));
+        mvc.perform(get("/api/mini/orders/counts").param("userId","99"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pending").value(1)).andExpect(jsonPath("$.paid").value(2));
+        verify(lists).cartCount(7L);verify(lists).orderCounts(7L);verifyNoMoreInteractions(lists);
     }
 
     @Test

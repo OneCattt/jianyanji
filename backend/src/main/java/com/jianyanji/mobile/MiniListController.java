@@ -49,6 +49,18 @@ public class MiniListController {
         return lists.selection(access.user());
     }
 
+    /** 当前用户购物袋总件数；包括未勾选商品，不读取商品列表。 */
+    @GetMapping("/cart/count")
+    public Object cartCount() {
+        return lists.cartCount(l(access.user(), "id"));
+    }
+
+    /** 当前用户各订单状态的笔数，覆盖全部订单而非当前已加载页。 */
+    @GetMapping("/orders/counts")
+    public Object orderCounts() {
+        return lists.orderCounts(l(access.user(), "id"));
+    }
+
     @GetMapping("/wallet")
     public Object wallet() {
         return lists.wallet(l(access.user(), "id"));

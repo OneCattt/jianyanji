@@ -17,6 +17,7 @@
   min-height: 48px;
   margin: 0;
   padding: 0;
+  overflow: visible;
   border-radius: 50%;
   background: #fffdfa;
   box-shadow: 0 6rpx 24rpx rgba(70, 51, 42, 0.16);
@@ -30,4 +31,23 @@
 .qx .qx-cart-float-pressed {
   background: #f3ece2;
   box-shadow: 0 3rpx 12rpx rgba(70, 51, 42, 0.12);
+}
+
+.qx-cart-badge {
+  top: -6rpx;
+  right: -6rpx;
+}
+.qx-count-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  color: #8d1724;
+  font-size: 24rpx;
+}
+.qx-count-error button {
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  min-height: 44px;
 }

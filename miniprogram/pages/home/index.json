@@ -1,6 +1,8 @@
 {
+  "navigationStyle": "custom",
   "navigationBarTitleText": "清欣简妍肌",
   "usingComponents": {
+    "tab-navigation": "/components/tab-navigation/index",
     "content-recommendations": "/components/content-recommendations/index"
   }
 }

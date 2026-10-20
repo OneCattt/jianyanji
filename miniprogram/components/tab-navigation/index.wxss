@@ -1,0 +1,37 @@
+.tab-navigation {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 100;
+  box-sizing: border-box;
+  background: #f8f5ee;
+  color: #251d1a;
+}
+.tab-navigation-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 100px;
+  box-sizing: border-box;
+  font-size: 17px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tab-navigation-brand {
+  background: #faf8f5;
+}
+.tab-navigation-brand .tab-navigation-title {
+  justify-content: flex-start;
+  padding-right: 110px;
+  padding-left: 28px;
+}
+.tab-navigation-brand .tab-navigation-name {
+  color: #6e2c2c;
+  font-family: STSong, "Songti SC", serif;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 26px;
+  letter-spacing: 2px;
+}

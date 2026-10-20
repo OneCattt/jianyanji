@@ -10,7 +10,7 @@
       disabled="{{navigating}}"
       aria-label="个人资料与登录设置"
     >
-      妍
+      {{avatarText}}
     </button>
     <view class="mine-identity">
       <view class="mine-membership">清欣会员</view>
@@ -125,15 +125,28 @@
           class="mine-order-shortcut"
           data-key="orders"
           data-tab="{{item.tab}}"
+          aria-label="{{item.name + (orderCounts && orderCounts[item.icon] > 0 ? '，' + orderCounts[item.icon] + '笔订单' : '')}}"
           bindtap="onNavigate"
           disabled="{{navigating}}"
         >
-          <image
-            src="/assets/figma/profile-order-{{item.icon}}.png"
-            mode="aspectFit"
-          /><text>{{item.name}}</text>
+          <view class="mine-order-icon">
+            <image
+              src="/assets/figma/profile-order-{{item.icon}}.png"
+              mode="aspectFit"
+            />
+            <text
+              wx:if="{{orderCounts && orderCounts[item.icon] > 0}}"
+              class="qx-count-badge mine-order-badge"
+              aria-hidden="true"
+              >{{orderCounts[item.icon] > 99 ? '99+' : orderCounts[item.icon]}}</text
+            >
+          </view><text>{{item.name}}</text>
         </button></view
       >
+      <view wx:if="{{orderCountsError}}" class="mine-count-error">
+        <text>{{orderCountsError}}</text>
+        <button bindtap="loadOrderCounts">重试</button>
+      </view>
     </view>
     <view class="mine-menu">
       <block wx:for="{{menuItems}}" wx:key="key">
