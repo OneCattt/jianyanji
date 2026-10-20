@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CORSConfiguration>
+  <CORSRule>
+    <AllowedOrigin>https://REPLACE_WITH_ADMIN_DOMAIN</AllowedOrigin>
+    <AllowedMethod>POST</AllowedMethod>
+    <AllowedMethod>GET</AllowedMethod>
+    <AllowedMethod>HEAD</AllowedMethod>
+    <AllowedHeader>Content-Type</AllowedHeader>
+    <ExposeHeader>x-oss-request-id</ExposeHeader>
+    <ExposeHeader>ETag</ExposeHeader>
+    <MaxAgeSeconds>300</MaxAgeSeconds>
+  </CORSRule>
+</CORSConfiguration>

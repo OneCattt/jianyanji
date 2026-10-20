@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import QualificationOperations from "./QualificationOperations.vue";
+import FeedbackToast from "./FeedbackToast.vue";
+import ImageUploader from "./ImageUploader.vue";
+import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
@@ -8,6 +11,10 @@ import AdminDatePicker from "./AdminDatePicker.vue";
 const props = withDefaults(defineProps<{ permissions?: string[] }>(), {
   permissions: () => ["onboarding:manage", "finance:manage", "catalog:manage"],
 });
+const imageUploads = ref<Record<string, boolean>>({});
+const uploadingImage = computed(() =>
+  Object.values(imageUploads.value).some(Boolean),
+);
 interface Package {
   targetIdentity: "B" | "C";
   name: string;
@@ -56,9 +63,8 @@ type PackageForm = Omit<Package, "amountCents" | "valueCents" | "lines"> & {
   value: string;
   lines: { skuId: number; quantity: number; unit: string }[];
 };
-const dialog = ref<"packages" | "receipt" | "review" | null>(null);
+const dialog = ref<"packages" | "receipt" | null>(null);
 const packageDraft = ref<PackageForm[]>([]);
-const reviewDecision = ref<"approved" | "rejected">("approved");
 const packages = ref<PackageForm[]>([]),
   applications = ref<Application[]>([]),
   selected = ref<Application | null>(null),
@@ -66,13 +72,6 @@ const packages = ref<PackageForm[]>([]),
   error = ref(""),
   notice = ref(""),
   reason = ref("");
-const review = ref({
-  inviterId: "",
-  principalId: "",
-  conditionsMet: false,
-  relationshipsConfirmed: false,
-  reason: "",
-});
 const receipt = ref({
   amount: "",
   sourceChannel: "bank",
@@ -84,8 +83,8 @@ const receipt = ref({
   verified: false,
 });
 const states: Record<string, string> = {
-  submitted: "待核款 / 待审批",
-  approved: "身份已通过",
+  submitted: "待核实到账",
+  approved: "身份已激活",
   rejected: "已驳回",
   revoked: "本次身份已撤销",
 };
@@ -158,6 +157,7 @@ async function load() {
     selected.value = rows.find((a) => a.id === selected.value!.id) || null;
 }
 async function save() {
+  if (uploadingImage.value) return;
   await run(async () => {
     const payload = packageDraft.value.map((p) => {
       const { amount, value, lines, ...rest } = p;
@@ -191,16 +191,15 @@ function openPackages() {
   dialog.value = "packages";
 }
 function closeDialog() {
-  if (!busy.value) dialog.value = null;
+  if (!busy.value && !uploadingImage.value) dialog.value = null;
 }
 function select(a: Application) {
   selected.value = a;
 }
-function openApplicationDialog(kind: "receipt" | "review") {
+function openApplicationDialog(kind: "receipt") {
   const a = selected.value;
   if (!a) return;
   error.value = "";
-  reviewDecision.value = "approved";
   receipt.value = {
     amount: money(a.package_snapshot.amountCents),
     sourceChannel: "bank",
@@ -210,13 +209,6 @@ function openApplicationDialog(kind: "receipt" | "review") {
     evidence: "",
     reason: "",
     verified: false,
-  };
-  review.value = {
-    inviterId: String(a.inviter_id ?? a.requested_inviter_id ?? ""),
-    principalId: String(a.principal_id ?? ""),
-    conditionsMet: false,
-    relationshipsConfirmed: false,
-    reason: "",
   };
   dialog.value = kind;
 }
@@ -239,42 +231,17 @@ async function collect() {
     });
     await load();
     dialog.value = null;
-    notice.value = "已核实收款、扣实物库存并生成交付订单，身份仍须独立审批";
-  });
-}
-async function decide(decision: "approved" | "rejected") {
-  if (!selected.value) return;
-  const id = selected.value.id;
-  await run(async () => {
-    await api("/admin/onboardings/" + id + "/review", {
-      method: "POST",
-      body: {
-        decision,
-        reason: review.value.reason,
-        ...(decision === "approved"
-          ? {
-              inviterId: review.value.inviterId
-                ? Number(review.value.inviterId)
-                : null,
-              principalId: Number(review.value.principalId),
-              conditionsMet: review.value.conditionsMet,
-              relationshipsConfirmed: review.value.relationshipsConfirmed,
-            }
-          : {}),
-      },
-    });
-    await load();
-    dialog.value = null;
     notice.value =
-      decision === "approved"
-        ? "代理身份已启用，商品交付状态请在订单中继续核对"
-        : "已记录驳回原因；已收款申请仍须按售后处理实际货款";
+      "已核实收款、扣实物库存并生成交付订单，身份已按付款前确认激活";
   });
 }
 onMounted(() => run(load));
 </script>
 <template>
   <section class="membership-operations" :aria-busy="busy">
+    <QualificationOperations
+      v-if="props.permissions.includes('onboarding:manage')"
+    />
     <Teleport defer to="#admin-page-actions">
       <button class="primary" :disabled="busy" @click="openPackages">
         配置入驻产品包
@@ -283,15 +250,18 @@ onMounted(() => run(load));
     <p class="admin-business-note">
       产品包货款用于商品交付，不发订货积分；入驻奖励按奖励规则核算，售后期按统一售后政策执行。
     </p>
-    <p v-if="error && !dialog" role="alert" class="feedback error">
-      {{ error }}
-    </p>
-    <p v-if="notice" role="status" class="feedback notice">{{ notice }}</p>
+    <FeedbackToast
+      v-model:notice="notice"
+      v-model:error="error"
+      :show-error="!dialog"
+    />
     <section class="surface application-list" aria-label="入驻申请列表">
       <div class="heading">
         <div>
           <h3>入驻申请</h3>
-          <p class="muted">核对公司到账与商品交付，再独立审批代理身份。</p>
+          <p class="muted">
+            资格、协议与邀请归属在付款前确认，核实到账后自动激活身份。
+          </p>
         </div>
       </div>
       <div
@@ -305,7 +275,7 @@ onMounted(() => run(load));
             <tr>
               <th>申请 / 申请人</th>
               <th>目标身份</th>
-              <th>身份审批</th>
+              <th>资格状态</th>
               <th>核款 / 商品交付</th>
               <th>操作</th>
             </tr>
@@ -321,7 +291,10 @@ onMounted(() => run(load));
                 {{ a.target_identity === "B" ? "调肤主理人" : "调肤店主" }}
               </td>
               <td>
-                {{ states[a.status] }}<small>{{ a.review_reason }}</small>
+                {{ states[a.status]
+                }}<small class="review-summary" :title="a.review_reason">{{
+                  a.review_reason
+                }}</small>
               </td>
               <td>
                 {{
@@ -339,7 +312,7 @@ onMounted(() => run(load));
                   :aria-pressed="selected?.id === a.id"
                   @click="select(a)"
                 >
-                  核款与审核
+                  核款与交付
                 </button>
               </td>
             </tr>
@@ -350,7 +323,7 @@ onMounted(() => run(load));
         正在加载入驻申请…
       </p>
       <p v-else-if="!error && !applications.length" class="empty-state">
-        暂无入驻申请，收到新的申请后可在此核款与审核。
+        暂无入驻申请，收到新的申请后可在此核款与交付。
       </p>
     </section>
     <article v-if="selected" class="surface application-detail">
@@ -364,6 +337,9 @@ onMounted(() => run(load));
           }}
           · {{ states[selected.status] }}
         </p>
+        <p v-if="selected.review_reason" class="muted">
+          处理说明：{{ selected.review_reason }}
+        </p>
         <p class="muted">
           当次入驻条件：{{ selected.package_snapshot.conditions }}
         </p>
@@ -371,7 +347,7 @@ onMounted(() => run(load));
           申请直接邀请人：{{
             selected.requested_inviter_id
               ? "用户 #" + selected.requested_inviter_id
-              : "无邀请人，归属主理人由品牌方指定"
+              : "历史申请缺少确认，请本人重新确认"
           }}
         </p>
         <ul>
@@ -393,13 +369,6 @@ onMounted(() => run(load));
           @click="openApplicationDialog('receipt')"
         >
           核实真实到账
-        </button>
-        <button
-          v-if="selected.status === 'submitted'"
-          :disabled="busy"
-          @click="openApplicationDialog('review')"
-        >
-          审核代理身份
         </button>
         <button :disabled="busy" @click="selected = null">关闭详情</button>
       </div>
@@ -424,7 +393,7 @@ onMounted(() => run(load));
     <AdminDialog
       v-if="dialog === 'packages'"
       title="配置入驻产品包"
-      :busy="busy"
+      :busy="busy || uploadingImage"
       wide
       @close="closeDialog"
     >
@@ -477,12 +446,15 @@ onMounted(() => run(load));
                 v-model="p.agreement"
                 maxlength="2000"
                 required
-              ></textarea></label
-            ><label
-              >权益说明图片地址<input
-                v-model="p.rightsImage"
-                placeholder="https://… 或 /assets/…"
-            /></label>
+              ></textarea>
+            </label>
+            <ImageUploader
+              v-model="p.rightsImage"
+              label="权益说明图片"
+              purpose="membership"
+              :disabled="busy"
+              @busy-change="imageUploads[p.targetIdentity] = $event"
+            />
           </div>
           <label class="check"
             ><input v-model="p.active" type="checkbox" />开放该身份申请</label
@@ -531,10 +503,16 @@ onMounted(() => run(load));
           >修改原因<input v-model="reason" maxlength="200" required
         /></label>
         <div class="dialog-actions wide">
-          <button type="button" :disabled="busy" @click="closeDialog">
+          <button
+            type="button"
+            :disabled="busy || uploadingImage"
+            @click="closeDialog"
+          >
             取消
           </button>
-          <button class="primary" :disabled="busy">保存两类产品包</button>
+          <button class="primary" :disabled="busy || uploadingImage">
+            保存两类产品包
+          </button>
         </div>
       </AdminForm>
     </AdminDialog>
@@ -596,72 +574,6 @@ onMounted(() => run(load));
             取消
           </button>
           <button class="primary" :disabled="busy">确认收款并建立交付单</button>
-        </div>
-      </AdminForm>
-    </AdminDialog>
-    <AdminDialog
-      v-if="dialog === 'review' && selected"
-      :title="'身份审核 · 申请 #' + selected.id"
-      :busy="busy"
-      @close="closeDialog"
-    >
-      <p v-if="error" role="alert" class="feedback error">{{ error }}</p>
-      <AdminForm class="grid review" @submit="decide(reviewDecision)">
-        <h4 class="wide">独立审批身份与邀请归属</h4>
-        <p v-if="!selected.receipt" class="muted wide">
-          通过身份审批前，须先完成公司到账核实。
-        </p>
-        <label class="wide"
-          >审核结果<AdminSelect v-model="reviewDecision">
-            <option value="approved">通过并启用身份</option>
-            <option value="rejected">驳回并记录原因</option>
-          </AdminSelect></label
-        >
-        <template v-if="reviewDecision === 'approved'">
-          <label
-            >确认直接邀请人编号（无邀请人留空）<input
-              v-model="review.inviterId"
-              type="number"
-              min="1" /></label
-          ><label
-            >品牌方确认归属主理人编号<input
-              v-model="review.principalId"
-              type="number"
-              min="1"
-              required /></label
-          ><label class="check"
-            ><input
-              v-model="review.conditionsMet"
-              type="checkbox"
-              required
-            />入驻资格已核实符合当次条件</label
-          ><label class="check"
-            ><input
-              v-model="review.relationshipsConfirmed"
-              type="checkbox"
-              required
-            />邀请人和归属主理人已分别确认</label
-          >
-        </template>
-        <label class="wide"
-          >审批原因<input v-model="review.reason" required maxlength="200"
-        /></label>
-        <div class="dialog-actions wide">
-          <button type="button" :disabled="busy" @click="closeDialog">
-            取消
-          </button>
-          <button
-            class="primary"
-            :disabled="
-              busy || (reviewDecision === 'approved' && !selected.receipt)
-            "
-          >
-            {{
-              reviewDecision === "approved"
-                ? "通过并启用身份"
-                : "驳回并记录原因"
-            }}
-          </button>
         </div>
       </AdminForm>
     </AdminDialog>
@@ -854,6 +766,29 @@ td {
 }
 table {
   min-width: 680px;
+  width: 100%;
+  table-layout: fixed;
+}
+th:nth-child(1) {
+  width: 20%;
+}
+th:nth-child(2) {
+  width: 15%;
+}
+th:nth-child(3) {
+  width: 25%;
+}
+th:nth-child(4) {
+  width: 25%;
+}
+th:nth-child(5) {
+  width: 15%;
+}
+.review-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 tr.selected {
   background: var(--admin-accent-soft);

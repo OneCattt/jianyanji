@@ -1,6 +1,7 @@
 const { request } = require("../../utils/api");
 const destinations = {
   orders: "/pages/orders/index",
+  team: "/pages/team/index",
   addresses: "/pages/addresses/index",
   onboarding: "/pages/onboarding/index",
   wallet: "/pages/wallet/index",
@@ -8,11 +9,13 @@ const destinations = {
   refunds: "/pages/refunds/index",
   cashRefunds: "/pages/cash-refunds/index",
   info: "/pages/info/index",
+  courses: "/pages/courses/index",
   settings: "/pages/settings/index",
 };
 Page({
   data: {
     user: null,
+    shareCode: "",
     isAgent: false,
     busy: false,
     navigating: false,
@@ -30,6 +33,19 @@ Page({
       { tab: 4, name: "已完成", icon: "completed" },
     ],
     menuItems: [
+      {
+        key: "team",
+        title: "我的团队",
+        hint: "归属店主与订货",
+        icon: "members",
+        principalOnly: true,
+      },
+      {
+        key: "courses",
+        title: "课程与成长权益",
+        hint: "身份权益与联系报名",
+        icon: "members",
+      },
       {
         key: "addresses",
         title: "收货地址",
@@ -93,7 +109,7 @@ Page({
   },
   onShow() {
     const tabBar = this.getTabBar && this.getTabBar();
-    if (tabBar) tabBar.setData({ selected: 2 });
+    if (tabBar) tabBar.setData({ selected: 3 });
     return this.refresh();
   },
   async onPullDownRefresh() {
@@ -122,6 +138,16 @@ Page({
         return;
       }
       this.setUser(await request("/me"));
+      if (this.data.isAgent) {
+        try {
+          const invitation = await request("/invitations/mine");
+          this.setData({ shareCode: invitation.shareCode });
+        } catch (error) {
+          this.setData({ shareCode: "", error: error.message });
+        }
+      } else {
+        this.setData({ shareCode: "" });
+      }
       if (!this.data.isAgent) return;
       try {
         const wallet = await request("/wallet");
@@ -161,7 +187,7 @@ Page({
     if (!url) return;
     const tab = Number(event.currentTarget.dataset.tab);
     if (key === "orders" && tab >= 1 && tab <= 4) url += "?tab=" + tab;
-    if (key !== "info" && key !== "settings") {
+    if (key !== "info" && key !== "settings" && key !== "courses") {
       if (!this.data.user || !wx.getStorageSync("jyj_token")) {
         url = destinations.settings + "?next=" + encodeURIComponent(url);
       } else if (
@@ -179,15 +205,19 @@ Page({
     });
   },
   invitePath() {
-    return "/pages/onboarding/index?inviterId=" + this.data.user.id;
+    return (
+      "/pages/onboarding/index?shareCode=" +
+      encodeURIComponent(this.data.shareCode)
+    );
   },
   onShareAppMessage() {
-    return this.data.isAgent && this.data.user
+    return this.data.isAgent && this.data.user && this.data.shareCode
       ? { title: "邀你加入清欣简妍肌", path: this.invitePath() }
       : { title: "清欣简妍肌 · 东方肌肤管理美学", path: "/pages/home/index" };
   },
   copyInvite() {
     if (
+      !this.data.shareCode ||
       !this.data.isAgent ||
       !this.data.user ||
       !wx.getStorageSync("jyj_token") ||

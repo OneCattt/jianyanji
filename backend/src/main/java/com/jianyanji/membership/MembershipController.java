@@ -74,4 +74,66 @@ public class MembershipController {
         long actor = l(access.staff("onboarding:manage"), "id");
         return membership.review(Input.id(id), body, actor);
     }
+    /** 本人全部资格记录。 */
+    @GetMapping("/api/qualifications")
+    public Object qualifications() {
+        return membership.qualifications().list(l(access.user(), "id"));
+    }
+
+    /** 授权人员首批存量资格核验。 */
+    @PostMapping("/api/admin/qualifications/bootstrap")
+    public Object bootstrap(@RequestBody JsonNode body) {
+        return membership
+                .qualifications()
+                .bootstrap(body, l(access.staff("onboarding:manage"), "id"));
+    }
+
+    /** 退款前准备有审计依据的有效主理人接管计划。 */
+    @PostMapping("/api/admin/qualifications/handover")
+    public Object handover(@RequestBody JsonNode body) {
+        return membership
+                .qualifications()
+                .prepareHandover(body, l(access.staff("onboarding:manage"), "id"));
+    }
+
+    /** 本人真实分享码与当前关系。 */
+    @GetMapping("/api/invitations/mine")
+    public Object invitation() {
+        return membership.invitations().mine(l(access.user(), "id"));
+    }
+
+    /** 本人付款前解析并核验候选邀请，只返回必要的展示资料。 */
+    @GetMapping("/api/invitations/candidate")
+    public Object candidate(
+            @RequestParam(defaultValue = "") String shareCode,
+            @RequestParam(required = false) Long inviterId,
+            @RequestParam String targetIdentity) {
+        return membership
+                .invitations()
+                .candidate(shareCode, inviterId, targetIdentity, l(access.user(), "id"));
+    }
+
+    /** 品牌方授权调整后续关系，保留历史来源。 */
+    @PostMapping("/api/admin/relations")
+    public Object relation(@RequestBody JsonNode body) {
+        return membership.invitations().adjust(body, l(access.staff("onboarding:manage"), "id"));
+    }
+
+    /** 本人复用唯一产品包订单发起付款。 */
+    @PostMapping("/api/onboardings/{id}/order")
+    public Object order(@PathVariable long id) {
+        return membership.preparePayment(Input.id(id), l(access.user(), "id"));
+    }
+
+    /** 关系变更后的本人明确重新确认。 */
+    @PostMapping("/api/onboardings/{id}/confirm")
+    public Object confirm(@PathVariable long id, @RequestBody JsonNode body) {
+        return membership.reconfirm(Input.id(id), body, l(access.user(), "id"));
+    }
+    /** 首批新入驻仍关联真实后续付款，不直接开通资格。 */
+
+    @PostMapping("/api/admin/qualifications/initial-application")
+    public Object initialApplication(@RequestBody JsonNode body) {
+        return membership.initialApplication(body, l(access.staff("onboarding:manage"), "id"));
+    }
 }

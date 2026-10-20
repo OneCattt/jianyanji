@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import FeedbackToast from "./FeedbackToast.vue";
+import ImageUploader from "./ImageUploader.vue";
+import SkuPricingFields from "./SkuPricingFields.vue";
 import { computed, nextTick, onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
@@ -12,6 +15,10 @@ const error = ref(""),
 const loading = ref(false),
   loaded = ref(false),
   loadFailed = ref(false);
+const imageUploads = ref<Record<string, boolean>>({});
+const uploadingImage = computed(() =>
+  Object.values(imageUploads.value).some(Boolean),
+);
 const productNameInput = ref<HTMLInputElement | null>(null);
 const content = ref({
   brandName: "清欣简妍肌",
@@ -34,7 +41,7 @@ const contentLabels: Record<string, string> = {
   introduction: "品牌介绍",
   heroTitle: "首页主标题",
   heroSubtitle: "首页副标题",
-  heroImage: "首页图片地址",
+  heroImage: "首页图片",
   customerService: "客服联系方式",
   purchaseNotes: "购买说明",
   companyName: "公司收款户名",
@@ -71,8 +78,8 @@ interface Sku {
   name: string;
   unit: string;
   retail: string;
-  store: string;
-  principal: string;
+  productType: "regular" | "welfare";
+  welfare: string;
   stock: number;
   active: boolean;
   reserved?: number;
@@ -92,10 +99,11 @@ interface Product {
 interface ProductRecord extends Omit<Product, "skus" | "categoryId"> {
   id: number;
   categoryId: number;
-  skus: (Omit<Sku, "retail" | "store" | "principal"> & {
+  skus: (Omit<Sku, "retail" | "welfare"> & {
     retailCents: number | null;
     storeCents: number | null;
     principalCents: number | null;
+    welfareCents: number | null;
     reserved: number;
   })[];
 }
@@ -151,8 +159,8 @@ const blank = (): Product => ({
       name: "标准装",
       unit: "件",
       retail: "",
-      store: "",
-      principal: "",
+      productType: "regular",
+      welfare: "",
       stock: 0,
       active: true,
     },
@@ -219,6 +227,7 @@ function editContent() {
   editingContent.value = true;
 }
 function saveContent() {
+  if (uploadingImage.value) return;
   return act(async () => {
     await api("/admin/content", {
       method: "PUT",
@@ -260,8 +269,8 @@ async function edit(p?: ProductRecord) {
         skus: p.skus.map((s) => ({
           ...s,
           retail: amount(s.retailCents),
-          store: amount(s.storeCents),
-          principal: amount(s.principalCents),
+          productType: s.productType,
+          welfare: amount(s.welfareCents),
         })),
       }
     : blank();
@@ -270,6 +279,7 @@ async function edit(p?: ProductRecord) {
   productNameInput.value?.focus({ preventScroll: true });
 }
 function saveProduct() {
+  if (uploadingImage.value) return;
   return act(async () => {
     const p = form.value;
     await api("/admin/products" + (p.id ? "/" + p.id : ""), {
@@ -289,8 +299,8 @@ function saveProduct() {
           name: s.name,
           unit: s.unit,
           retailCents: toCents(s.retail),
-          storeCents: toCents(s.store),
-          principalCents: toCents(s.principal),
+          productType: s.productType,
+          welfareCents: toCents(s.welfare),
           stock: Number(s.stock),
           active: s.active,
         })),
@@ -302,12 +312,11 @@ function saveProduct() {
 </script>
 <template>
   <section class="business-settings" :aria-busy="loading || busy">
-    <div
-      v-if="error && !editing && !editingCategory && !editingContent"
-      class="message error feedback"
-      role="alert"
+    <FeedbackToast
+      v-model:notice="notice"
+      v-model:error="error"
+      :show-error="!editing && !editingCategory && !editingContent"
     >
-      <span>{{ error }}</span>
       <button
         v-if="loadFailed"
         type="button"
@@ -316,8 +325,7 @@ function saveProduct() {
       >
         重新加载
       </button>
-    </div>
-    <p v-if="notice" class="message success" role="status">{{ notice }}</p>
+    </FeedbackToast>
     <p v-if="loading" class="loading-note" role="status">
       正在加载{{ section === "content" ? "品牌资料" : "商品与分类" }}…
     </p>
@@ -348,7 +356,7 @@ function saveProduct() {
           <div class="field-grid">
             <div v-for="key in group.keys" :key="key">
               <h4>{{ contentLabels[key] }}</h4>
-              <p>{{ content[key] || "尚未配置" }}</p>
+              <p v-if="key !== 'heroImage'">{{ content[key] || "尚未配置" }}</p>
               <img
                 v-if="key === 'heroImage' && content.heroImage"
                 :src="content.heroImage"
@@ -362,7 +370,7 @@ function saveProduct() {
       <AdminDialog
         v-if="editingContent"
         title="编辑品牌资料"
-        :busy="busy"
+        :busy="busy || uploadingImage"
         wide
         @close="editingContent = false"
       >
@@ -398,7 +406,7 @@ function saveProduct() {
                     ].includes(key),
                   }"
                 >
-                  {{ contentLabels[key] }}
+                  {{ key === "heroImage" ? "" : contentLabels[key] }}
                   <textarea
                     v-if="
                       [
@@ -412,18 +420,21 @@ function saveProduct() {
                     :rows="key === 'heroTitle' ? 2 : 3"
                     :required="['introduction', 'heroTitle'].includes(key)"
                   />
+                  <ImageUploader
+                    v-else-if="key === 'heroImage'"
+                    v-model="contentForm.heroImage"
+                    label="首页图片"
+                    purpose="content"
+                    required
+                    :disabled="busy || loading"
+                    @busy-change="imageUploads.hero = $event"
+                  />
                   <input
                     v-else
                     v-model="contentForm[key]"
                     :required="
                       ['brandName', 'heroSubtitle', 'heroImage'].includes(key)
                     "
-                  />
-                  <img
-                    v-if="key === 'heroImage' && contentForm.heroImage"
-                    :src="contentForm.heroImage"
-                    alt="首页图片预览"
-                    class="brand-image"
                   />
                 </label>
               </div>
@@ -441,12 +452,12 @@ function saveProduct() {
             <div class="dialog-actions">
               <button
                 type="button"
-                :disabled="busy"
+                :disabled="busy || uploadingImage"
                 @click="editingContent = false"
               >
                 取消
               </button>
-              <button class="primary" :disabled="busy">
+              <button class="primary" :disabled="busy || uploadingImage">
                 {{ busy ? "保存中…" : "保存品牌资料" }}
               </button>
             </div>
@@ -554,7 +565,7 @@ function saveProduct() {
       <AdminDialog
         v-if="editing"
         :title="form.id ? '编辑商品' : '新增商品'"
-        :busy="busy"
+        :busy="busy || uploadingImage"
         wide
         @close="editing = false"
       >
@@ -613,36 +624,22 @@ function saveProduct() {
             <section class="editor-section">
               <h4>商品图片</h4>
               <div class="field-grid">
-                <div class="image-field">
-                  <div class="image-placeholder image-preview">
-                    <img
-                      v-if="form.image"
-                      :src="form.image"
-                      alt="列表图片预览"
-                    /><span v-else>列表图</span>
-                  </div>
-                  <label
-                    >列表图片地址<input
-                      v-model="form.image"
-                      required
-                      placeholder="https://… 或 /assets/…"
-                  /></label>
-                </div>
-                <div class="image-field">
-                  <div class="image-placeholder image-preview">
-                    <img
-                      v-if="form.detailImage"
-                      :src="form.detailImage"
-                      alt="详情图片预览"
-                    /><span v-else>详情图</span>
-                  </div>
-                  <label
-                    >详情图片地址<input
-                      v-model="form.detailImage"
-                      required
-                      placeholder="https://… 或 /assets/…"
-                  /></label>
-                </div>
+                <ImageUploader
+                  v-model="form.image"
+                  label="列表图片"
+                  purpose="catalog"
+                  required
+                  :disabled="busy || loading"
+                  @busy-change="imageUploads.list = $event"
+                />
+                <ImageUploader
+                  v-model="form.detailImage"
+                  label="详情图片"
+                  purpose="catalog"
+                  required
+                  :disabled="busy || loading"
+                  @busy-change="imageUploads.detail = $event"
+                />
               </div>
             </section>
             <section class="editor-section">
@@ -651,7 +648,10 @@ function saveProduct() {
                   <h4>
                     规格与价格 <span class="count">{{ form.skus.length }}</span>
                   </h4>
-                  <p>价格留空表示该身份暂不可购买。主理人价不得高于店主价。</p>
+                  <p>
+                    普通商品由零售价自动计算店主 7 折、主理人 3.5
+                    折；福利品统一价。必需价格留空时不可购买。
+                  </p>
                 </div>
                 <button
                   class="secondary"
@@ -661,8 +661,8 @@ function saveProduct() {
                       name: '',
                       unit: '件',
                       retail: '',
-                      store: '',
-                      principal: '',
+                      productType: 'regular',
+                      welfare: '',
                       stock: 0,
                       active: true,
                     })
@@ -677,30 +677,11 @@ function saveProduct() {
                   <div class="sku-form">
                     <label>名称<input v-model="s.name" required /></label>
                     <label>单位<input v-model="s.unit" required /></label>
-                    <label
-                      >零售价（元）<input
-                        v-model="s.retail"
-                        inputmode="decimal"
-                        pattern="[0-9]+([.][0-9]{1,2})?"
-                        data-error-message="价格需为非负金额，最多两位小数"
-                        placeholder="暂不可购买"
-                    /></label>
-                    <label
-                      >店主价（元）<input
-                        v-model="s.store"
-                        inputmode="decimal"
-                        pattern="[0-9]+([.][0-9]{1,2})?"
-                        data-error-message="价格需为非负金额，最多两位小数"
-                        placeholder="暂不可购买"
-                    /></label>
-                    <label
-                      >主理人价（元）<input
-                        v-model="s.principal"
-                        inputmode="decimal"
-                        pattern="[0-9]+([.][0-9]{1,2})?"
-                        data-error-message="价格需为非负金额，最多两位小数"
-                        placeholder="暂不可购买"
-                    /></label>
+                    <SkuPricingFields
+                      v-model:product-type="s.productType"
+                      v-model:retail="s.retail"
+                      v-model:welfare="s.welfare"
+                    />
                     <label
                       >总库存<input
                         v-model.number="s.stock"
@@ -737,9 +718,13 @@ function saveProduct() {
                 placeholder="说明本次商品、价格或库存调整"
             /></label>
             <div class="dialog-actions">
-              <button type="button" :disabled="busy" @click="editing = false">
+              <button
+                type="button"
+                :disabled="busy || uploadingImage"
+                @click="editing = false"
+              >
                 取消</button
-              ><button class="primary" :disabled="busy">
+              ><button class="primary" :disabled="busy || uploadingImage">
                 {{ busy ? "保存中…" : "保存商品" }}
               </button>
             </div>
@@ -1137,15 +1122,11 @@ function saveProduct() {
   color: var(--admin-muted);
   font-size: 12px;
 }
-.image-field,
 .product-cell {
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
-}
-.image-field label {
-  flex: 1;
 }
 .image-placeholder {
   display: grid;
@@ -1154,7 +1135,6 @@ function saveProduct() {
   color: var(--admin-muted);
   font-size: 11px;
 }
-.image-preview,
 .product-thumbnail {
   flex-shrink: 0;
   width: 64px;
@@ -1162,7 +1142,6 @@ function saveProduct() {
   border-radius: 6px;
   overflow: hidden;
 }
-.image-preview img,
 .product-thumbnail img {
   width: 100%;
   height: 100%;

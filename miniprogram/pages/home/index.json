@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "清欣简妍肌"
+  "navigationBarTitleText": "清欣简妍肌",
+  "usingComponents": {
+    "content-recommendations": "/components/content-recommendations/index"
+  }
 }

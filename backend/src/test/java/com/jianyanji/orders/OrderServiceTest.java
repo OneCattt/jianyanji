@@ -48,6 +48,51 @@ class OrderServiceTest {
     }
 
     @Test
+    void unpaidOrdersMustReconfirmIdentityOrPrincipalChangesWhilePaidSnapshotsStayFrozen() {
+        ObjectNode order =
+                obj(
+                        "kind",
+                        "goods",
+                        "payment_state",
+                        "unpaid",
+                        "user_id",
+                        2,
+                        "snapshot",
+                        stringify(obj("identity", "C", "principalId", 9)));
+        when(db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", 2L))
+                .thenReturn(obj("identity", "C", "principal_id", 9));
+        assertDoesNotThrow(() -> service.assertRelationsCurrent(order));
+        when(db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", 2L))
+                .thenReturn(obj("identity", "C", "principal_id", 10));
+        assertEquals(
+                "ORDER_RELATIONS_CHANGED",
+                assertThrows(BusinessException.class, () -> service.assertRelationsCurrent(order))
+                        .getCode());
+        when(db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", 2L))
+                .thenReturn(obj("identity", "B", "principal_id", 9));
+        assertThrows(BusinessException.class, () -> service.assertRelationsCurrent(order));
+        order.put("payment_state", "paid");
+        assertDoesNotThrow(() -> service.assertRelationsCurrent(order));
+        assertEquals(9, parse(s(order, "snapshot")).path("principalId").asInt());
+    }
+
+    @Test
+    void closingUnpaidPackageRejectsSubmittedApplicationButUnknownPaymentCannotRelease() {
+        ObjectNode packageOrder =
+                obj("id", 1, "kind", "package", "status", "pending", "payment_state", "unpaid");
+        when(db.one("SELECT * FROM orders WHERE id=? AND is_deleted=0", 1L))
+                .thenReturn(packageOrder);
+        assertTrue(service.release(packageOrder));
+        verify(db).update(startsWith("UPDATE onboardings SET status='rejected'"), eq(0L), eq(1L));
+        clearInvocations(db);
+        packageOrder.put("payment_state", "unknown");
+        assertFalse(service.release(packageOrder));
+        verify(db, never()).update(startsWith("UPDATE onboardings"), anyLong(), anyLong());
+        verify(db, never())
+                .update(startsWith("UPDATE orders SET status='closed'"), anyLong(), anyLong());
+    }
+
+    @Test
     void staleOrderSnapshotCannotReleaseTwiceOrReleaseProcessingPayment() {
         ObjectNode pending = obj("id", 1, "status", "pending", "payment_state", "unpaid");
         ObjectNode closed = obj("id", 1, "status", "closed", "payment_state", "unpaid");
@@ -163,9 +208,9 @@ class OrderServiceTest {
         ObjectNode quote =
                 service.buildQuote(
                         obj("id", 2, "identity", "C"), 4, arr(obj("skuId", 3, "quantity", 2)));
-        assertEquals(17000, quote.path("totalCents").asInt());
+        assertEquals(15000, quote.path("totalCents").asInt());
         assertEquals(9, quote.path("principalId").asInt());
-        assertEquals(6000, quote.path("lines").get(0).path("principalCents").asInt());
+        assertEquals(3500, quote.path("lines").get(0).path("principalCents").asInt());
         assertEquals(7, quote.path("afterSalesDays").asInt());
         assertEquals("旧地址", quote.path("address").path("detail").asText());
     }

@@ -56,6 +56,22 @@ public class OrderService {
         return row;
     }
 
+    /** 普通订单付款前复核当前身份和店主归属；已付款历史订单始终保留原快照。 */
+    public void assertRelationsCurrent(ObjectNode order) {
+        if (!"goods".equals(s(order, "kind"))
+                || !("unpaid".equals(s(order, "payment_state"))
+                        || "failed".equals(s(order, "payment_state")))) return;
+        ObjectNode buyer =
+                db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", l(order, "user_id"));
+        JsonNode snapshot = parse(s(order, "snapshot"));
+        if (buyer == null
+                || !effectiveIdentity(buyer).equals(s(snapshot, "identity"))
+                || ("C".equals(s(snapshot, "identity"))
+                        && l(buyer, "principal_id") != l(snapshot, "principalId"))) {
+            throw conflict("ORDER_RELATIONS_CHANGED", "购买身份或归属主理人已变化，请重新确认订单");
+        }
+    }
+
     /** 输出原订单字段、冻结快照、明细及按编号排序的包裹。 */
     public ObjectNode view(ObjectNode order) {
         ObjectNode result = order.deepCopy();
@@ -112,6 +128,12 @@ public class OrderService {
                             "UPDATE orders SET status='closed',update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0 AND status='pending'",
                             actor,
                             l(current, "id"));
+                    if ("package".equals(s(current, "kind"))) {
+                        db.update(
+                                "UPDATE onboardings SET status='rejected',review_reason='原待付款订单已关闭，请重新申请',update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE order_id=? AND status='submitted' AND is_deleted=0",
+                                actor,
+                                l(current, "id"));
+                    }
                     return true;
                 });
     }
@@ -130,6 +152,7 @@ public class OrderService {
     /** 与 Node 每三十秒清理行为一致，无微信商户配置时仍释放明确未支付的占用。 */
     @Scheduled(fixedDelayString = "${orders.expire-delay-ms:30000}")
     public void scheduledExpire() {
+        if (com.jianyanji.common.MaintenanceMode.enabled()) return;
         try {
             expire();
         } catch (RuntimeException exception) {
@@ -237,7 +260,7 @@ public class OrderService {
         // 购物车保留已下架或已逻辑删除商品，以 available=false 展示，不能过滤掉失效购物项。
         for (ObjectNode row :
                 db.list(
-                        "SELECT c.id,c.sku_id AS skuId,c.quantity,c.selected,p.name,p.image,s.name AS skuName,s.unit,s.stock-s.reserved AS stock,s.retail_cents,s.store_cents,s.principal_cents,s.active,p.active AS product_active,p.is_deleted AS product_deleted,s.is_deleted AS sku_deleted,ct.active AS category_active,ct.is_deleted AS category_deleted FROM cart_items c JOIN skus s ON s.id=c.sku_id JOIN products p ON p.id=s.product_id JOIN categories ct ON ct.id=p.category_id WHERE c.user_id=? AND c.is_deleted=0 ORDER BY c.id",
+                        "SELECT c.id,c.sku_id AS skuId,c.quantity,c.selected,p.name,p.image,s.name AS skuName,s.unit,s.stock-s.reserved AS stock,s.retail_cents,s.product_type,s.welfare_cents,s.active,p.active AS product_active,p.is_deleted AS product_deleted,s.is_deleted AS sku_deleted,ct.active AS category_active,ct.is_deleted AS category_deleted FROM cart_items c JOIN skus s ON s.id=c.sku_id JOIN products p ON p.id=s.product_id JOIN categories ct ON ct.id=p.category_id WHERE c.user_id=? AND c.is_deleted=0 ORDER BY c.id",
                         l(user, "id"))) {
             Long price = catalog.rolePrice(row, user);
             items.add(
@@ -260,6 +283,8 @@ public class OrderService {
                             row.get("unit"),
                             "stock",
                             row.get("stock"),
+                            "productType",
+                            catalog.productType(row),
                             "priceCents",
                             price,
                             "available",
@@ -361,8 +386,8 @@ public class OrderService {
             if (price == null) throw conflict("当前身份价格尚未配置");
             long quantity = l(item, "quantity");
             if (l(sku, "stock") - l(sku, "reserved") < quantity) throw conflict("商品库存不足");
-            if ("C".equals(identity) && !has(sku, "principal_cents"))
-                throw conflict("商品主理人价格尚未配置，暂不能订货");
+            Long principalPrice = catalog.priceForIdentity(sku, "B");
+            if ("C".equals(identity) && principalPrice == null) throw conflict("商品主理人价格无效，暂不能订货");
             lines.add(
                     obj(
                             "skuId",
@@ -379,10 +404,18 @@ public class OrderService {
                             sku.get("image"),
                             "quantity",
                             quantity,
+                            "productType",
+                            catalog.productType(sku),
+                            "priceRule",
+                            "v2-fixed-role",
+                            "retailCents",
+                            sku.get("retail_cents"),
+                            "welfareCents",
+                            sku.get("welfare_cents"),
                             "unitCents",
                             price,
                             "principalCents",
-                            "C".equals(identity) ? sku.get("principal_cents") : null,
+                            principalPrice,
                             "version",
                             sku.get("version")));
             goodsCents += price * quantity;
@@ -413,6 +446,15 @@ public class OrderService {
                 shipping.get("pendingMinutes"));
     }
 
+    /** 只允许游客零售订单确认销售代理，确认结果写入本单快照。 */
+    private void attachSales(ObjectNode snapshot, JsonNode input) {
+        if (!has(input, "salesCode") || s(input, "salesCode").isEmpty()) return;
+        Input.require(b(input, "salesConfirmed"), "请先确认本单销售代理");
+        if (!"D".equals(s(snapshot, "identity"))) throw conflict("代理按身份价订货不另计本人零售佣金，请移除销售代理");
+        snapshot.set("salesAgent", catalog.salesCandidate(s(input, "salesCode")));
+        snapshot.put("salesConfirmed", true);
+    }
+
     public ObjectNode quote(JsonNode body, JsonNode user) {
         expire();
         ObjectNode value = OrderInput.checkout(body);
@@ -420,6 +462,7 @@ public class OrderService {
                 () -> {
                     ObjectNode snapshot =
                             buildQuote(user, l(value, "addressId"), value.get("items"));
+                    attachSales(snapshot, value);
                     long userId = l(user, "id");
                     long quoteId =
                             db.insert(
@@ -471,6 +514,14 @@ public class OrderService {
                                                 line.get("quantity")));
                             ObjectNode latest =
                                     buildQuote(user, l(original.path("address"), "id"), items);
+                            if (has(original, "salesAgent"))
+                                attachSales(
+                                        latest,
+                                        obj(
+                                                "salesCode",
+                                                s(original.path("salesAgent"), "shareCode"),
+                                                "salesConfirmed",
+                                                true));
                             if (!stringify(latest).equals(s(quote, "snapshot")))
                                 throw conflict("QUOTE_CHANGED", "价格、身份或配送信息已变化，请重新确认");
                             for (JsonNode line : latest.withArray("lines")) {
@@ -507,7 +558,7 @@ public class OrderService {
                                             userId);
                             for (JsonNode line : latest.withArray("lines"))
                                 db.insert(
-                                        "INSERT INTO order_lines(order_id,sku_id,quantity,unit_cents,principal_cents,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?)",
+                                        "INSERT INTO order_lines(order_id,sku_id,quantity,unit_cents,principal_cents,product_type,retail_cents,price_rule,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
                                         orderId,
                                         l(line, "skuId"),
                                         l(line, "quantity"),
@@ -515,6 +566,11 @@ public class OrderService {
                                         has(line, "principalCents")
                                                 ? l(line, "principalCents")
                                                 : null,
+                                        s(line, "productType"),
+                                        line.get("retailCents").isNull()
+                                                ? null
+                                                : l(line, "retailCents"),
+                                        s(line, "priceRule"),
                                         userId,
                                         userId);
                             access.audit("order.create", "order", orderId, "确认订单并占用库存，尚未扣款");

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { api, ApiError } from "../client";
+import SalesAttributionFields from "./SalesAttributionFields.vue";
 
 interface PurchaseItem {
   skuId: number;
@@ -12,6 +13,7 @@ interface CartItem extends PurchaseItem {
   name: string;
   image: string;
   skuName: string;
+  productType?: "regular" | "welfare";
   unit: string;
   stock: number;
   priceCents: number | null;
@@ -30,6 +32,7 @@ interface Address {
 interface QuoteLine extends PurchaseItem {
   name: string;
   skuName: string;
+  productType?: "regular" | "welfare";
   unit: string;
   image: string;
   unitCents: number;
@@ -68,6 +71,8 @@ const loading = ref(false),
   loaded = ref(false);
 const error = ref(""),
   notice = ref("");
+const salesCode = ref(""),
+  salesConfirmed = ref(false);
 const addressId = ref(0),
   quote = ref<Quote | null>(null);
 const checkoutItems = ref<PurchaseItem[]>([]);
@@ -154,6 +159,8 @@ async function load() {
   cart.value = [];
   addresses.value = [];
   checkoutItems.value = [];
+  salesCode.value = "";
+  salesConfirmed.value = false;
   addressId.value = 0;
   notice.value = "";
   invalidateQuote();
@@ -252,7 +259,12 @@ async function fetchQuote(current = generation) {
   if (!checkoutItems.value.length) throw new Error("请先选择需要结算的商品");
   const result = await request<Quote>("/checkout/quote", {
     method: "POST",
-    body: { addressId: addressId.value, items: checkoutItems.value },
+    body: {
+      addressId: addressId.value,
+      items: checkoutItems.value,
+      salesCode: salesCode.value,
+      salesConfirmed: salesConfirmed.value,
+    },
   });
   if (current !== generation) return;
   quote.value = result;
@@ -265,6 +277,8 @@ function beginCheckout() {
     if (selected.value.length > 50)
       throw new Error("每笔订单最多支持 50 种规格，请分批结算");
     directPurchase.value = false;
+    salesCode.value = "";
+    salesConfirmed.value = false;
     checkoutItems.value = selected.value.map(({ skuId, quantity }) => ({
       skuId,
       quantity,
@@ -475,7 +489,10 @@ function confirmOrder() {
             <img class="product-image" :src="item.image" :alt="item.name" />
             <div class="cart-copy">
               <h2>{{ item.name }}</h2>
-              <small class="sku">{{ item.skuName }}</small>
+              <small class="sku"
+                >{{ item.skuName
+                }}{{ item.productType === "welfare" ? " · 福利品" : "" }}</small
+              >
               <p v-if="!item.available" class="unavailable">
                 {{
                   item.priceCents === null
@@ -665,6 +682,11 @@ function confirmOrder() {
         </div>
       </template>
       <template v-else>
+        <SalesAttributionFields
+          v-model:code="salesCode"
+          v-model:confirmed="salesConfirmed"
+          @change="invalidateQuote"
+        />
         <button
           v-if="directPurchase && !uncertainOrder"
           class="add-to-bag"
@@ -705,7 +727,12 @@ function confirmOrder() {
               <img :src="line.image" :alt="line.name" />
               <div>
                 <h2>{{ line.name }}</h2>
-                <small>{{ line.skuName }}</small>
+                <small
+                  >{{ line.skuName
+                  }}{{
+                    line.productType === "welfare" ? " · 福利品统一价" : ""
+                  }}</small
+                >
               </div>
               <div class="line-amount">
                 <strong>{{ money(line.unitCents) }}</strong

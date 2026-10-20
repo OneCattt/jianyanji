@@ -56,20 +56,23 @@
             ><view class="ob-section-label">邀请与归属</view
             ><view class="ob-columns"
               ><view
-                ><text>直接邀请人编号（可留空）</text
+                ><text>直接邀请人编号</text
                 ><input
                   value="{{inviterId}}"
                   bindinput="onInviter"
                   type="number"
-                  placeholder="未受邀请" /></view
+                  placeholder="需有效代理邀请" /></view
               ><view
                 ><text>归属主理人</text
                 ><view
-                  >{{current&&current.principal_id?'用户 #'+current.principal_id:'待品牌方指定确认'}}</view
+                  >{{relation?relation.principalName:current&&current.principal_id?'用户#'+current.principal_id:'请先核验邀请关系'}}</view
                 ></view
               ></view
+            ><button bindtap="resolveInvitation" disabled="{{busy||!user}}">
+              核验邀请与归属</button
+            ><view wx:if="{{relation}}">邀请人：{{relation.inviterName}}</view
             ><view class="ob-footnote"
-              >直接邀请人与归属主理人分别由品牌方确认</view
+              >提交前核验并由本人确认锁定邀请与归属</view
             ></view
           >
           <image
@@ -110,14 +113,21 @@
                 checked="{{agreed}}"
                 color="#8d1724"
               /><text
-                >我已阅读并同意《代理入驻协议》，确认身份价格、产品包明细及邀请归属需品牌方审核</text
+                >我已阅读并同意《代理入驻协议》，确认符合入驻条件、产品包明细及本次邀请归属</text
               ></label
             ></checkbox-group
           >
         </view>
         <view wx:else class="ob-empty">产品包尚未配置，请联系品牌方</view>
         <view wx:if="{{error}}" class="ob-error" role="alert">{{error}}</view>
-        <view wx:if="{{current}}" class="ob-progress"
+        <view wx:if="{{qualifications.length}}" class="ob-progress"
+          ><view class="ob-section-label">资格来源</view
+          ><view wx:for="{{qualifications}}" wx:key="id"
+            >{{item.identity==='B'?'主理人':'店主'}} ·
+            {{item.active?'有效':'已撤销'}} ·
+            {{item.source_kind==='existing'?'首批存量核验':'产品包入驻#'+item.onboarding_id}}</view
+          ></view
+        ><view wx:if="{{current}}" class="ob-progress"
           ><view class="ob-section-label">最近入驻申请 #{{current.id}}</view
           ><view class="ob-body"
             >{{current.statusText}}<view
@@ -128,6 +138,18 @@
             ><view wx:if="{{current.receipt}}"
               >原收款：{{current.receipt.external_transaction_id}}</view
             ></view
+          ><button
+            wx:if="{{current.status==='submitted'}}"
+            bindtap="payPackage"
+            disabled="{{busy}}"
+          >
+            微信付款／查看原交易</button
+          ><button
+            wx:if="{{current.status==='submitted'}}"
+            bindtap="reconfirm"
+            disabled="{{busy}}"
+          >
+            重新确认邀请归属</button
           ><button wx:if="{{current.order}}" bindtap="order">
             查看商品交付订单 ›
           </button></view

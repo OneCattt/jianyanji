@@ -5,6 +5,7 @@ function decorate(product) {
     ...s,
     priceText: money(s.priceCents),
     retailText: money(s.retailCents),
+    priceLabel: s.productType === "welfare" ? "统一福利价" : "当前身份价",
   }));
   const first = skus.find((s) => s.available) || skus[0];
   return {

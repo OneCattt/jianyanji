@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackToast from "./FeedbackToast.vue";
 import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
@@ -64,6 +65,8 @@ const rewards = ref<Reward[]>([]),
   sourceId = ref<number>(),
   basis = ref<any>(null),
   registrationAmount = ref(""),
+  sourceCandidates = ref<any[]>([]),
+  recipientId = ref(0),
   detail = ref<any>(null);
 const month = ref(
     new Intl.DateTimeFormat("sv-SE", {
@@ -159,8 +162,8 @@ function saveSettings() {
     await api("/admin/reward-settings", {
       method: "PUT",
       body: {
-        storeRewardCents: cents(settings.value.storeRewardCents),
-        principalRewardCents: cents(settings.value.principalRewardCents),
+        storeRewardCents: 100000,
+        principalRewardCents: 0,
         settlementDay: settings.value.settlementDay,
         reason: reason.value,
       },
@@ -171,6 +174,12 @@ function readSource() {
   return act(async () => {
     basis.value = null;
     basis.value = await api("/admin/rewards/source/" + sourceId.value);
+    sourceCandidates.value = basis.value.candidates || [basis.value];
+    if (!sourceCandidates.value.length) {
+      basis.value = null;
+      throw new Error("此来源没有可登记的奖励");
+    }
+    recipientId.value = basis.value.userId;
     registrationAmount.value = amount(basis.value.amountCents);
   });
 }
@@ -181,6 +190,7 @@ function register() {
       method: "POST",
       body: {
         orderId: basis.value.orderId,
+        userId: basis.value.userId,
         amountCents: cents(registrationAmount.value),
         reason: reason.value,
       },
@@ -329,10 +339,11 @@ function openReconcile(id: number) {
     <p class="admin-business-note">
       奖励由公司线下转账结算，与订货积分分别记账。
     </p>
-    <p v-if="error && !dialog" role="alert" class="message error">
-      {{ error }}
-    </p>
-    <p v-if="notice" role="status" class="message success">{{ notice }}</p>
+    <FeedbackToast
+      v-model:notice="notice"
+      v-model:error="error"
+      :show-error="!dialog"
+    />
 
     <details>
       <summary>
@@ -340,9 +351,10 @@ function openReconcile(id: number) {
         {{ configured ? "已配置" : "尚未配置，不能月结" }}
       </summary>
       <p>
-        邀请店主奖励：{{ settings.storeRewardCents || "未配置" }} 元 ·
-        邀请主理人奖励：{{ settings.principalRewardCents || "未配置" }} 元 ·
-        每月结算日：{{ settings.settlementDay || "未配置" }}
+        店主邀请店主：邀请店主及其归属主理人各 500 元；主理人邀请店主：1,000
+        元；主理人包奖励关闭。· 每月结算日：{{
+          settings.settlementDay || "未配置"
+        }}
       </p>
       <p>参数仅作用于后续业务；历史来源沿用原快照。</p>
     </details>
@@ -590,21 +602,10 @@ function openReconcile(id: number) {
     >
       <p v-if="error" role="alert" class="message error">{{ error }}</p>
       <AdminForm @submit="saveSettings" class="form-grid">
-        <label
-          >邀请店主固定奖励（元）<input
-            v-model="settings.storeRewardCents"
-            inputmode="decimal"
-            pattern="\d+(\.\d{1,2})?"
-            data-error-message="请输入金额，最多两位小数"
-            required /></label
-        ><label
-          >邀请主理人固定奖励（元）<input
-            v-model="settings.principalRewardCents"
-            inputmode="decimal"
-            pattern="\d+(\.\d{1,2})?"
-            data-error-message="请输入金额，最多两位小数"
-            required
-        /></label>
+        <p>
+          店主邀请店主：双方各 500 元；主理人直邀店主：1,000
+          元。主理人包及未确认政策关闭。
+        </p>
         <p>
           统一售后期：{{
             settings.afterSalesDays === null
@@ -674,10 +675,39 @@ function openReconcile(id: number) {
         输入来源订单 ID，读取原始核算依据后可填写人工核对金额。
       </p>
       <AdminForm v-if="basis" @submit="register" class="source-basis">
+        <label v-if="sourceCandidates.length > 1"
+          >本次收益人<AdminSelect
+            v-model.number="recipientId"
+            @change="
+              basis = sourceCandidates.find((c) => c.userId === recipientId);
+              registrationAmount = amount(basis.amountCents);
+            "
+          >
+            <option
+              v-for="candidate in sourceCandidates"
+              :key="candidate.userId"
+              :value="candidate.userId"
+            >
+              #{{ candidate.userId }} ·
+              {{
+                candidate.snapshot.beneficiaryRole === "principal"
+                  ? "归属主理人"
+                  : "直接邀请人"
+              }}
+              · {{ amount(candidate.amountCents) }} 元
+            </option>
+          </AdminSelect></label
+        >
         <p>
           {{ basis.orderNumber }} ·
-          {{ basis.kind === "onboarding" ? "入驻奖励" : "店主订货收益" }} ·
-          收款代理 #{{ basis.userId }}
+          {{
+            basis.kind === "onboarding"
+              ? "入驻奖励"
+              : basis.kind === "retail"
+                ? "零售佣金"
+                : "店主订货收益"
+          }}
+          · 收款代理 #{{ basis.userId }}
         </p>
         <pre>{{ JSON.stringify(basis.snapshot, null, 2) }}</pre>
         <label
@@ -688,7 +718,9 @@ function openReconcile(id: number) {
             pattern="\d+(\.\d{1,2})?"
             data-error-message="请输入金额，最多两位小数"
         /></label>
-        <p>价差不含运费；入驻奖励归直接邀请人。登记不代表付款。</p>
+        <p>
+          普通商品收益不含运费和福利品；入驻奖励按原来源分别登记每位收益人。登记不代表付款。
+        </p>
         <label class="reason"
           >本次操作原因<input
             v-model="reason"

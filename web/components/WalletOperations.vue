@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackToast from "./FeedbackToast.vue";
 import { onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
@@ -195,10 +196,11 @@ onMounted(() => run(refresh));
       仅登记已核实的真实到账。1 元对应 1
       积分，不赠送、不过期；产品包款请到入驻申请核款。
     </p>
-    <p v-if="error && !dialog" role="alert" class="feedback error">
-      {{ error }}
-    </p>
-    <p v-if="notice" role="status" class="feedback notice">{{ notice }}</p>
+    <FeedbackToast
+      v-model:notice="notice"
+      v-model:error="error"
+      :show-error="!dialog"
+    />
     <div class="wallet-workspace">
       <div class="account-workspace">
         <section class="surface account-query" aria-label="钱包与收款查询">

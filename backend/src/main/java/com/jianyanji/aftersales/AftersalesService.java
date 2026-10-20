@@ -309,6 +309,8 @@ public class AftersalesService {
                     if (!"requested".equals(s(refund, "status"))) throw conflict("该售后已审核");
                     if (approve && "package".equals(s(refund, "kind")) && decision == null)
                         throw conflict("产品包部分退款须记录身份保留或撤销结论");
+                    if (approve && "package".equals(s(refund, "kind")) && "revoke".equals(decision))
+                        membership.assertRefundRevocable(orders.owned(l(refund, "order_id"), null));
                     if (!approve)
                         for (JsonNode line : list(parse(s(refund, "lines")))) {
                             if (db.update(
@@ -419,6 +421,7 @@ public class AftersalesService {
                             || !"offline".equals(s(order, "payment_method")))
                         throw conflict("仅公司转款产品包可登记线下退款");
                     if ("success".equals(s(refund, "status"))) return;
+                    assertRefundRevocableIfNeeded(refund, order);
                     db.update(
                             "UPDATE refunds SET recipient=?,paid_at=?,proof=?,channel_ref=?,"
                                     + STAMP
@@ -445,6 +448,7 @@ public class AftersalesService {
         ObjectNode order = orders.owned(l(current, "order_id"), null);
         List<JsonNode> lines = list(parse(s(current, "lines")));
         requireInspection(current);
+        assertRefundRevocableIfNeeded(current, order);
         if ("points".equals(s(order, "payment_method")))
             wallet.restoreOrderPoints(
                     l(order, "id"), l(current, "id"), l(current, "total_cents"), actor, requestId);
@@ -493,6 +497,23 @@ public class AftersalesService {
         else orders.refreshFulfillment(l(order, "id"));
     }
 
+    /** 实际退款前按累计原货款判定全退；全退即使误选保留也必须先具备可撤销资格及团队接管计划。 */
+    private void assertRefundRevocableIfNeeded(ObjectNode refund, ObjectNode order) {
+        if (!"package".equals(s(order, "kind"))) return;
+        if ("revoke".equals(s(refund, "identity_decision"))) {
+            membership.assertRefundRevocable(order);
+            return;
+        }
+        long completed =
+                l(
+                        db.one(
+                                "SELECT COALESCE(SUM(total_cents),0) AS total FROM refunds WHERE order_id=? AND status='success' AND is_deleted=0",
+                                l(order, "id")),
+                        "total");
+        if (Math.addExact(completed, l(refund, "total_cents")) >= l(order, "total_cents"))
+            membership.assertRefundRevocable(order);
+    }
+
     private ObjectNode originalPayment(ObjectNode order) {
         ObjectNode payment =
                 db.one(
@@ -529,6 +550,7 @@ public class AftersalesService {
                                     "processing",
                                     "unknown")) throw conflict("请先审核售后");
                             requireInspection(refund);
+                            if (!query) assertRefundRevocableIfNeeded(refund, order);
                             if (!query && in(s(refund, "status"), "processing", "unknown"))
                                 throw conflict("原退款结果未明，请查询原退款单");
                             ObjectNode payment = originalPayment(order);

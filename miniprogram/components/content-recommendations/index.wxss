@@ -1,0 +1,47 @@
+.recommendations {
+  margin: 44rpx;
+  color: #46332a;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 34rpx;
+}
+.heading button {
+  margin: 0;
+  font-size: 26rpx;
+}
+.recommendation {
+  display: flex;
+  gap: 24rpx;
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+  padding: 24rpx 0;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+.recommendation image {
+  width: 140rpx;
+  height: 140rpx;
+  flex-shrink: 0;
+  border-radius: 12rpx;
+}
+.recommendation text {
+  font-size: 24rpx;
+  color: #8e8178;
+}
+.empty {
+  color: #8e8178;
+  padding: 30rpx 0;
+  font-size: 26rpx;
+}
+button {
+  background: transparent;
+  color: #8d1724;
+  min-height: 88rpx;
+}
+button::after {
+  border: 0;
+}

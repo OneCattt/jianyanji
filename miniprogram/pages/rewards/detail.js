@@ -24,7 +24,12 @@ Page({
       this.setData({
         item: {
           ...r,
-          title: r.kind === "onboarding" ? "产品包入驻奖励" : "店主订货收益",
+          title:
+            r.kind === "onboarding"
+              ? "产品包入驻奖励"
+              : r.kind === "retail"
+                ? "零售佣金"
+                : "店主订货收益",
           statusName: statusNames[r.status],
           amount: amount(r.amountCents),
           remaining: amount(r.remainingCents),

@@ -69,9 +69,16 @@ async function open(p: any) {
       ><button class="back" @click="product = null">‹ 返回商城</button
       ><img class="qx-detail-image" :src="product.detailImage" alt="商品" />
       <div class="qx-detail-section">
-        <span class="qx-badge">{{ names[identity] }}适用价</span>
+        <span class="qx-badge">{{
+          sku.productType === "welfare"
+            ? "统一福利价"
+            : names[identity] + "适用价"
+        }}</span>
         <h1 class="qx-h1">{{ product.name }}</h1>
         <p class="qx-muted">{{ product.subtitle }}</p>
+        <p v-if="sku.productType !== 'welfare'" class="qx-muted">
+          零售价 {{ money(sku.retailCents) }}
+        </p>
         <div class="qx-price qx-large">
           {{ money(sku.priceCents) }} / {{ sku.unit }}
         </div>

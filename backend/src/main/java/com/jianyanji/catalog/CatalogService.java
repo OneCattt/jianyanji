@@ -27,14 +27,34 @@ public class CatalogService {
         this.access = access;
     }
 
-    /** 按有效身份返回单价（分）；该身份未定价时返回 null，禁止跨档兜底。 */
+    /** 使用独立销售分享口径核验候选，不以入驻邀请人替代销售代理。 */
+    public ObjectNode salesCandidate(String code) {
+        return new SalesAttributionService(db).candidate(code);
+    }
+
+    /** 按有效身份计算单价（分）；普通商品固定折扣，福利品各身份同价，配置无效返回 null。 */
     public Long rolePrice(JsonNode sku, JsonNode user) {
-        String identity = user == null ? "D" : effectiveIdentity(user);
-        String field =
-                "B".equals(identity)
-                        ? "principal_cents"
-                        : "C".equals(identity) ? "store_cents" : "retail_cents";
-        return has(sku, field) ? l(sku, field) : null;
+        return priceForIdentity(sku, user == null ? "D" : effectiveIdentity(user));
+    }
+
+    /** 服务端唯一价格依据；先按身份折扣四舍五入到分，微信与积分共用。 */
+    public Long priceForIdentity(JsonNode sku, String identity) {
+        String type = productType(sku);
+        String field = "welfare".equals(type) ? "welfare_cents" : "retail_cents";
+        if (!("regular".equals(type) || "welfare".equals(type)) || !has(sku, field)) return null;
+        JsonNode value = sku.get(field);
+        if (!value.isIntegralNumber() || !value.canConvertToLong()) return null;
+        long cents = value.longValue();
+        if (cents <= 0 || cents > 100000000) return null;
+        if ("welfare".equals(type)) return cents;
+        int percent = "B".equals(identity) ? 35 : "C".equals(identity) ? 70 : 100;
+        long price = (cents * percent + 50) / 100;
+        return price > 0 ? price : null;
+    }
+
+    /** 未标记的既有 SKU 视为普通商品；历史订单不调用现价计算。 */
+    public String productType(JsonNode sku) {
+        return has(sku, "product_type") ? s(sku, "product_type") : "regular";
     }
 
     /** 输出商品与规格；管理端显示实际库存、占用量及完整档价，客户端只显示可用量。 */
@@ -62,14 +82,18 @@ public class CatalogService {
                             price,
                             "retailCents",
                             sku.get("retail_cents"),
+                            "productType",
+                            productType(sku),
+                            "welfareCents",
+                            sku.get("welfare_cents"),
                             "available",
                             b(product, "active")
                                     && b(sku, "active")
                                     && availableStock > 0
                                     && price != null);
             if (admin) {
-                view.set("storeCents", sku.get("store_cents"));
-                view.set("principalCents", sku.get("principal_cents"));
+                view.set("storeCents", json(priceForIdentity(sku, "C")));
+                view.set("principalCents", json(priceForIdentity(sku, "B")));
                 view.set("stock", sku.get("stock"));
                 view.set("reserved", sku.get("reserved"));
             }
@@ -279,8 +303,17 @@ public class CatalogService {
                     for (JsonNode sku : value.withArray("skus")) {
                         Long skuId = has(sku, "id") ? l(sku, "id") : null;
                         Long retail = nullablePrice(sku, "retailCents"),
-                                store = nullablePrice(sku, "storeCents"),
-                                principal = nullablePrice(sku, "principalCents");
+                                welfare = nullablePrice(sku, "welfareCents");
+                        ObjectNode pricing =
+                                obj(
+                                        "product_type",
+                                        s(sku, "productType"),
+                                        "retail_cents",
+                                        retail,
+                                        "welfare_cents",
+                                        welfare);
+                        Long store = priceForIdentity(pricing, "C"),
+                                principal = priceForIdentity(pricing, "B");
                         if (skuId != null) {
                             ObjectNode old =
                                     existing.stream()
@@ -292,12 +325,14 @@ public class CatalogService {
                                 throw conflict("库存不能低于待付款占用数量");
                             retained.add(skuId);
                             db.update(
-                                    "UPDATE skus SET name=?,unit=?,retail_cents=?,store_cents=?,principal_cents=?,stock=?,active=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND product_id=? AND is_deleted=0",
+                                    "UPDATE skus SET name=?,unit=?,retail_cents=?,store_cents=?,principal_cents=?,product_type=?,welfare_cents=?,stock=?,active=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND product_id=? AND is_deleted=0",
                                     s(sku, "name"),
                                     s(sku, "unit"),
                                     retail,
                                     store,
                                     principal,
+                                    s(sku, "productType"),
+                                    welfare,
                                     l(sku, "stock"),
                                     b(sku, "active") ? 1 : 0,
                                     actor,
@@ -305,13 +340,15 @@ public class CatalogService {
                                     saved);
                         } else
                             db.insert(
-                                    "INSERT INTO skus(product_id,name,unit,retail_cents,store_cents,principal_cents,stock,active,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                                    "INSERT INTO skus(product_id,name,unit,retail_cents,store_cents,principal_cents,product_type,welfare_cents,stock,active,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                                     saved,
                                     s(sku, "name"),
                                     s(sku, "unit"),
                                     retail,
                                     store,
                                     principal,
+                                    s(sku, "productType"),
+                                    welfare,
                                     l(sku, "stock"),
                                     b(sku, "active") ? 1 : 0,
                                     actor,
@@ -392,14 +429,14 @@ public class CatalogService {
                     "name",
                     "unit",
                     "retailCents",
-                    "storeCents",
-                    "principalCents",
+                    "productType",
+                    "welfareCents",
                     "stock",
                     "active");
+            String type = Input.text(row, "productType", 1, 20);
+            Input.require("regular".equals(type) || "welfare".equals(type), "商品类型无效");
             Long retail = nullablePrice(row, "retailCents"),
-                    store = nullablePrice(row, "storeCents"),
-                    principal = nullablePrice(row, "principalCents");
-            Input.require(principal == null || store == null || principal <= store, "主理人价不得高于店主价");
+                    welfare = nullablePrice(row, "welfareCents");
             ObjectNode sku =
                     obj(
                             "name",
@@ -408,10 +445,10 @@ public class CatalogService {
                             Input.text(row, "unit", 1, 10),
                             "retailCents",
                             retail,
-                            "storeCents",
-                            store,
-                            "principalCents",
-                            principal,
+                            "productType",
+                            type,
+                            "welfareCents",
+                            welfare,
                             "stock",
                             Input.integer(row, "stock", 0, 10000000),
                             "active",

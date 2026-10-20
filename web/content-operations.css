@@ -1,0 +1,69 @@
+/* 内容和课程沿用后台变量及控件，仅补充独立模块排版。 */
+.content-operations {
+  padding: 22px;
+}
+.content-operations .panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.content-operations .muted {
+  color: var(--admin-muted);
+  line-height: 1.8;
+}
+.content-operations .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.content-operations .actions button {
+  min-height: 38px;
+  padding: 8px 12px;
+  color: var(--admin-accent);
+}
+.content-editor {
+  display: grid;
+  gap: 18px;
+}
+.content-editor label {
+  display: grid;
+  gap: 8px;
+}
+.content-editor input:not([type="checkbox"]),
+.content-editor textarea,
+.content-editor select {
+  width: 100%;
+}
+.content-editor textarea {
+  min-height: 110px;
+}
+.content-editor fieldset {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  min-width: 0;
+}
+.content-editor legend {
+  padding: 0 8px;
+  font-weight: 600;
+}
+.content-editor label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+}
+.content-editor .primary {
+  justify-self: start;
+}
+@media (max-width: 700px) {
+  .content-operations {
+    padding: 16px;
+  }
+  .content-editor fieldset {
+    padding: 14px;
+  }
+}

@@ -66,7 +66,7 @@ class MembershipServiceTest {
                 "name",
                 "入驻产品包",
                 "amountCents",
-                20000,
+                "B".equals(target) ? 1980000 : 298000,
                 "valueCents",
                 30000,
                 "selfUseLabel",
@@ -82,7 +82,14 @@ class MembershipServiceTest {
                 "active",
                 true,
                 "lines",
-                arr(obj("skuId", 11, "quantity", 2, "unitCents", 10000)));
+                arr(
+                        obj(
+                                "skuId",
+                                11,
+                                "quantity",
+                                1,
+                                "unitCents",
+                                "B".equals(target) ? 1980000 : 298000)));
     }
 
     @Test
@@ -144,7 +151,7 @@ class MembershipServiceTest {
     /** 为实际退款核对准备原申请、原收款与累计成功退款事实。 */
     private void refundFacts(long actual, long original, long previouslyRefunded) {
         when(db.one(startsWith("SELECT * FROM onboardings WHERE order_id="), eq(30L), eq(7L)))
-                .thenReturn(obj("id", 9, "receipt_id", 21, "status", "approved"));
+                .thenReturn(obj("id", 9, "user_id", 7, "receipt_id", 21, "status", "approved"));
         when(db.one(startsWith("SELECT * FROM company_receipts"), eq(21L), eq(9L), eq(7L)))
                 .thenReturn(
                         obj("amount_cents", original, "cash_refunded_cents", previouslyRefunded));
@@ -152,18 +159,15 @@ class MembershipServiceTest {
                 .thenReturn(obj("total", actual));
         when(db.one(startsWith("SELECT identity,identity_valid_until"), eq(7L)))
                 .thenReturn(obj("identity", "B", "onboarding_id", 999));
+        when(db.one(startsWith("SELECT * FROM users WHERE id="), eq(7L)))
+                .thenReturn(obj("identity", "B", "onboarding_id", 999));
     }
 
     @Test
     void fullRefundRevokesOnlyThisOnboardingAndPreservesLaterIdentity() {
         refundFacts(20000, 20000, 0);
         membership.applyPackageRefundIdentity(order, true, null, 99, "产品包全退");
-        verify(db)
-                .update(
-                        contains("WHERE id=? AND onboarding_id=? AND is_deleted=0"),
-                        eq(99L),
-                        eq(7L),
-                        eq(9L));
+        verify(db, never()).update(startsWith("UPDATE users"), any(Object[].class));
         verify(db)
                 .insert(
                         startsWith("INSERT INTO onboarding_identity_events"),

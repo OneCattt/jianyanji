@@ -5,6 +5,7 @@ Component({
     tabs: [
       { path: "/pages/home/index", label: "首页", icon: "home" },
       { path: "/pages/mall/index", label: "商城", icon: "mall" },
+      { path: "/pages/seeds/index", label: "种草空间", icon: "seed" },
       { path: "/pages/profile/index", label: "我的", icon: "profile" },
     ],
   },

@@ -1,38 +1,193 @@
 <view class="mine">
-  <view class="mine-header" style="padding-top:{{headerTop}}px;height:{{headerHeight}}px;">
-    <button class="mine-avatar" data-key="settings" bindtap="onNavigate" disabled="{{busy || navigating}}" aria-label="个人资料与登录设置">妍</button>
+  <view
+    class="mine-header"
+    style="padding-top:{{headerTop}}px;height:{{headerHeight}}px;"
+  >
+    <button
+      class="mine-avatar"
+      data-key="settings"
+      bindtap="onNavigate"
+      disabled="{{busy || navigating}}"
+      aria-label="个人资料与登录设置"
+    >
+      妍
+    </button>
     <view class="mine-identity">
       <view class="mine-membership">清欣会员</view>
-      <button class="mine-name" data-key="settings" bindtap="onNavigate" disabled="{{busy || navigating}}">{{user ? user.nickname : '登录清欣'}}</button>
-      <view class="mine-role"><view class="mine-role-dot"></view><text>{{busy ? '正在读取身份…' : user ? user.identityName + ' · ID ' + user.id : '欢迎，新朋友'}}</text></view>
+      <button
+        class="mine-name"
+        data-key="settings"
+        bindtap="onNavigate"
+        disabled="{{busy || navigating}}"
+      >
+        {{user ? user.nickname : '登录清欣'}}
+      </button>
+      <view class="mine-role"
+        ><view class="mine-role-dot"></view
+        ><text
+          >{{busy ? '正在读取身份…' : user ? user.identityName + ' · ID ' +
+          user.id : '欢迎，新朋友'}}</text
+        ></view
+      >
     </view>
-    <button class="mine-settings" data-key="settings" bindtap="onNavigate" disabled="{{busy || navigating}}" aria-label="设置">•••</button>
+    <button
+      class="mine-settings"
+      data-key="settings"
+      bindtap="onNavigate"
+      disabled="{{busy || navigating}}"
+      aria-label="设置"
+    >
+      •••
+    </button>
   </view>
   <view class="mine-content">
     <view wx:if="{{isAgent}}" class="mine-wallet">
-      <view class="mine-wallet-head"><view class="mine-wallet-label"><image src="/assets/figma/profile-wallet.png" mode="aspectFit" /><text>积分钱包</text></view><text class="mine-wallet-hint">{{!walletLoaded ? '可用积分以实际记录为准' : transferConfigured ? '公司核实到账后发放积分' : '公司收款资料尚未配置'}}</text></view>
-      <view class="mine-balance"><text class="mine-balance-label">可用积分</text><text class="mine-balance-number">{{availablePoints}}</text></view>
-      <view class="mine-wallet-actions"><button class="mine-solid" data-key="wallet" bindtap="onNavigate" disabled="{{busy || navigating}}">公司转款</button><button class="mine-outline" data-key="wallet" bindtap="onNavigate" disabled="{{busy || navigating}}">积分明细</button></view>
-      <view wx:if="{{walletError}}" class="mine-inline-error"><text>{{walletError}}</text><button bindtap="refresh" disabled="{{busy}}">重试</button></view>
+      <view class="mine-wallet-head"
+        ><view class="mine-wallet-label"
+          ><image
+            src="/assets/figma/profile-wallet.png"
+            mode="aspectFit"
+          /><text>积分钱包</text></view
+        ><text class="mine-wallet-hint"
+          >{{!walletLoaded ? '可用积分以实际记录为准' : transferConfigured ?
+          '公司核实到账后发放积分' : '公司收款资料尚未配置'}}</text
+        ></view
+      >
+      <view class="mine-balance"
+        ><text class="mine-balance-label">可用积分</text
+        ><text class="mine-balance-number">{{availablePoints}}</text></view
+      >
+      <view class="mine-wallet-actions"
+        ><button
+          class="mine-solid"
+          data-key="wallet"
+          bindtap="onNavigate"
+          disabled="{{busy || navigating}}"
+        >
+          公司转款</button
+        ><button
+          class="mine-outline"
+          data-key="wallet"
+          bindtap="onNavigate"
+          disabled="{{busy || navigating}}"
+        >
+          积分明细
+        </button></view
+      >
+      <view wx:if="{{walletError}}" class="mine-inline-error"
+        ><text>{{walletError}}</text
+        ><button bindtap="refresh" disabled="{{busy}}">重试</button></view
+      >
     </view>
     <view wx:else class="mine-welcome">
-      <view class="mine-welcome-title">{{user ? '欢迎来到清欣' : '与美好肌肤相遇'}}</view><view class="mine-welcome-copy">{{user ? '当前为游客身份，可直接微信付款购买商品。' : '登录后查看订单、管理资料，开启清欣之旅。'}}</view>
-      <view class="mine-wallet-actions"><button class="mine-solid" bindtap="toMall" disabled="{{navigating}}">臻选商城</button><button class="mine-outline" data-key="{{user ? 'onboarding' : 'settings'}}" bindtap="onNavigate" disabled="{{busy || navigating}}">{{user ? '代理入驻' : '微信登录'}}</button></view>
+      <view class="mine-welcome-title"
+        >{{user ? '欢迎来到清欣' : '与美好肌肤相遇'}}</view
+      ><view class="mine-welcome-copy"
+        >{{user ? '当前为游客身份，可直接微信付款购买商品。' :
+        '登录后查看订单、管理资料，开启清欣之旅。'}}</view
+      >
+      <view class="mine-wallet-actions"
+        ><button class="mine-solid" bindtap="toMall" disabled="{{navigating}}">
+          臻选商城</button
+        ><button
+          class="mine-outline"
+          data-key="{{user ? 'onboarding' : 'settings'}}"
+          bindtap="onNavigate"
+          disabled="{{busy || navigating}}"
+        >
+          {{user ? '代理入驻' : '微信登录'}}
+        </button></view
+      >
     </view>
-    <view wx:if="{{error}}" class="mine-error"><text>{{error}}</text><button bindtap="refresh" disabled="{{busy}}">重试</button></view>
+    <view wx:if="{{error}}" class="mine-error"
+      ><text>{{error}}</text
+      ><button bindtap="refresh" disabled="{{busy}}">重试</button></view
+    >
     <view class="mine-orders">
-      <view class="mine-orders-head"><text class="mine-section-title">我的订单</text><button class="mine-all-orders" data-key="orders" bindtap="onNavigate" disabled="{{busy || navigating}}"><text>全部订单</text><image src="/assets/figma/profile-arrow.png" mode="aspectFit" /></button></view>
-      <view class="mine-order-grid"><button wx:for="{{orderShortcuts}}" wx:key="tab" class="mine-order-shortcut" data-key="orders" data-tab="{{item.tab}}" bindtap="onNavigate" disabled="{{busy || navigating}}"><image src="/assets/figma/profile-order-{{item.icon}}.png" mode="aspectFit" /><text>{{item.name}}</text></button></view>
+      <view class="mine-orders-head"
+        ><text class="mine-section-title">我的订单</text
+        ><button
+          class="mine-all-orders"
+          data-key="orders"
+          bindtap="onNavigate"
+          disabled="{{busy || navigating}}"
+        >
+          <text>全部订单</text
+          ><image
+            src="/assets/figma/profile-arrow.png"
+            mode="aspectFit"
+          /></button
+      ></view>
+      <view class="mine-order-grid"
+        ><button
+          wx:for="{{orderShortcuts}}"
+          wx:key="tab"
+          class="mine-order-shortcut"
+          data-key="orders"
+          data-tab="{{item.tab}}"
+          bindtap="onNavigate"
+          disabled="{{busy || navigating}}"
+        >
+          <image
+            src="/assets/figma/profile-order-{{item.icon}}.png"
+            mode="aspectFit"
+          /><text>{{item.name}}</text>
+        </button></view
+      >
     </view>
     <view class="mine-menu">
       <block wx:for="{{menuItems}}" wx:key="key">
-        <block wx:if="{{!item.agentOnly || isAgent}}">
-          <button wx:if="{{item.key === 'invite'}}" class="mine-menu-item" open-type="share" disabled="{{busy || navigating}}"><view class="mine-menu-icon"><image src="/assets/figma/profile-share.png" mode="aspectFit" /></view><text class="mine-menu-title">{{item.title}}</text><text class="mine-menu-hint">{{item.hint}}</text><image class="mine-menu-arrow" src="/assets/figma/profile-arrow.png" mode="aspectFit" /></button>
-          <button wx:else class="mine-menu-item" data-key="{{item.key}}" bindtap="onNavigate" disabled="{{busy || navigating}}"><view class="mine-menu-icon"><image src="/assets/figma/profile-{{item.icon}}.png" mode="aspectFit" /></view><text class="mine-menu-title">{{item.title}}</text><text class="mine-menu-hint">{{item.hint}}</text><image class="mine-menu-arrow" src="/assets/figma/profile-arrow.png" mode="aspectFit" /></button>
+        <block
+          wx:if="{{(!item.agentOnly || isAgent) && (!item.principalOnly || (user && user.identity==='B'))}}"
+        >
+          <button
+            wx:if="{{item.key === 'invite'}}"
+            class="mine-menu-item"
+            open-type="share"
+            disabled="{{busy || navigating}}"
+          >
+            <view class="mine-menu-icon"
+              ><image
+                src="/assets/figma/profile-share.png"
+                mode="aspectFit" /></view
+            ><text class="mine-menu-title">{{item.title}}</text
+            ><text class="mine-menu-hint">{{item.hint}}</text
+            ><image
+              class="mine-menu-arrow"
+              src="/assets/figma/profile-arrow.png"
+              mode="aspectFit"
+            />
+          </button>
+          <button
+            wx:else
+            class="mine-menu-item"
+            data-key="{{item.key}}"
+            bindtap="onNavigate"
+            disabled="{{busy || navigating}}"
+          >
+            <view class="mine-menu-icon"
+              ><image
+                src="/assets/figma/profile-{{item.icon}}.png"
+                mode="aspectFit" /></view
+            ><text class="mine-menu-title">{{item.title}}</text
+            ><text class="mine-menu-hint">{{item.hint}}</text
+            ><image
+              class="mine-menu-arrow"
+              src="/assets/figma/profile-arrow.png"
+              mode="aspectFit"
+            />
+          </button>
         </block>
       </block>
     </view>
-    <button wx:if="{{isAgent}}" class="mine-copy-invite" bindtap="copyInvite" disabled="{{busy}}">复制我的入驻邀请路径</button>
+    <button
+      wx:if="{{isAgent}}"
+      class="mine-copy-invite"
+      bindtap="copyInvite"
+      disabled="{{busy}}"
+    >
+      复制我的入驻邀请路径
+    </button>
     <view class="mine-footer">品牌仓统一发货 · 正品溯源 · 专属售后保障</view>
   </view>
 </view>

@@ -320,10 +320,10 @@ public class WalletService {
     public ObjectNode payWithPoints(long userId, long orderId) {
         return db.tx(
                 () -> {
-                    ObjectNode user = requireAgent(userId), order = orders.owned(orderId, userId);
+                    ObjectNode order = orders.owned(orderId, userId);
                     if ("points".equals(s(order, "payment_method"))
                             && "paid".equals(s(order, "payment_state"))) return orders.view(order);
-                    if (!"goods".equals(s(order, "kind"))) throw conflict("产品包只支持公司转款");
+                    if (!"goods".equals(s(order, "kind"))) throw conflict("产品包支持微信或公司转款，不支持积分");
                     if (!"pending".equals(s(order, "status"))
                             || !Arrays.asList("unpaid", "failed")
                                     .contains(s(order, "payment_state")))
@@ -334,8 +334,8 @@ public class WalletService {
                         throw conflict("请先确认并关闭原微信交易");
                     if (!Instant.parse(s(order, "expires_at")).isAfter(Instant.now()))
                         throw conflict("待付款订单已过期");
-                    if (!s(parse(s(order, "snapshot")), "identity").equals(effectiveIdentity(user)))
-                        throw conflict("代理身份已变化，请重新确认订单");
+                    orders.assertRelationsCurrent(order);
+                    requireAgent(userId);
                     payments.assertNoUnresolved(userId, 0);
                     List<ObjectNode> lots =
                             db.list(

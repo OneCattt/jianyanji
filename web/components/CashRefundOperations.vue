@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackToast from "./FeedbackToast.vue";
 import { onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
@@ -134,8 +135,11 @@ async function resolve() {
         人工受理未用积分退现金
       </button>
     </Teleport>
-    <p v-if="error" class="message error" role="alert">{{ error }}</p>
-    <p v-if="notice" class="message success" role="status">{{ notice }}</p>
+    <FeedbackToast
+      v-model:notice="notice"
+      v-model:error="error"
+      :show-error="!creating && !selected"
+    />
     <ol class="process-guide" aria-label="退现金办理流程">
       <li>
         <span class="step-number">1</span>

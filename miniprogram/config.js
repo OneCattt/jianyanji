@@ -2,5 +2,5 @@
 module.exports = {
   apiBase: "http://127.0.0.1:3100/api",
   // 仅开发工具本地体验可手动开启，服务端也必须显式开启 DEV_AUTH。
-  devAuth: false,
+  devAuth: true,
 };

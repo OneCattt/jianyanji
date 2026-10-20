@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackToast from "./FeedbackToast.vue";
 import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
@@ -245,8 +246,11 @@ onMounted(() => act(load));
 </script>
 <template>
   <section class="payment-operations" :aria-busy="busy">
-    <p v-if="error" role="alert" class="message error">{{ error }}</p>
-    <p v-if="notice" role="status" class="message success">{{ notice }}</p>
+    <FeedbackToast
+      v-model:notice="notice"
+      v-model:error="error"
+      :show-error="!dialog && !correcting"
+    />
     <section class="surface order-list">
       <header class="section-heading">
         <div>

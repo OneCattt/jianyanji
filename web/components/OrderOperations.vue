@@ -4,6 +4,7 @@ import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
+import FeedbackToast from "./FeedbackToast.vue";
 
 interface Shipping {
   provinces: string[];
@@ -311,8 +312,11 @@ async function saveShipping() {
         配送配置
       </button>
     </nav>
-    <p v-if="error" class="message error" role="alert">{{ error }}</p>
-    <p v-if="notice" class="message success" role="status">{{ notice }}</p>
+    <FeedbackToast
+      v-model:notice="notice"
+      v-model:error="error"
+      :show-error="!editingShipping"
+    />
     <p v-if="loading" class="loading" role="status">
       正在读取{{ active === "shipping" ? "配送配置" : "订单记录" }}…
     </p>

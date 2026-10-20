@@ -14,17 +14,39 @@ import org.junit.jupiter.api.Test;
 /** 商品档价、公开字段和维护边界回归；数据库仅作显式测试替身。 */
 class CatalogServiceTest {
     @Test
-    void identityPriceNeverFallsBackAndExpiredAgentUsesRetail() {
+    void fixedRolePriceIgnoresLegacyManualPricesAndExpiredAgentUsesRetail() {
         CatalogService service = new CatalogService(mock(Db.class), mock(Access.class));
         ObjectNode sku = obj("retail_cents", 10000, "store_cents", null, "principal_cents", 6000);
         assertEquals(Long.valueOf(10000), service.rolePrice(sku, null));
-        assertNull(service.rolePrice(sku, obj("identity", "C")));
-        assertEquals(Long.valueOf(6000), service.rolePrice(sku, obj("identity", "B")));
+        assertEquals(Long.valueOf(7000), service.rolePrice(sku, obj("identity", "C")));
+        assertEquals(Long.valueOf(3500), service.rolePrice(sku, obj("identity", "B")));
         assertEquals(
                 Long.valueOf(10000),
                 service.rolePrice(
                         sku,
                         obj("identity", "B", "identity_valid_until", "2020-01-01T00:00:00.000Z")));
+    }
+
+    @Test
+    void fractionsAndWelfareHaveOneAuthoritativePrice() {
+        CatalogService service = new CatalogService(mock(Db.class), mock(Access.class));
+        ObjectNode regular = obj("product_type", "regular", "retail_cents", 10001);
+        assertEquals(Long.valueOf(10001), service.rolePrice(regular, null));
+        assertEquals(Long.valueOf(7001), service.rolePrice(regular, obj("identity", "C")));
+        assertEquals(Long.valueOf(3500), service.rolePrice(regular, obj("identity", "B")));
+        ObjectNode welfare =
+                obj("product_type", "welfare", "welfare_cents", 1234, "retail_cents", 10001);
+        for (String identity : new String[] {"B", "C", "D"}) {
+            assertEquals(Long.valueOf(1234), service.rolePrice(welfare, obj("identity", identity)));
+        }
+        welfare.putNull("welfare_cents");
+        assertNull(service.rolePrice(welfare, obj("identity", "C")));
+        regular.putNull("retail_cents");
+        assertNull(service.rolePrice(regular, obj("identity", "B")));
+        regular.put("retail_cents", -1);
+        assertNull(service.rolePrice(regular, null));
+        welfare.put("product_type", "unknown");
+        assertNull(service.rolePrice(welfare, null));
     }
 
     @Test
@@ -98,7 +120,7 @@ class CatalogServiceTest {
     }
 
     @Test
-    void principalPriceAboveStoreAndDuplicateSkuAreRejected() {
+    void manualIdentityPricesAndDuplicateSkuAreRejected() {
         Db db = mock(Db.class);
         CatalogService service = new CatalogService(db, mock(Access.class));
         ObjectNode sku =
@@ -142,7 +164,10 @@ class CatalogServiceTest {
                         "reason",
                         "维护商品");
         assertThrows(BusinessException.class, () -> service.saveProduct(1L, product, 1));
-        sku.put("principalCents", 6000);
+        sku.remove("storeCents");
+        sku.remove("principalCents");
+        sku.put("productType", "regular");
+        sku.putNull("welfareCents");
         product.set("skus", arr(sku, sku));
         assertThrows(BusinessException.class, () -> service.saveProduct(1L, product, 1));
         verifyNoInteractions(db);

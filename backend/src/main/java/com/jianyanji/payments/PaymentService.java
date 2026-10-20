@@ -33,6 +33,9 @@ public class PaymentService {
     private final OrderService orders;
     /** 微信真实渠道。 */
     private final WechatPayClient channel;
+    /** 产品包到账激活钩子，延迟注入避免订单与退款依赖环。 */
+    @org.springframework.beans.factory.annotation.Autowired @Lazy
+    private com.jianyanji.membership.MembershipService membership;
     /** 单进程定时核对重入保护；跨进程由数据库租约保护。 */
     private final AtomicBoolean running = new AtomicBoolean();
     /** 更新审计字段的 SQL 片段，操作人由参数明确传入。 */
@@ -105,6 +108,8 @@ public class PaymentService {
                 now(),
                 userId,
                 userId);
+        if ("package".equals(s(current, "kind")))
+            membership.activatePaid(orders.owned(orderId, null), userId);
         return obj("alreadyPaid", false, "order", orders.owned(orderId, null));
     }
 
@@ -134,6 +139,9 @@ public class PaymentService {
                         () -> {
                             ObjectNode order = orders.owned(orderId, actor);
                             assertNoUnresolved(actor, orderId);
+                            if ("package".equals(s(order, "kind")))
+                                membership.assertOrderPayable(order);
+                            else orders.assertRelationsCurrent(order);
                             if (!"pending".equals(s(order, "status")) || expired(order))
                                 throw conflict("订单已付款、关闭或过期");
                             if (!WechatPayClient.safeInteger(order.path("total_cents"))
@@ -650,6 +658,7 @@ public class PaymentService {
 
     @Scheduled(fixedDelayString = "${payments.reconcile-delay-ms:30000}")
     public void scheduledReconcile() {
+        if (com.jianyanji.common.MaintenanceMode.enabled()) return;
         try {
             reconcile();
         } catch (RuntimeException e) {

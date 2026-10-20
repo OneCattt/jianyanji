@@ -88,12 +88,18 @@ final class OrderInput {
     }
 
     static ObjectNode checkout(JsonNode body) {
-        Input.strict(body, "addressId", "items");
-        return obj(
-                "addressId",
-                entityId(body.get("addressId")),
-                "items",
-                lines(body, "items", "skuId", "同规格不可重复"));
+        Input.strict(body, "addressId", "items", "salesCode", "salesConfirmed");
+        ObjectNode value =
+                obj(
+                        "addressId",
+                        entityId(body.get("addressId")),
+                        "items",
+                        lines(body, "items", "skuId", "同规格不可重复"));
+        if (has(body, "salesCode")) {
+            value.put("salesCode", Input.text(body, "salesCode", 0, 64));
+            value.put("salesConfirmed", Input.bool(body, "salesConfirmed"));
+        }
+        return value;
     }
 
     static ArrayNode lines(JsonNode body, String field, String idField, String duplicateMessage) {

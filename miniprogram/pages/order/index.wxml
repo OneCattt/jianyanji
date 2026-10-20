@@ -1,23 +1,123 @@
 <view class="qx jy-orders jy-detail">
-  <view class="jy-header"><button class="jy-back" bindtap="back" aria-label="返回"><image src="assets/detail-imgIcon.png"/></button><text>订单详情</text></view>
-  <view wx:if="error" class="jy-error">{{error}}<button bindtap="load">重新查询</button></view>
+  <view class="jy-header"
+    ><button class="jy-back" bindtap="back" aria-label="返回">
+      <image src="assets/detail-imgIcon.png" /></button
+    ><text>订单详情</text></view
+  >
+  <view wx:if="error" class="jy-error"
+    >{{error}}<button bindtap="load">重新查询</button></view
+  >
   <block wx:if="order">
-    <view class="jy-banner"><image src="assets/detail-imgIcon1.png"/><view><view>{{order.stateText}}</view><text>{{order.hint}}</text></view></view>
+    <view class="jy-banner"
+      ><image src="assets/detail-imgIcon1.png" /><view
+        ><view>{{order.stateText}}</view><text>{{order.hint}}</text></view
+      ></view
+    >
     <view class="jy-list">
-      <view class="jy-card jy-logistics-link" bindtap="logistics"><image src="assets/detail-imgIcon2.png"/><view><view>{{order.shipments.length?'查看包裹物流':'品牌仓履约进度'}}</view><text>{{order.shipments.length?'查看物流公司和运单号':'付款后由品牌仓安排发货'}}</text></view><image class="jy-arrow" src="assets/detail-imgIcon3.png"/></view>
-      <view class="jy-card jy-address"><image src="assets/detail-imgIcon4.png"/><view><view>{{order.snapshot.address.recipient}} {{order.snapshot.address.phone}}</view><text>{{order.snapshot.address.province}}{{order.snapshot.address.city}}{{order.snapshot.address.district}}{{order.snapshot.address.detail}}</text></view></view>
-      <view class="jy-card"><view class="jy-store"><image src="assets/detail-imgIcon5.png"/><text>清欣简妍肌品牌仓</text></view><view wx:for="{{order.displayLines}}" wx:key="skuId" class="jy-product"><image src="{{item.image}}" mode="aspectFill"/><view class="jy-product-copy"><view>{{item.name}}</view><text>{{item.skuName}}</text></view><view class="jy-line-price">{{item.priceText}}<view>×{{item.quantity}}</view></view></view></view>
-      <view class="jy-card jy-info"><view><text>订单编号</text><button bindtap="copy">{{order.number}}　复制</button></view><view><text>创建时间</text><text>{{order.createdText}}</text></view><view><text>支付方式</text><text>{{order.methodText}}</text></view><view><text>支付流水</text><text>{{payment.receipt.transaction_id||'尚未确认到账'}}</text></view><view><text>配送方式</text><text>品牌仓快递</text></view><view><text>商品合计</text><text>{{order.goodsText}}</text></view><view><text>运费</text><text>{{order.shippingText}}</text></view><view><text>{{order.paid?'实付':'应付'}}</text><text>{{order.amountText}}</text></view><view wx:if="order.receivedText"><text>收货完成</text><text>{{order.receivedText}}</text></view></view>
-      <view class="jy-contact"><image src="assets/detail-imgIcon6.png"/><text>订单有疑问？联系专属顾问协助处理</text><button bindtap="contact">联系顾问</button></view>
-      <view wx:if="order.canPay &amp;&amp; !capabilities.wechatAvailable" class="jy-error">{{capabilities.message}}</view>
+      <view class="jy-card jy-logistics-link" bindtap="logistics"
+        ><image src="assets/detail-imgIcon2.png" /><view
+          ><view
+            >{{order.shipments.length?'查看包裹物流':'品牌仓履约进度'}}</view
+          ><text
+            >{{order.shipments.length?'查看物流公司和运单号':'付款后由品牌仓安排发货'}}</text
+          ></view
+        ><image class="jy-arrow" src="assets/detail-imgIcon3.png"
+      /></view>
+      <view class="jy-card jy-address"
+        ><image src="assets/detail-imgIcon4.png" /><view
+          ><view
+            >{{order.snapshot.address.recipient}}
+            {{order.snapshot.address.phone}}</view
+          ><text
+            >{{order.snapshot.address.province}}{{order.snapshot.address.city}}{{order.snapshot.address.district}}{{order.snapshot.address.detail}}</text
+          ></view
+        ></view
+      >
+      <view class="jy-card"
+        ><view class="jy-store"
+          ><image src="assets/detail-imgIcon5.png" /><text
+            >清欣简妍肌品牌仓</text
+          ></view
+        ><view wx:for="{{order.displayLines}}" wx:key="skuId" class="jy-product"
+          ><image src="{{item.image}}" mode="aspectFill" /><view
+            class="jy-product-copy"
+            ><view>{{item.name}}</view><text>{{item.skuName}}</text></view
+          ><view class="jy-line-price"
+            >{{item.priceText}}<view>×{{item.quantity}}</view></view
+          ></view
+        ></view
+      >
+      <view class="jy-card jy-info"
+        ><view
+          ><text>订单编号</text
+          ><button bindtap="copy">{{order.number}}　复制</button></view
+        ><view><text>创建时间</text><text>{{order.createdText}}</text></view
+        ><view><text>支付方式</text><text>{{order.methodText}}</text></view
+        ><view
+          ><text>支付流水</text
+          ><text>{{payment.receipt.transaction_id||'尚未确认到账'}}</text></view
+        ><view><text>配送方式</text><text>品牌仓快递</text></view
+        ><view><text>商品合计</text><text>{{order.goodsText}}</text></view
+        ><view><text>运费</text><text>{{order.shippingText}}</text></view
+        ><view
+          ><text>{{order.paid?'实付':'应付'}}</text
+          ><text>{{order.amountText}}</text></view
+        ><view wx:if="order.receivedText"
+          ><text>收货完成</text><text>{{order.receivedText}}</text></view
+        ></view
+      >
+      <view class="jy-contact"
+        ><image src="assets/detail-imgIcon6.png" /><text
+          >订单有疑问？联系专属顾问协助处理</text
+        ><button bindtap="contact">联系顾问</button></view
+      >
+      <view
+        wx:if="order.canPay &amp;&amp; !capabilities.wechatAvailable"
+        class="jy-error"
+        >{{capabilities.message}}</view
+      >
     </view>
     <view class="jy-actions">
       <block wx:if="order.status==='pending'">
-        <button class="jy-outline" bindtap="cancel" disabled="{{busy}}">取消订单</button>
-        <button wx:if="order.locked" class="jy-solid" bindtap="query" disabled="{{busy}}" loading="{{busy}}">查询原支付</button>
-        <block wx:else><button class="jy-outline" bindtap="points" disabled="{{busy}}">积分支付</button><button class="jy-solid" bindtap="pay" disabled="{{busy||!capabilities.wechatAvailable}}" loading="{{busy}}">微信付款</button></block>
+        <button class="jy-outline" bindtap="cancel" disabled="{{busy}}">
+          取消订单
+        </button>
+        <button
+          wx:if="order.locked"
+          class="jy-solid"
+          bindtap="query"
+          disabled="{{busy}}"
+          loading="{{busy}}"
+        >
+          查询原支付
+        </button>
+        <block wx:else
+          ><button
+            wx:if="{{order.kind==='goods'}}"
+            class="jy-outline"
+            bindtap="points"
+            disabled="{{busy}}"
+          >
+            积分支付</button
+          ><button
+            class="jy-solid"
+            bindtap="pay"
+            disabled="{{busy||!capabilities.wechatAvailable}}"
+            loading="{{busy}}"
+          >
+            微信付款
+          </button></block
+        >
       </block>
-      <block wx:else><button class="jy-outline" bindtap="aftersales" disabled="{{!order.paid}}">申请售后</button><button class="jy-solid" bindtap="logistics">查看物流</button></block>
+      <block wx:else
+        ><button
+          class="jy-outline"
+          bindtap="aftersales"
+          disabled="{{!order.paid}}"
+        >
+          申请售后</button
+        ><button class="jy-solid" bindtap="logistics">查看物流</button></block
+      >
     </view>
   </block>
 </view>

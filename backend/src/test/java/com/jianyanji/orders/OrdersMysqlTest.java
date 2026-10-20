@@ -219,10 +219,10 @@ class OrdersMysqlTest {
                         "瓶",
                         "retailCents",
                         retail,
-                        "storeCents",
-                        8000,
-                        "principalCents",
-                        6000,
+                        "productType",
+                        "regular",
+                        "welfareCents",
+                        null,
                         "stock",
                         stock,
                         "active",
@@ -540,7 +540,8 @@ class OrdersMysqlTest {
         db.tx(() -> db.putSetting("aftersales", obj("days", 30, "policy", "后来更新的售后政策"), userId));
         orders.saveAddress(addressId, address("已变更地址", true), userId);
         ObjectNode product = productBody(skuId, 10, 11000);
-        ((ObjectNode) product.path("skus").get(0)).put("principalCents", 5000);
+        ((ObjectNode) product.path("skus").get(0)).put("productType", "welfare");
+        ((ObjectNode) product.path("skus").get(0)).put("welfareCents", 1234);
         catalog.saveProduct(productId, product, userId);
         db.tx(
                 () ->
@@ -552,8 +553,8 @@ class OrdersMysqlTest {
         JsonNode snapshot = historical.path("snapshot");
         assertEquals("C", snapshot.path("identity").asText());
         assertEquals(userId, snapshot.path("principalId").asLong());
-        assertEquals(6000, snapshot.path("lines").get(0).path("principalCents").asLong());
-        assertEquals(8000, snapshot.path("lines").get(0).path("unitCents").asLong());
+        assertEquals(3500, snapshot.path("lines").get(0).path("principalCents").asLong());
+        assertEquals(7000, snapshot.path("lines").get(0).path("unitCents").asLong());
         assertEquals(7, snapshot.path("afterSalesDays").asInt());
         assertEquals("成交时原售后政策", snapshot.path("afterSalesPolicy").asText());
         assertEquals("原地址1号", snapshot.path("address").path("detail").asText());

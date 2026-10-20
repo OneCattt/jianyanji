@@ -28,12 +28,17 @@ import PaymentOperations from "./PaymentOperations.vue";
 import AfterSalesOperations from "./AfterSalesOperations.vue";
 import CashRefundOperations from "./CashRefundOperations.vue";
 import RewardOperations from "./RewardOperations.vue";
+import OperationsExports from "./OperationsExports.vue";
+import FinanceExports from "./FinanceExports.vue";
 import MembershipOperations from "./MembershipOperations.vue";
 import WalletOperations from "./WalletOperations.vue";
 import BusinessSettings from "./BusinessSettings.vue";
+import BrandContentOperations from "./BrandContentOperations.vue";
+import CourseRightsOperations from "./CourseRightsOperations.vue";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
+import FeedbackToast from "./FeedbackToast.vue";
 import {
   api,
   ApiError,
@@ -72,6 +77,22 @@ const form = ref({
 const menuExpanded = ref(false);
 const navigation = [
   {
+    key: "posts",
+    label: "品牌种草内容",
+    icon: BookOpen,
+    group: "品牌经营",
+    permission: "content:manage",
+    description: "维护品牌图文与短视频，审核后发布。",
+  },
+  {
+    key: "courses",
+    label: "课程成长权益",
+    icon: BookOpen,
+    group: "品牌经营",
+    permission: "content:manage",
+    description: "维护分身份课程权益与联系指引。",
+  },
+  {
     key: "overview",
     label: "工作台",
     icon: LayoutDashboard,
@@ -100,7 +121,7 @@ const navigation = [
     icon: Users,
     group: "品牌经营",
     permission: "onboarding:manage",
-    description: "配置入驻产品包，核实收款并审核代理身份。",
+    description: "配置入驻产品包，核实到账后激活身份并安排交付。",
   },
   {
     key: "orders",
@@ -519,10 +540,11 @@ const actionNames: Record<string, string> = {
             }}</span>
           </div>
         </div>
-        <p v-if="error && !modal" class="message error" role="alert">
-          {{ error }}
-        </p>
-        <p v-if="notice" class="message success" role="status">{{ notice }}</p>
+        <FeedbackToast
+          v-model:notice="notice"
+          v-model:error="error"
+          :show-error="!modal"
+        />
         <template v-if="section === 'overview'">
           <section
             v-if="quickEntries.length"
@@ -551,7 +573,7 @@ const actionNames: Record<string, string> = {
                     : item.key === "orders"
                       ? "处理订单与发货"
                       : item.key === "membership"
-                        ? "审核代理入驻"
+                        ? "核实入驻与交付"
                         : "核实收款与积分"
                 }}</span>
                 <ArrowUpRight
@@ -867,6 +889,22 @@ const actionNames: Record<string, string> = {
           v-if="section === 'rewards'"
           :key="'rewards:' + refreshKey"
         />
+        <OperationsExports
+          v-if="['membership', 'orders', 'aftersales'].includes(section)"
+          :permissions="me.permissions"
+        />
+        <FinanceExports
+          v-if="
+            [
+              'wallet',
+              'cashrefunds',
+              'orders',
+              'aftersales',
+              'rewards',
+            ].includes(section)
+          "
+          :permissions="me.permissions"
+        />
         <MembershipOperations
           v-if="section === 'membership'"
           :key="'membership:' + refreshKey"
@@ -875,6 +913,14 @@ const actionNames: Record<string, string> = {
         <WalletOperations
           v-if="section === 'wallet'"
           :key="'wallet:' + refreshKey"
+        />
+        <BrandContentOperations
+          v-if="section === 'posts'"
+          :key="'posts:' + refreshKey"
+        />
+        <CourseRightsOperations
+          v-if="section === 'courses'"
+          :key="'courses:' + refreshKey"
         />
         <BusinessSettings
           v-if="['content', 'catalog'].includes(section)"

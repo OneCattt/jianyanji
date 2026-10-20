@@ -44,11 +44,17 @@ export class ApiError extends Error {
 }
 export async function api<T>(
   path: string,
-  options: { method?: string; body?: unknown; token?: string } = {},
+  options: {
+    method?: string;
+    body?: unknown;
+    token?: string;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method: options.method || "GET",
     credentials: "same-origin",
+    signal: options.signal,
     headers: {
       ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),

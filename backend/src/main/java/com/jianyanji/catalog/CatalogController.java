@@ -63,6 +63,11 @@ public class CatalogController {
         return catalog.saveCategory(Input.id(id), body, actor);
     }
 
+    @GetMapping("/sales/candidate")
+    public Object salesCandidate(@RequestParam String shareCode) {
+        return catalog.salesCandidate(shareCode);
+    }
+
     @GetMapping("/products")
     public Object products(@RequestParam(required = false) Long categoryId) {
         ObjectNode user = access.optionalUser();

@@ -20,7 +20,7 @@ import java.util.Set;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
-/** 入驻产品包配置、申请、核款交付、独立身份审批及退款身份处理。 */
+/** 入驻产品包配置、申请、核款交付、到账激活及退款身份处理。 */
 @Service
 public class MembershipService {
     /** 数据库与原子事务组件。 */
@@ -31,6 +31,10 @@ public class MembershipService {
     private final WalletService wallet;
     /** 订单查询与展示服务，延迟注入防止退款业务依赖环。 */
     private final OrderService orders;
+    /** 各次资格及交接服务。 */
+    private final QualificationService qualifications;
+    /** 邀请及关系校验服务。 */
+    private final InvitationService invitations;
 
     public MembershipService(
             Db db, Access access, @Lazy WalletService wallet, @Lazy OrderService orders) {
@@ -38,6 +42,8 @@ public class MembershipService {
         this.access = access;
         this.wallet = wallet;
         this.orders = orders;
+        this.qualifications = new QualificationService(db, access);
+        this.invitations = new InvitationService(db, access);
     }
 
     /** 读取公开产品包，展示有效商品快照及公司转款资料。 */
@@ -88,6 +94,9 @@ public class MembershipService {
             String target = choice(p, "targetIdentity", "B", "C");
             Input.require(identities.add(target), "须分别配置主理人和店主产品包");
             long amount = Input.integer(p, "amountCents", 1, 100000000);
+            Input.require(
+                    amount == ("B".equals(target) ? 1980000 : 298000),
+                    "店主产品包货款须为2980元，主理人产品包须为19800元");
             ObjectNode item =
                     obj(
                             "targetIdentity",
@@ -211,12 +220,117 @@ public class MembershipService {
 
     /** 本人申请身份；冻结商品、收货地址、协议、售后政策及当次奖励档位。 */
     public ObjectNode apply(JsonNode raw, ObjectNode user) {
+        return applyInternal(raw, user, null);
+    }
+
+    /** 授权首批新入驻特例，仍须真实付款与交付后才激活，不用存量核验伪装购包。 */
+    public ObjectNode initialApplication(JsonNode body, long actor) {
         Input.strict(
-                raw, "targetIdentity", "addressId", "inviterId", "agreementAccepted", "requestKey");
+                body,
+                "userId",
+                "targetIdentity",
+                "addressId",
+                "principalId",
+                "agreementAccepted",
+                "conditionsMet",
+                "evidence",
+                "reason",
+                "requestKey");
+        long uid = entity(body, "userId");
+        String target = choice(body, "targetIdentity", "B", "C");
+        String evidence = Input.text(body, "evidence", 1, 2000),
+                reason = Input.text(body, "reason", 1, 2000);
+        long principal = "B".equals(target) ? uid : entity(body, "principalId");
+        return db.tx(
+                () -> {
+                    ObjectNode user =
+                            db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", uid);
+                    if (user == null) throw notFound("申请人不存在");
+                    if (!"D".equals(effectiveIdentity(user))) throw conflict("首批新入驻仅供尚未取得代理资格的用户");
+                    if ("C".equals(target)) wallet.requireAgent(principal);
+                    if ("C".equals(target)
+                            && !"B"
+                                    .equals(
+                                            effectiveIdentity(
+                                                    db.one(
+                                                            "SELECT * FROM users WHERE id=? AND is_deleted=0",
+                                                            principal))))
+                        throw conflict("首批店主仍须有效主理人归属");
+                    ObjectNode request =
+                            obj(
+                                    "targetIdentity",
+                                    target,
+                                    "addressId",
+                                    entity(body, "addressId"),
+                                    "principalId",
+                                    principal,
+                                    "inviterId",
+                                    null,
+                                    "relationshipsConfirmed",
+                                    true,
+                                    "conditionsMet",
+                                    Input.bool(body, "conditionsMet"),
+                                    "agreementAccepted",
+                                    Input.bool(body, "agreementAccepted"),
+                                    "requestKey",
+                                    Input.text(body, "requestKey", 12, 100));
+                    ObjectNode result =
+                            applyInternal(
+                                    request,
+                                    user,
+                                    obj(
+                                            "inviterId",
+                                            null,
+                                            "inviterIdentity",
+                                            null,
+                                            "principalId",
+                                            principal,
+                                            "inviterRelationVersion",
+                                            0,
+                                            "evidence",
+                                            evidence));
+                    access.audit(
+                            "onboarding.initial",
+                            "onboarding",
+                            l(result, "id"),
+                            reason + "；首批免邀请依据：" + evidence);
+                    return result;
+                });
+    }
+
+    /** 普通与首批特例复用同一商品、地址、资格和资金快照。 */
+    private ObjectNode applyInternal(JsonNode raw, ObjectNode user, ObjectNode initialRelation) {
+        Input.strict(
+                raw,
+                "targetIdentity",
+                "addressId",
+                "inviterId",
+                "shareCode",
+                "principalId",
+                "relationshipsConfirmed",
+                "conditionsMet",
+                "agreementAccepted",
+                "requestKey");
         String target = choice(raw, "targetIdentity", "B", "C"),
                 requestKey = Input.text(raw, "requestKey", 12, 100);
         long addressId = entity(raw, "addressId"), userId = l(user, "id");
         Long inviterId = nullableId(raw, "inviterId");
+        Input.require(
+                Input.bool(raw, "relationshipsConfirmed") && Input.bool(raw, "conditionsMet"),
+                "须在付款前确认邀请归属和入驻资格");
+        Input.require(initialRelation != null || inviterId != null, "普通入驻必须有有效邀请人");
+        ObjectNode relation =
+                initialRelation != null
+                        ? initialRelation
+                        : invitations.candidate(
+                                raw.has("shareCode") ? Input.text(raw, "shareCode", 0, 64) : "",
+                                inviterId,
+                                target,
+                                userId);
+        Input.require(l(relation, "principalId") == entity(raw, "principalId"), "归属已变化，请重新确认");
+        Input.require(
+                initialRelation != null || l(relation, "inviterId") == inviterId.longValue(),
+                "邀请候选已变化，请重新确认");
         Input.require(Input.bool(raw, "agreementAccepted"), "必须确认入驻协议");
         long applicationId =
                 db.tx(
@@ -267,7 +381,7 @@ public class MembershipService {
                                     if (province.asText().equals(s(address, "province")))
                                         supported = true;
                             if (!supported) throw conflict("该地址暂不支持配送，请联系品牌方");
-                            long rewardCents = rewardAmount(target);
+                            long rewardCents = initialRelation != null ? 0 : rewardAmount(target);
                             ObjectNode snapshot = p.deepCopy();
                             snapshot.setAll(
                                     obj(
@@ -280,7 +394,15 @@ public class MembershipService {
                                             "inviterId",
                                             inviterId,
                                             "principalId",
-                                            null,
+                                            l(relation, "principalId"),
+                                            "inviterIdentity",
+                                            s(relation, "inviterIdentity"),
+                                            "inviterRelationVersion",
+                                            l(relation, "inviterRelationVersion"),
+                                            "relationshipsConfirmed",
+                                            true,
+                                            "conditionsMet",
+                                            true,
                                             "rewardCents",
                                             rewardCents,
                                             "afterSalesDays",
@@ -302,6 +424,17 @@ public class MembershipService {
                                             userId,
                                             userId);
                             snapshot.put("onboardingId", value);
+                            if (initialRelation != null) {
+                                snapshot.put("initialVerified", true);
+                                snapshot.put("initialEvidence", s(initialRelation, "evidence"));
+                            }
+                            db.update(
+                                    "UPDATE onboardings SET inviter_id=?,principal_id=?,relation_confirmed=1,relation_version=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                                    inviterId,
+                                    l(relation, "principalId"),
+                                    l(current, "relation_version"),
+                                    userId,
+                                    value);
                             db.update(
                                     "UPDATE onboardings SET package_snapshot=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
                                     stringify(snapshot),
@@ -311,13 +444,83 @@ public class MembershipService {
                                     "onboarding.apply",
                                     "onboarding",
                                     value,
-                                    "确认产品包及协议，等待真实到账核实与身份审批");
+                                    "已确认资格、协议与邀请归属，等待真实到账激活");
                             return value;
                         });
         return applicationView(application(applicationId, userId));
     }
 
-    /** 财务核款，直接扣实物可用库存并生成产品包订单，不占用其他商品订单库存。 */
+    /** 本人待付款申请创建唯一交付订单；两渠道复用该订单，库存按订单统一占用。 */
+    public ObjectNode preparePayment(long applicationId, long uid) {
+        return db.tx(
+                () -> {
+                    ObjectNode a = application(applicationId, uid);
+                    if (!"submitted".equals(s(a, "status"))) throw conflict("申请不在待付款状态");
+                    if (has(a, "order_id")) return orders.view(orders.owned(l(a, "order_id"), uid));
+                    assertConfirmed(a);
+                    long oid = ensureOrder(a, uid);
+                    return orders.view(orders.owned(oid, uid));
+                });
+    }
+
+    /** 关系变化后由本人重新确认，存在未决支付时先查明原交易。 */
+    public ObjectNode reconfirm(long applicationId, JsonNode body, long uid) {
+        Input.strict(body, "inviterId", "principalId", "relationshipsConfirmed", "conditionsMet");
+        Input.require(
+                Input.bool(body, "relationshipsConfirmed") && Input.bool(body, "conditionsMet"),
+                "请确认资格及邀请归属");
+        return db.tx(
+                () -> {
+                    ObjectNode a = application(applicationId, uid);
+                    if (!"submitted".equals(s(a, "status"))) throw conflict("已付款申请不能改写关系");
+                    if (has(a, "order_id")) assertNoPayment(l(a, "order_id"));
+                    ObjectNode rel =
+                            invitations.candidate(
+                                    null, entity(body, "inviterId"), s(a, "target_identity"), uid);
+                    if (entity(body, "principalId") != l(rel, "principalId"))
+                        throw conflict("请重新核对归属主理人");
+                    ObjectNode snap = (ObjectNode) parse(s(a, "package_snapshot"));
+                    snap.remove("initialVerified");
+                    snap.remove("initialEvidence");
+                    snap.put("inviterId", l(rel, "inviterId"))
+                            .put("inviterIdentity", s(rel, "inviterIdentity"))
+                            .put("principalId", l(rel, "principalId"))
+                            .put("inviterRelationVersion", l(rel, "inviterRelationVersion"));
+                    db.update(
+                            "UPDATE onboardings SET inviter_id=?,requested_inviter_id=?,principal_id=?,package_snapshot=?,relation_confirmed=1,relation_version=(SELECT relation_version FROM users WHERE id=? AND is_deleted=0),update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                            l(rel, "inviterId"),
+                            l(rel, "inviterId"),
+                            l(rel, "principalId"),
+                            stringify(snap),
+                            uid,
+                            uid,
+                            applicationId);
+                    if (has(a, "order_id")) {
+                        ObjectNode order = orders.owned(l(a, "order_id"), uid);
+                        ObjectNode os = (ObjectNode) parse(s(order, "snapshot"));
+                        os.setAll(
+                                obj(
+                                        "inviterId",
+                                        rel.get("inviterId"),
+                                        "inviterIdentity",
+                                        rel.get("inviterIdentity"),
+                                        "principalId",
+                                        rel.get("principalId"),
+                                        "inviterRelationVersion",
+                                        rel.get("inviterRelationVersion")));
+                        db.update(
+                                "UPDATE orders SET snapshot=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                                stringify(os),
+                                uid,
+                                l(order, "id"));
+                    }
+                    access.audit(
+                            "onboarding.reconfirm", "onboarding", applicationId, "本人重新确认付款前关系");
+                    return applicationView(application(applicationId, uid));
+                });
+    }
+
+    /** 财务核实公司款后同事务完成订单交付和资格激活，不再独立审批。 */
     public ObjectNode confirmReceipt(long applicationId, JsonNode raw, long actor) {
         Input.strict(
                 raw,
@@ -333,213 +536,252 @@ public class MembershipService {
         db.tx(
                 () -> {
                     ObjectNode a = application(applicationId, null);
-                    if (!"submitted".equals(s(a, "status")) || has(a, "receipt_id"))
-                        throw conflict("该申请已核款或不在办理中");
-                    JsonNode p = parse(s(a, "package_snapshot"));
+                    if (has(a, "receipt_id")) {
+                        ObjectNode r =
+                                db.one(
+                                        "SELECT * FROM company_receipts WHERE id=? AND is_deleted=0",
+                                        l(a, "receipt_id"));
+                        if (r != null
+                                && s(r, "source_channel").equals(s(raw, "sourceChannel"))
+                                && s(r, "account_ref").equals(s(raw, "accountRef"))
+                                && s(r, "external_transaction_id")
+                                        .equals(s(raw, "externalTransactionId"))
+                                && l(r, "amount_cents") == l(raw, "amountCents")) return;
+                        throw conflict("申请已有其他有效收款，请核对原交易");
+                    }
+                    if (!"submitted".equals(s(a, "status"))) throw conflict("申请不在待付款状态");
+                    assertConfirmed(a);
+                    long orderId = ensureOrder(a, actor);
+                    assertNoPayment(orderId);
                     ObjectNode receiptInput = ((ObjectNode) raw).deepCopy();
                     receiptInput
                             .put("userId", l(a, "user_id"))
                             .put("purpose", "package")
                             .put("onboardingId", applicationId);
                     long receiptId = wallet.registerReceipt(receiptInput, actor);
-                    for (JsonNode line : list(p.get("lines"))) {
+                    ObjectNode order = orders.owned(orderId, null);
+                    for (ObjectNode line :
+                            db.list(
+                                    "SELECT sku_id,quantity FROM order_lines WHERE order_id=? AND is_deleted=0",
+                                    orderId)) {
+                        long q = l(line, "quantity");
                         if (db.update(
-                                        "UPDATE skus SET stock=stock-?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0 AND stock-reserved>=?",
-                                        l(line, "quantity"),
+                                        "UPDATE skus SET stock=stock-?,reserved=reserved-?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND stock>=? AND reserved>=? AND is_deleted=0",
+                                        q,
+                                        q,
                                         actor,
-                                        l(line, "skuId"),
-                                        l(line, "quantity"))
-                                != 1) throw conflict("产品包库存不足，收款登记与交付订单未提交，请人工核实后重试");
+                                        l(line, "sku_id"),
+                                        q,
+                                        q)
+                                != 1) throw conflict("产品包库存与占用不一致，请核实");
                     }
-                    long amount = l(p, "amountCents");
-                    ObjectNode snapshot = ((ObjectNode) p).deepCopy();
-                    snapshot.setAll(
-                            obj(
-                                    "onboardingId",
-                                    applicationId,
-                                    "receiptId",
-                                    receiptId,
-                                    "goodsCents",
-                                    amount,
-                                    "shippingCents",
-                                    0,
-                                    "totalCents",
-                                    amount));
-                    long orderId =
-                            db.insert(
-                                    "INSERT INTO orders(number,user_id,kind,status,payment_method,payment_state,total_cents,goods_cents,shipping_cents,snapshot,expires_at,request_key,create_user_id,update_user_id) VALUES(?,?,'package','paid','offline','paid',?,?,0,?,?,?,?,?)",
-                                    "PK" + id(),
-                                    l(a, "user_id"),
-                                    amount,
-                                    amount,
-                                    stringify(snapshot),
-                                    now(),
-                                    "onboarding:" + applicationId,
-                                    actor,
-                                    actor);
+                    db.update(
+                            "UPDATE orders SET status='paid',payment_state='paid',payment_method='offline',update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                            actor,
+                            orderId);
                     db.insert(
-                            "INSERT INTO payments(order_id,method,transaction_id,cents,paid_at,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?)",
+                            "INSERT INTO payments(order_id,method,transaction_id,cents,paid_at,create_user_id,update_user_id) VALUES(?,'offline',?,?,?,?,?)",
                             orderId,
-                            "offline",
                             "company_receipt:" + receiptId,
-                            amount,
+                            l(order, "total_cents"),
                             now(),
                             actor,
                             actor);
-                    for (JsonNode line : list(p.get("lines")))
-                        db.insert(
-                                "INSERT INTO order_lines(order_id,sku_id,quantity,unit_cents,principal_cents,create_user_id,update_user_id) VALUES(?,?,?,?,NULL,?,?)",
-                                orderId,
-                                l(line, "skuId"),
-                                l(line, "quantity"),
-                                l(line, "unitCents"),
-                                actor,
-                                actor);
                     db.update(
-                            "UPDATE onboardings SET receipt_id=?,order_id=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                            "UPDATE onboardings SET receipt_id=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
                             receiptId,
-                            orderId,
                             actor,
                             applicationId);
+                    activatePaid(orders.owned(orderId, null), actor);
                     access.audit("onboarding.receipt", "onboarding", applicationId, reason);
                 });
         return applicationView(application(applicationId, null));
     }
 
-    /** 独立审批身份和两类代理关系，通过时冻结资格依据，不因核款自动取得身份。 */
+    /** 停用旧付款后审批入口，避免绕过付款前资格确认。 */
     public ObjectNode review(long applicationId, JsonNode raw, long actor) {
-        String decision = choice(raw, "decision", "approved", "rejected");
-        boolean approved = "approved".equals(decision);
-        if (approved)
-            Input.strict(
-                    raw,
-                    "decision",
-                    "inviterId",
-                    "principalId",
-                    "relationshipsConfirmed",
-                    "conditionsMet",
-                    "reason");
-        else Input.strict(raw, "decision", "reason");
-        String reason = Input.text(raw, "reason", 1, 200);
-        Long inviterId = approved ? nullableId(raw, "inviterId") : null;
-        long principalId = approved ? entity(raw, "principalId") : 0;
-        if (approved) {
-            Input.require(Input.bool(raw, "relationshipsConfirmed"), "必须确认直接邀请人与归属主理人关系");
-            Input.require(Input.bool(raw, "conditionsMet"), "必须确认符合入驻条件");
+        throw conflict("V2核实到账后自动激活；资格和邀请归属须在付款前确认");
+    }
+
+    /** 支付成功事务的资格处理钩子；微信和公司转款均关联唯一真实订单。 */
+    public void activatePaid(ObjectNode order, long actor) {
+        db.assertTransaction();
+        ObjectNode a =
+                db.one(
+                        "SELECT * FROM onboardings WHERE order_id=? AND user_id=? AND is_deleted=0",
+                        l(order, "id"),
+                        l(order, "user_id"));
+        if (a == null) throw conflict("产品包缺少原申请依据");
+        if ("approved".equals(s(a, "status"))) return;
+        if (!"submitted".equals(s(a, "status"))
+                || !b(a, "relation_confirmed")
+                || !"paid".equals(s(order, "payment_state")))
+            throw conflict("产品包申请／到账状态不允许激活，须按原交易核对");
+        ObjectNode snap = (ObjectNode) parse(s(order, "snapshot"));
+        snap.put("onboardingApproved", true);
+        ObjectNode qualification =
+                obj(
+                        "conditionsMet",
+                        true,
+                        "relationshipsConfirmed",
+                        true,
+                        "inviterId",
+                        a.get("inviter_id"),
+                        "inviterIdentity",
+                        snap.get("inviterIdentity"),
+                        "principalId",
+                        a.get("principal_id"),
+                        "targetIdentity",
+                        s(a, "target_identity"),
+                        "orderId",
+                        l(order, "id"),
+                        "receiptId",
+                        a.get("receipt_id"));
+        snap.set("qualification", qualification);
+        db.update(
+                "UPDATE onboardings SET status='approved',approved_at=?,qualification_snapshot=?,package_snapshot=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                now(),
+                stringify(qualification),
+                stringify(snap),
+                actor,
+                l(a, "id"));
+        db.update(
+                "UPDATE orders SET snapshot=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                stringify(snap),
+                actor,
+                l(order, "id"));
+        qualifications.activate(a, actor);
+        access.auditSystem(
+                "system",
+                actor,
+                "qualification.activate",
+                "onboarding",
+                l(a, "id"),
+                "真实产品包到账并关联交付",
+                "success",
+                "onboarding:" + l(a, "id"));
+    }
+
+    /** 微信发起前核对付款前确认，不在支付回调时重新解释历史邀请关系。 */
+    public void assertOrderPayable(ObjectNode order) {
+        if (!"package".equals(s(order, "kind"))) return;
+        ObjectNode a =
+                db.one(
+                        "SELECT * FROM onboardings WHERE order_id=? AND user_id=? AND is_deleted=0",
+                        l(order, "id"),
+                        l(order, "user_id"));
+        if (a == null) throw conflict("产品包申请不存在");
+        assertConfirmed(a);
+    }
+
+    /** 付款前核对已确认关系仍与当前候选一致，变更后必须本人再次确认。 */
+    private void assertConfirmed(ObjectNode a) {
+        if (!b(a, "relation_confirmed")) throw conflict("邀请关系待本人重新确认");
+        JsonNode snap = parse(s(a, "package_snapshot"));
+        if (b(snap, "initialVerified")) {
+            ObjectNode current =
+                    db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", l(a, "user_id"));
+            if (current == null || !"D".equals(effectiveIdentity(current)))
+                throw conflict("首批申请资格已变化，请核对");
+            if ("C".equals(s(a, "target_identity"))
+                    && !"B".equals(effectiveIdentity(wallet.requireAgent(l(a, "principal_id")))))
+                throw conflict("首批店主归属主理人失效");
+            return;
         }
-        db.tx(
-                () -> {
-                    ObjectNode a = application(applicationId, null);
-                    if (!"submitted".equals(s(a, "status"))) throw conflict("该申请已审批，不得重复修改审批结果");
-                    if (approved) {
-                        if (!has(a, "receipt_id") || !has(a, "order_id"))
-                            throw conflict("须先核实有效产品包收款并建立实物交付订单");
-                        ObjectNode receipt =
-                                db.one(
-                                        "SELECT * FROM company_receipts WHERE id=? AND user_id=? AND purpose='package' AND onboarding_id=? AND is_deleted=0",
-                                        l(a, "receipt_id"),
-                                        l(a, "user_id"),
-                                        applicationId);
-                        if (receipt == null
-                                || l(receipt, "cash_refunded_cents") != 0
-                                || l(receipt, "cash_held_cents") != 0)
-                            throw conflict("收款无效、已退款或正在退款，不能审批通过");
-                        ObjectNode order = orders.owned(l(a, "order_id"), null);
-                        if (!"paid".equals(s(order, "payment_state"))
-                                || !"package".equals(s(order, "kind"))
-                                || !"offline".equals(s(order, "payment_method")))
-                            throw conflict("产品包交付订单状态无效");
-                        if (db.one(
-                                        "SELECT id FROM refunds WHERE order_id=? AND status IN ('requested','approved','processing','unknown','failed') AND is_deleted=0 LIMIT 1",
-                                        l(order, "id"))
-                                != null) throw conflict("产品包正在办理售后，须先核实最终收款与资格");
-                        if ((inviterId != null && inviterId == l(a, "user_id"))
-                                || principalId == l(a, "user_id"))
-                            throw conflict("直接邀请人或归属主理人不能是申请人本人");
-                        ObjectNode inviter =
-                                inviterId == null ? null : wallet.requireAgent(inviterId);
-                        ObjectNode principal = wallet.requireAgent(principalId);
-                        if (!"B".equals(effectiveIdentity(principal)))
-                            throw conflict("归属对象必须是当前有效调肤主理人");
-                        long rewardCents = rewardAmount(s(a, "target_identity"));
-                        JsonNode p = parse(s(a, "package_snapshot"));
-                        ObjectNode qualification =
-                                obj(
-                                        "conditionsMet",
-                                        true,
-                                        "conditions",
-                                        p.get("conditions"),
-                                        "relationshipsConfirmed",
-                                        true,
-                                        "inviterId",
-                                        inviterId,
-                                        "inviterIdentity",
-                                        inviter == null ? null : effectiveIdentity(inviter),
-                                        "principalId",
-                                        principalId,
-                                        "targetIdentity",
-                                        s(a, "target_identity"),
-                                        "receiptId",
-                                        l(a, "receipt_id"),
-                                        "orderId",
-                                        l(a, "order_id"),
-                                        "rewardCents",
-                                        rewardCents,
-                                        "afterSalesDays",
-                                        p.get("afterSalesDays"),
-                                        "afterSalesPolicy",
-                                        p.get("afterSalesPolicy"));
-                        ObjectNode snapshot = ((ObjectNode) p).deepCopy();
-                        snapshot.setAll(
-                                obj(
-                                        "inviterId",
-                                        inviterId,
-                                        "principalId",
-                                        principalId,
-                                        "rewardCents",
-                                        rewardCents,
-                                        "qualification",
-                                        qualification,
-                                        "onboardingApproved",
-                                        true));
-                        db.update(
-                                "UPDATE onboardings SET status='approved',inviter_id=?,principal_id=?,reward_cents=?,package_snapshot=?,qualification_snapshot=?,approved_at=?,reviewed_by=?,review_reason=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
-                                inviterId,
-                                principalId,
-                                rewardCents,
-                                stringify(snapshot),
-                                stringify(qualification),
-                                now(),
-                                actor,
-                                reason,
-                                actor,
-                                applicationId);
-                        ObjectNode orderSnapshot = (ObjectNode) parse(s(order, "snapshot"));
-                        orderSnapshot.setAll(snapshot);
-                        db.update(
-                                "UPDATE orders SET snapshot=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
-                                stringify(orderSnapshot),
-                                actor,
-                                l(order, "id"));
-                        db.update(
-                                "UPDATE users SET identity=?,identity_valid_until=NULL,inviter_id=?,principal_id=?,onboarding_id=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
-                                s(a, "target_identity"),
-                                inviterId,
-                                principalId,
-                                applicationId,
-                                actor,
-                                l(a, "user_id"));
-                    } else {
-                        db.update(
-                                "UPDATE onboardings SET status='rejected',reviewed_by=?,review_reason=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
-                                actor,
-                                reason,
-                                actor,
-                                applicationId);
-                    }
-                    access.audit("onboarding.review", "onboarding", applicationId, reason);
-                });
-        return applicationView(application(applicationId, null));
+        ObjectNode rel =
+                invitations.candidate(
+                        null, l(a, "inviter_id"), s(a, "target_identity"), l(a, "user_id"));
+        ObjectNode u = db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", l(a, "user_id"));
+        if (l(rel, "principalId") != l(a, "principal_id")
+                || l(rel, "inviterRelationVersion") != l(snap, "inviterRelationVersion")
+                || u == null
+                || l(u, "relation_version") != l(a, "relation_version"))
+            throw conflict("邀请或归属已变化，请本人重新确认后付款");
+        String current = effectiveIdentity(u);
+        if ("B".equals(current) || ("C".equals(current) && "C".equals(s(a, "target_identity"))))
+            throw conflict("已具有该资格，请核对原申请");
+    }
+
+    /** 有效支付未查明前不切换渠道或重建订单。 */
+    private void assertNoPayment(long orderId) {
+        ObjectNode o = orders.owned(orderId, null);
+        if (!"pending".equals(s(o, "status")) || !in(s(o, "payment_state"), "unpaid", "failed"))
+            throw conflict("原订单已结算、关闭或支付结果未明，请先核对");
+        if (db.one(
+                        "SELECT id FROM payment_attempts WHERE order_id=? AND state NOT IN ('closed') AND is_deleted=0 LIMIT 1",
+                        orderId)
+                != null) throw conflict("请先查询并关闭原微信交易，再切换公司转款");
+    }
+
+    /** 创建一次产品包待付款订单及实际SKU占用，过期关闭后须重新申请。 */
+    private long ensureOrder(ObjectNode a, long actor) {
+        if (has(a, "order_id")) {
+            assertNoPayment(l(a, "order_id"));
+            return l(a, "order_id");
+        }
+        JsonNode p = parse(s(a, "package_snapshot"));
+        long amount = l(p, "amountCents");
+        JsonNode shipping = db.setting("shipping");
+        long minutes = shipping == null ? 0 : l(shipping, "pendingMinutes");
+        if (minutes < 1 || minutes > 10080) throw conflict("请先配置有效待付款时长");
+        ObjectNode snapshot = ((ObjectNode) p).deepCopy();
+        snapshot.setAll(obj("goodsCents", amount, "shippingCents", 0, "totalCents", amount));
+        long oid =
+                db.insert(
+                        "INSERT INTO orders(number,user_id,kind,status,payment_state,total_cents,goods_cents,shipping_cents,snapshot,expires_at,request_key,create_user_id,update_user_id) VALUES(?,?,'package','pending','unpaid',?,?,0,?,?,?,?,?)",
+                        "PK" + id(),
+                        l(a, "user_id"),
+                        amount,
+                        amount,
+                        stringify(snapshot),
+                        java.time.Instant.now().plusSeconds(minutes * 60).toString(),
+                        "onboarding:" + l(a, "id"),
+                        actor,
+                        actor);
+        for (JsonNode line : list(p.get("lines"))) {
+            long qty = l(line, "quantity");
+            if (db.update(
+                            "UPDATE skus SET reserved=reserved+?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND stock-reserved>=? AND is_deleted=0",
+                            qty,
+                            actor,
+                            l(line, "skuId"),
+                            qty)
+                    != 1) throw conflict("产品包可用库存不足，请联系品牌方");
+            db.insert(
+                    "INSERT INTO order_lines(order_id,sku_id,quantity,unit_cents,principal_cents,create_user_id,update_user_id) VALUES(?,?,?,?,NULL,?,?)",
+                    oid,
+                    l(line, "skuId"),
+                    qty,
+                    l(line, "unitCents"),
+                    actor,
+                    actor);
+        }
+        db.update(
+                "UPDATE onboardings SET order_id=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                oid,
+                actor,
+                l(a, "id"));
+        return oid;
+    }
+
+    /** 提供各次资格及首批核验入口。 */
+    public QualificationService qualifications() {
+        return qualifications;
+    }
+    /** 提供明确邀请关系接口。 */
+    public InvitationService invitations() {
+        return invitations;
+    }
+    /** 退款审核时提前核对主理人团队接管条件。 */
+    public void assertRefundRevocable(ObjectNode order) {
+        if (!"package".equals(s(order, "kind"))) return;
+        ObjectNode source =
+                db.one(
+                        "SELECT * FROM onboardings WHERE order_id=? AND user_id=? AND is_deleted=0",
+                        l(order, "id"),
+                        l(order, "user_id"));
+        if (source == null) throw conflict("缺少产品包原资格来源，须先核对");
+        qualifications.assertSourceRevocable(source);
     }
 
     /** 仅在实际退款成功事务内调用，按原收款累计核对金额，撤销不影响用户后续另次入驻身份。 */
@@ -549,20 +791,22 @@ public class MembershipService {
         Input.require(
                 reason != null && !reason.trim().isEmpty() && reason.trim().length() <= 2000,
                 "退款身份处理须说明原因");
-        if (!"package".equals(s(order, "kind")) || !"offline".equals(s(order, "payment_method")))
-            throw conflict("该订单不是公司转款产品包");
+        if (!"package".equals(s(order, "kind"))) throw conflict("该订单不是产品包");
         ObjectNode a =
                 db.one(
                         "SELECT * FROM onboardings WHERE order_id=? AND user_id=? AND is_deleted=0",
                         l(order, "id"),
                         l(order, "user_id"));
-        if (a == null || !has(a, "receipt_id")) throw conflict("找不到原产品包入驻与收款依据");
+        if (a == null) throw conflict("找不到原产品包入驻依据");
+        boolean offline = "offline".equals(s(order, "payment_method"));
         ObjectNode receipt =
-                db.one(
-                        "SELECT * FROM company_receipts WHERE id=? AND purpose='package' AND onboarding_id=? AND user_id=? AND is_deleted=0",
-                        l(a, "receipt_id"),
-                        l(a, "id"),
-                        l(order, "user_id"));
+                !offline
+                        ? obj("amount_cents", l(order, "total_cents"), "cash_refunded_cents", 0)
+                        : db.one(
+                                "SELECT * FROM company_receipts WHERE id=? AND purpose='package' AND onboarding_id=? AND user_id=? AND is_deleted=0",
+                                l(a, "receipt_id"),
+                                l(a, "id"),
+                                l(order, "user_id"));
         if (receipt == null) throw conflict("原产品包收款不存在");
         long refunded =
                 l(
@@ -592,24 +836,21 @@ public class MembershipService {
                         "SELECT identity,identity_valid_until,inviter_id,principal_id,onboarding_id FROM users WHERE id=? AND is_deleted=0",
                         l(order, "user_id"));
         if (user == null) throw conflict("原申请人不存在");
-        if (db.update(
-                        "UPDATE company_receipts SET cash_refunded_cents=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0 AND cash_held_cents+?<=amount_cents",
-                        refunded,
-                        actor,
-                        l(a, "receipt_id"),
-                        refunded)
-                != 1) throw conflict("原产品包款正在办理其他退款，须先核对");
+        if (offline
+                && db.update(
+                                "UPDATE company_receipts SET cash_refunded_cents=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0 AND cash_held_cents+?<=amount_cents",
+                                refunded,
+                                actor,
+                                l(a, "receipt_id"),
+                                refunded)
+                        != 1) throw conflict("原产品包款正在办理其他退款，须先核对");
         if ("revoke".equals(chosen)) {
             db.update(
                     "UPDATE onboardings SET status='revoked',review_reason=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
                     reason,
                     actor,
                     l(a, "id"));
-            db.update(
-                    "UPDATE users SET identity='D',identity_valid_until=NULL,onboarding_id=NULL,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND onboarding_id=? AND is_deleted=0",
-                    actor,
-                    l(order, "user_id"),
-                    l(a, "id"));
+            qualifications.revoke(a, actor, reason);
             ObjectNode snapshot = (ObjectNode) parse(s(order, "snapshot"));
             snapshot.put("onboardingApproved", false).put("identityRefundDecision", "revoke");
             db.update(
@@ -669,7 +910,7 @@ public class MembershipService {
     /** 查找开放身份的产品包，并严格验证存储配置。 */
     private ObjectNode findPackage(String target) {
         JsonNode settings = db.setting("membership");
-        if (settings == null || settings.isNull()) throw conflict("产品包和两档入驻奖励尚未配置");
+        if (settings == null || settings.isNull()) throw conflict("产品包尚未配置");
         ObjectNode validated = validateSettings(settings);
         for (JsonNode p : list(validated.get("packages")))
             if (target.equals(s(p, "targetIdentity")) && b(p, "active")) return (ObjectNode) p;
@@ -688,19 +929,9 @@ public class MembershipService {
         return policy;
     }
 
-    /** 从奖励域固定配置表读取当次档位；审批时再次冻结，历史订单不随配置变化。 */
+    /** 未确认主理人奖励关闭，不以奖励配置作为付款或激活的前置。 */
     private long rewardAmount(String target) {
-        ObjectNode row = db.one("SELECT value FROM reward_settings WHERE id=1 AND is_deleted=0");
-        if (row == null) throw conflict("两档入驻奖励尚未配置");
-        JsonNode value = parse(s(row, "value"));
-        for (String key : new String[] {"principalRewardCents", "storeRewardCents"}) {
-            if (!has(value, key)
-                    || !value.get(key).isIntegralNumber()
-                    || !value.get(key).canConvertToLong()
-                    || l(value, key) <= 0
-                    || l(value, key) > 100000000) throw conflict("两档入驻奖励尚未配置");
-        }
-        return l(value, "B".equals(target) ? "principalRewardCents" : "storeRewardCents");
+        return "C".equals(target) ? 100000 : 0;
     }
 
     /** nullable编号字段必须出现，只有JSON null表示无直接邀请人。 */
@@ -714,5 +945,9 @@ public class MembershipService {
         return value == null
                 ? old == null || old.isNull()
                 : old != null && !old.isNull() && old.asLong() == value;
+    }
+    /** 校验固定枚举集合。 */
+    private static boolean in(String value, String... values) {
+        return java.util.Arrays.asList(values).contains(value);
     }
 }

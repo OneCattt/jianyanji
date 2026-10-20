@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackToast from "./FeedbackToast.vue";
 import { ref, onMounted, computed } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
@@ -178,8 +179,11 @@ async function submit() {
 </script>
 <template>
   <section class="aftersales" :aria-busy="busy">
-    <p v-if="error" class="message error" role="alert">{{ error }}</p>
-    <p v-if="notice" class="message success" role="status">{{ notice }}</p>
+    <FeedbackToast
+      v-model:notice="notice"
+      v-model:error="error"
+      :show-error="!setupDialog && !action"
+    />
     <div class="setup-panels">
       <section class="surface setup-panel">
         <div class="section-heading">

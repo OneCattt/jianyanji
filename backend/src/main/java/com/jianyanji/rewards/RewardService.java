@@ -70,9 +70,9 @@ public class RewardService {
                     ObjectNode value =
                             obj(
                                     "storeRewardCents",
-                                    money(body, "storeRewardCents", true),
+                                    100000L,
                                     "principalRewardCents",
-                                    money(body, "principalRewardCents", true),
+                                    0L,
                                     "settlementDay",
                                     Input.integer(body, "settlementDay", 1, 28));
                     String reason = reason(body);
@@ -90,24 +90,34 @@ public class RewardService {
 
     /** 从已核实付款的订单构建登记依据，保留原快照的奖励归属及价格。 */
     public ObjectNode source(long orderId) {
-        return db.tx(() -> sourceInside(Input.id(orderId)));
+        return db.tx(() -> sourceOptionsInside(Input.id(orderId)));
     }
 
-    /** 人工确认来源金额后登记；同一有效订单及类型只能登记一次。 */
+    /** 人工确认来源金额后登记；同一有效订单、类型及收益人只能登记一次。 */
     public ObjectNode register(JsonNode body) {
         return db.tx(
                 () -> {
-                    Input.strict(body, "orderId", "amountCents", "reason");
+                    Input.strict(body, "orderId", "userId", "amountCents", "reason");
                     long orderId = entity(body, "orderId");
                     long amount = money(body, "amountCents", true);
                     String reason = reason(body);
-                    ObjectNode source = sourceInside(orderId);
+                    ObjectNode options = sourceOptionsInside(orderId);
+                    ArrayNode candidates = options.withArray("candidates");
+                    requireConflict(candidates.size() > 0, "该来源没有可登记的奖励");
+                    Input.require(candidates.size() == 1 || has(body, "userId"), "请选择本次登记的收益人");
+                    long userId =
+                            has(body, "userId") ? entity(body, "userId") : l(options, "userId");
+                    ObjectNode source = null;
+                    for (JsonNode candidate : candidates)
+                        if (l(candidate, "userId") == userId) source = (ObjectNode) candidate;
+                    requireConflict(source != null, "收益人不属于原来源核算范围");
                     requireConflict(amount == l(source, "amountCents"), "人工登记金额与原业务核算依据不一致");
                     requireConflict(
                             db.one(
-                                            "SELECT id FROM rewards WHERE order_id=? AND kind=? AND is_deleted=0",
+                                            "SELECT id FROM rewards WHERE order_id=? AND kind=? AND user_id=? AND is_deleted=0",
                                             orderId,
-                                            s(source, "kind"))
+                                            s(source, "kind"),
+                                            userId)
                                     == null,
                             "该来源奖励已经登记");
                     long actor = access.actor();
@@ -492,8 +502,158 @@ public class RewardService {
         return row;
     }
 
-    private ObjectNode sourceInside(long orderId) {
+    /** 依据已付款快照逐人提供候选，登记仍由工作人员逐笔确认。 */
+    private ObjectNode sourceOptionsInside(long orderId) {
         ObjectNode order = order(orderId);
+        JsonNode original = parse(s(order, "snapshot"));
+        ArrayNode candidates = arr();
+        if ("package".equals(s(order, "kind")) && b(original, "initialVerified"))
+            return obj(
+                    "orderId",
+                    orderId,
+                    "orderNumber",
+                    s(order, "number"),
+                    "kind",
+                    "onboarding",
+                    "candidates",
+                    candidates);
+        if ("goods".equals(s(order, "kind"))
+                && "D".equals(s(original, "identity"))
+                && has(original, "salesAgent")) {
+            candidates.add(retailSource(order, original));
+        } else if ("package".equals(s(order, "kind")) && has(original, "inviterIdentity")) {
+            requireConflict(
+                    Arrays.asList("paid", "partially_refunded", "refunded")
+                            .contains(s(order, "payment_state")),
+                    "来源订单尚未核实有效付款");
+            requireConflict("C".equals(s(original, "identity")), "主理人产品包奖励政策保持关闭");
+            requireConflict(b(original, "onboardingApproved"), "原入驻资格尚未有效激活");
+            long inviter = entity(original, "inviterId");
+            String identity = s(original, "inviterIdentity");
+            requireConflict("B".equals(identity) || "C".equals(identity), "原邀请身份快照无效");
+            candidates.add(
+                    onboardingCandidate(
+                            order,
+                            original,
+                            inviter,
+                            "B".equals(identity) ? 100000 : 50000,
+                            "direct"));
+            if ("C".equals(identity)) {
+                long principal = entity(original, "principalId");
+                requireConflict(principal != inviter, "邀请人和归属主理人不得重复登记为两位收益人");
+                candidates.add(onboardingCandidate(order, original, principal, 50000, "principal"));
+            }
+        } else candidates.add(sourceInside(order));
+        ObjectNode result = ((ObjectNode) candidates.get(0)).deepCopy();
+        result.set("candidates", candidates);
+        return result;
+    }
+
+    /** 按原确认身份生成一位收益人的固定奖励快照；不读取现时身份、归属或兼容 rewardCents。 */
+    private ObjectNode onboardingCandidate(
+            ObjectNode order, JsonNode original, long userId, long amount, String role) {
+        requireConflict(
+                userId != l(order, "user_id")
+                        && db.one("SELECT id FROM users WHERE id=? AND is_deleted=0", userId)
+                                != null,
+                "奖励对象无效");
+        ObjectNode evidence = ((ObjectNode) original).deepCopy();
+        evidence.put("beneficiaryRole", role);
+        evidence.put("rewardCents", amount);
+        evidence.put("goodsCents", l(order, "goods_cents"));
+        evidence.put("orderNumber", s(order, "number"));
+        evidence.set("paymentMethod", order.get("payment_method"));
+        Input.integer(evidence, "afterSalesDays", 0, 365);
+        requireConflict(l(order, "goods_cents") > 0, "原产品包货款无效");
+        return obj(
+                "orderId",
+                l(order, "id"),
+                "orderNumber",
+                s(order, "number"),
+                "kind",
+                "onboarding",
+                "userId",
+                userId,
+                "amountCents",
+                amount,
+                "snapshot",
+                evidence);
+    }
+
+    /** 游客本单已确认的销售归属按原普通商品货款计佣，运费及福利品排除。 */
+    private ObjectNode retailSource(ObjectNode order, JsonNode original) {
+        requireConflict(
+                Arrays.asList("paid", "partially_refunded", "refunded")
+                        .contains(s(order, "payment_state")),
+                "来源订单尚未核实有效付款");
+        requireConflict(b(original, "salesConfirmed"), "原订单缺少销售归属确认");
+        JsonNode agent = original.get("salesAgent");
+        long recipient = entity(agent, "id");
+        requireConflict(
+                recipient != l(order, "user_id")
+                        && db.one("SELECT id FROM users WHERE id=? AND is_deleted=0", recipient)
+                                != null,
+                "零售收益人无效");
+        String identity = s(agent, "identity");
+        int percent = "B".equals(identity) ? 65 : "C".equals(identity) ? 30 : 0;
+        requireConflict(percent > 0 && l(agent, "percent") == percent, "原销售身份及比例无效");
+        ArrayNode lines = arr();
+        long goods = 0;
+        for (ObjectNode line :
+                db.list(
+                        "SELECT * FROM order_lines WHERE order_id=? AND is_deleted=0 ORDER BY id",
+                        l(order, "id"))) {
+            String type = s(line, "product_type");
+            requireConflict("regular".equals(type) || "welfare".equals(type), "原商品类型依据无效");
+            lines.add(
+                    obj(
+                            "lineId",
+                            l(line, "id"),
+                            "quantity",
+                            l(line, "quantity"),
+                            "unitCents",
+                            l(line, "unit_cents"),
+                            "productType",
+                            type));
+            if ("regular".equals(type)) goods += l(line, "unit_cents") * l(line, "quantity");
+        }
+        long amount = (goods * percent + 50) / 100;
+        requireConflict(amount > 0 && amount <= MAX_MONEY, "无可登记的普通商品零售佣金");
+        ObjectNode evidence =
+                obj(
+                        "identity",
+                        "D",
+                        "salesAgent",
+                        agent,
+                        "percent",
+                        percent,
+                        "lines",
+                        lines,
+                        "goodsCents",
+                        l(order, "goods_cents"),
+                        "commissionGoodsCents",
+                        goods,
+                        "afterSalesDays",
+                        original.get("afterSalesDays"),
+                        "orderNumber",
+                        s(order, "number"));
+        return obj(
+                "orderId",
+                l(order, "id"),
+                "orderNumber",
+                s(order, "number"),
+                "kind",
+                "retail",
+                "userId",
+                recipient,
+                "amountCents",
+                amount,
+                "snapshot",
+                evidence);
+    }
+
+    private ObjectNode sourceInside(ObjectNode order) {
+        long orderId = l(order, "id");
         JsonNode original = parse(s(order, "snapshot"));
         requireConflict(
                 Arrays.asList("paid", "partially_refunded", "refunded")
@@ -541,7 +701,7 @@ public class RewardService {
             BigInteger sum = BigInteger.ZERO;
             for (ObjectNode line :
                     db.list(
-                            "SELECT id,sku_id,quantity,unit_cents,principal_cents FROM order_lines "
+                            "SELECT id,sku_id,quantity,unit_cents,principal_cents,product_type FROM order_lines "
                                     + "WHERE order_id=? AND is_deleted=0 ORDER BY id",
                             orderId)) {
                 requireConflict(
@@ -559,7 +719,11 @@ public class RewardService {
                                 "unitCents",
                                 l(line, "unit_cents"),
                                 "principalCents",
-                                l(line, "principal_cents")));
+                                l(line, "principal_cents"),
+                                "productType",
+                                has(line, "product_type") ? s(line, "product_type") : "regular"));
+                // 福利品保留退款对照行，但不计入订货收益。
+                if ("welfare".equals(s(line, "product_type"))) continue;
                 sum =
                         sum.add(
                                 BigInteger.valueOf(
@@ -569,7 +733,7 @@ public class RewardService {
             requireConflict(lines.size() > 0, "原订单缺少有效主理人价差快照");
             Input.require(
                     sum.signum() > 0 && sum.compareTo(BigInteger.valueOf(MAX_MONEY)) <= 0,
-                    "奖励金额超出有效范围");
+                    "无可登记的普通商品订货收益或金额超出有效范围");
             amount = sum.longValue();
             evidence =
                     obj(
@@ -627,7 +791,7 @@ public class RewardService {
     private ArrayNode reversalTargets(ObjectNode reward) {
         ArrayNode targets = arr();
         JsonNode snapshot = parse(s(reward, "snapshot"));
-        long goods = 0, total = 0;
+        long goods = 0, total = 0, retailGoods = 0;
         Map<Long, Long> quantities = new HashMap<>();
         Map<Long, JsonNode> basis = new HashMap<>();
         for (JsonNode line : snapshot.path("lines")) basis.put(l(line, "lineId"), line);
@@ -641,7 +805,30 @@ public class RewardService {
                         l(reward, "order_id"))) {
             requireConflict(integral(refund.get("goods_cents"), 0, MAX_SAFE), "退款货款数据无效，需核对来源");
             goods = safeSum(goods, l(refund, "goods_cents"), "累计退款货款超出范围");
-            if ("onboarding".equals(s(reward, "kind"))) {
+            if ("retail".equals(s(reward, "kind"))) {
+                JsonNode refundLines = parse(s(refund, "lines"));
+                Input.require(refundLines.isArray(), "退款行依据必须为数组");
+                for (JsonNode line : refundLines) {
+                    long lineId = entity(line, "lineId"),
+                            quantity = Input.integer(line, "quantity", 1, MAX_SAFE);
+                    JsonNode original = basis.get(lineId);
+                    requireConflict(
+                            original != null
+                                    && l(original, "unitCents") == money(line, "unitCents", false),
+                            "退款行与原零售价格依据不符");
+                    long count =
+                            safeSum(quantities.getOrDefault(lineId, 0L), quantity, "累计退款数量超出原订单");
+                    requireConflict(count <= l(original, "quantity"), "累计退款数量超出原订单");
+                    quantities.put(lineId, count);
+                    if ("regular".equals(s(original, "productType")))
+                        retailGoods += l(original, "unitCents") * quantity;
+                }
+                requireConflict(retailGoods <= l(snapshot, "commissionGoodsCents"), "零售退款基数超出原货款");
+                total =
+                        retailGoods == l(snapshot, "commissionGoodsCents")
+                                ? l(reward, "amount_cents")
+                                : (retailGoods * l(snapshot, "percent") + 50) / 100;
+            } else if ("onboarding".equals(s(reward, "kind"))) {
                 long originalGoods = l(snapshot, "goodsCents");
                 requireConflict(originalGoods > 0 && goods <= originalGoods, "累计退款货款超过原货款");
                 // 累计比例四舍五入，全退时补齐尾差；乘积使用 BigInteger 避免浮点或 long 溢出。
@@ -674,6 +861,8 @@ public class RewardService {
                             safeSum(quantities.getOrDefault(lineId, 0L), quantity, "累计退款数量超过原订单");
                     requireConflict(count <= l(original, "quantity"), "累计退款数量超过原订单");
                     quantities.put(lineId, count);
+                    // 以原奖励来源行的类型排除福利品；不读取当前 SKU 类型或价格。
+                    if ("welfare".equals(s(original, "productType"))) continue;
                     BigInteger next =
                             BigInteger.valueOf(total)
                                     .add(

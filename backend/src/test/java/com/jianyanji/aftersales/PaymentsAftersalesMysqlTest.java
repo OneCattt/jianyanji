@@ -176,7 +176,7 @@ class PaymentsAftersalesMysqlTest {
                                     staffId);
                     skuId =
                             db.insert(
-                                    "INSERT INTO skus(product_id,name,unit,retail_cents,store_cents,principal_cents,stock,reserved,active,create_user_id,update_user_id) VALUES(?,'测试规格','件',12000,10000,8000,20,0,1,?,?)",
+                                    "INSERT INTO skus(product_id,name,unit,retail_cents,store_cents,principal_cents,stock,reserved,active,create_user_id,update_user_id) VALUES(?,'测试规格','件',12000,8400,4200,20,0,1,?,?)",
                                     productId,
                                     staffId,
                                     staffId);
@@ -355,7 +355,7 @@ class PaymentsAftersalesMysqlTest {
                     staffId);
     }
 
-    /** 真正报价并下单四件店主价商品：货款 40000 分、运费 1000 分。 */
+    /** 真正报价并下单四件店主价商品：货款 33600 分（零售价12000分的7折）、运费 1000 分。 */
     private ObjectNode createOrder() {
         attachRequest(false);
         ObjectNode quote =
@@ -371,7 +371,7 @@ class PaymentsAftersalesMysqlTest {
         assertEquals(l(order, "id"), l(orders.create(body, user), "id"));
         assertEquals(20, sku("stock"));
         assertEquals(4, sku("reserved"));
-        assertEquals(41000, l(order, "total_cents"));
+        assertEquals(34600, l(order, "total_cents"));
         return order;
     }
 
@@ -382,11 +382,11 @@ class PaymentsAftersalesMysqlTest {
         long orderId = l(order, "id");
         ObjectNode paid = wallet.payWithPoints(userId, orderId);
         assertEquals("paid", s(paid, "status"));
-        assertEquals(59000, balance());
+        assertEquals(65400, balance());
         assertEquals(16, sku("stock"));
         assertEquals(0, sku("reserved"));
         wallet.payWithPoints(userId, orderId);
-        assertEquals(59000, balance());
+        assertEquals(65400, balance());
         assertEquals(16, sku("stock"));
         attachRequest(true);
         registerReward(orderId);
@@ -397,7 +397,7 @@ class PaymentsAftersalesMysqlTest {
     private long registerReward(long orderId) {
         return l(
                 rewards.register(
-                        obj("orderId", orderId, "amountCents", 8000, "reason", "核对四件商品原成交价差")),
+                        obj("orderId", orderId, "amountCents", 16800, "reason", "核对四件商品原成交价差")),
                 "id");
     }
 
@@ -503,7 +503,7 @@ class PaymentsAftersalesMysqlTest {
         assertThrows(
                 BusinessException.class,
                 () -> fulfillment.receive(orderId, l(shipment, "id"), userId));
-        assertEquals(59000, balance());
+        assertEquals(65400, balance());
         assertRefundAccounting(orderId, 0, 0);
         ObjectNode inspection =
                 obj(
@@ -521,8 +521,8 @@ class PaymentsAftersalesMysqlTest {
         assertEquals("success", s(aftersales.points(refundId, reason()), "status"));
         aftersales.points(refundId, reason());
         db.tx(() -> rewards.reconcileReversals(orderId, staffId, access.requestId()));
-        assertEquals(79000, balance());
-        assertRefundAccounting(orderId, 20000, 4000);
+        assertEquals(82200, balance());
+        assertRefundAccounting(orderId, 16800, 8400);
         assertEquals(2, l(line(orderId), "refunded_qty"));
         assertEquals(1, l(line(orderId), "refunded_unshipped"));
         assertEquals(0, l(line(orderId), "refund_held"));
@@ -544,8 +544,8 @@ class PaymentsAftersalesMysqlTest {
                         "SELECT COUNT(*) AS n FROM payments WHERE order_id=? AND is_deleted=0",
                         orderId));
         JsonNode lots = wallet.walletView(userId).path("lots");
-        assertEquals(20000, l(lots.get(0), "remaining_cents"));
-        assertEquals(59000, l(lots.get(1), "remaining_cents"));
+        assertEquals(16800, l(lots.get(0), "remaining_cents"));
+        assertEquals(65400, l(lots.get(1), "remaining_cents"));
         assertEquals(0, l(wallet.walletView(principalId), "balanceCents"));
         attachRequest(false);
         assertEquals(
@@ -564,10 +564,10 @@ class PaymentsAftersalesMysqlTest {
         approve(refundId);
         aftersales.points(refundId, reason());
         assertEquals(16, sku("stock"));
-        assertEquals(69000, balance());
+        assertEquals(73800, balance());
         assertEquals(1, l(line(orderId), "refunded_unshipped"));
         assertEquals(3, l(fulfillment.shippableLines(orderId).get(0), "remaining"));
-        assertRefundAccounting(orderId, 10000, 2000);
+        assertRefundAccounting(orderId, 8400, 4200);
         ObjectNode shipment = ship(orderId, lineId, 3);
         attachRequest(false);
         assertEquals(
@@ -594,7 +594,7 @@ class PaymentsAftersalesMysqlTest {
                                 refundId));
         assertThrows(BusinessException.class, () -> aftersales.points(refundId, reason()));
         assertEquals("approved", s(aftersales.getRefund(refundId), "status"));
-        assertEquals(59000, balance());
+        assertEquals(65400, balance());
         assertEquals(1, l(line(orderId), "refund_held"));
         assertEquals(0, l(line(orderId), "refunded_qty"));
         assertRefundAccounting(orderId, 0, 0);
@@ -612,8 +612,8 @@ class PaymentsAftersalesMysqlTest {
                                 refundId));
         aftersales.points(refundId, reason());
         aftersales.points(refundId, reason());
-        assertEquals(69000, balance());
-        assertRefundAccounting(orderId, 10000, 2000);
+        assertEquals(73800, balance());
+        assertRefundAccounting(orderId, 8400, 4200);
     }
 
     @Test
@@ -654,8 +654,8 @@ class PaymentsAftersalesMysqlTest {
                             });
             assertEquals("success", s(first.get(10, TimeUnit.SECONDS), "status"));
             assertEquals("success", s(second.get(10, TimeUnit.SECONDS), "status"));
-            assertEquals(69000, balance());
-            assertRefundAccounting(orderId, 10000, 2000);
+            assertEquals(73800, balance());
+            assertRefundAccounting(orderId, 8400, 4200);
             assertEquals(
                     1,
                     count(
@@ -691,7 +691,7 @@ class PaymentsAftersalesMysqlTest {
                 obj("approve", false, "identityDecision", null, "reason", "核对后驳回"));
         assertEquals(0, l(line(orderId), "refund_held"));
         assertEquals(4, l(fulfillment.shippableLines(orderId).get(0), "remaining"));
-        assertEquals(59000, balance());
+        assertEquals(65400, balance());
         assertRefundAccounting(orderId, 0, 0);
     }
 
@@ -736,7 +736,7 @@ class PaymentsAftersalesMysqlTest {
         assertEquals(1, l(line(orderId), "refunded_qty"));
         assertEquals(0, l(line(orderId), "refund_held"));
         assertEquals(100000, balance());
-        assertRefundAccounting(orderId, 0, 2000);
+        assertRefundAccounting(orderId, 0, 4200);
         assertEquals(
                 1,
                 count(
@@ -754,7 +754,7 @@ class PaymentsAftersalesMysqlTest {
                 db.one("SELECT * FROM payment_attempts WHERE order_id=? AND is_deleted=0", orderId);
         String number = s(attempt, "number");
         channel.paid(number);
-        ((ObjectNode) channel.trades.get(number).get("amount")).put("total", 40999);
+        ((ObjectNode) channel.trades.get(number).get("amount")).put("total", 34599);
         assertEquals(
                 "PAYMENT_MISMATCH",
                 assertThrows(BusinessException.class, () -> payments.query(orderId, userId))
@@ -773,7 +773,7 @@ class PaymentsAftersalesMysqlTest {
                         "SELECT COUNT(*) AS n FROM payment_events WHERE order_id=? AND result='failure' AND request_id LIKE ? AND is_deleted=0",
                         orderId,
                         tracePrefix + "%"));
-        ((ObjectNode) channel.trades.get(number).get("amount")).put("total", 41000);
+        ((ObjectNode) channel.trades.get(number).get("amount")).put("total", 34600);
         payments.query(orderId, userId);
         payments.query(orderId, userId);
         assertEquals("paid", s(orders.owned(orderId, null), "payment_state"));
@@ -859,7 +859,7 @@ class PaymentsAftersalesMysqlTest {
                     count(
                             "SELECT COUNT(*) AS n FROM reward_reversals WHERE refund_id=? AND is_deleted=0",
                             refundId));
-            assertRefundAccounting(orderId, 0, 2000);
+            assertRefundAccounting(orderId, 0, 4200);
         } finally {
             channel.refundContinue.countDown();
             executor.shutdownNow();

@@ -1,0 +1,37 @@
+.post-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.9;
+  margin: 28rpx 0;
+}
+.post-video {
+  width: 100%;
+  height: 410rpx;
+  margin-top: 24rpx;
+  background: #1e1b18;
+}
+.post-image {
+  display: block;
+  width: 100%;
+  margin: 16rpx 0;
+}
+.post-product {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 20rpx 0;
+  min-height: 100rpx;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  white-space: normal;
+  font-size: 28rpx;
+}
+.post-product::after {
+  border: 0;
+}
+.post-product image {
+  width: 100rpx;
+  height: 100rpx;
+  flex-shrink: 0;
+}

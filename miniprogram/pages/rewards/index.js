@@ -39,7 +39,9 @@ Page({
             ? r.targetIdentity === "B"
               ? "主理人产品包奖励"
               : "店主产品包奖励"
-            : "店主订货价差",
+            : r.kind === "retail"
+              ? "零售佣金"
+              : "店主订货价差",
         amount: amount(r.amountCents),
         reversedAmount: amount(r.reversedCents),
         date: r.createTime.slice(5, 16).replace("T", " "),

@@ -1,9 +1,10 @@
 const { request, login } = require("../../utils/api");
 const { decorate } = require("../../utils/catalog");
 Page({
-  data: { product: null, sku: null, quantity: 1, error: "" },
+  data: { product: null, sku: null, quantity: 1, error: "", ownSalesCode: "" },
   onLoad(q) {
     this.productId = q.id;
+    if (q.salesCode) wx.setStorageSync("jyj_sales_candidate", q.salesCode);
   },
   async onShow() {
     try {
@@ -16,6 +17,27 @@ Page({
     } catch (e) {
       this.setData({ error: e.message, product: null });
     }
+  },
+  async prepareSalesShare() {
+    try {
+      if (!wx.getStorageSync("jyj_token")) await login();
+      const share = await request("/invitations/mine");
+      this.setData({ ownSalesCode: share.shareCode, error: "" });
+      wx.showToast({ title: "请点击分享给顾客", icon: "none" });
+    } catch (e) {
+      this.setData({ error: e.message });
+    }
+  },
+  onShareAppMessage() {
+    return {
+      title: this.data.product ? this.data.product.name : "品牌商品",
+      path:
+        "/pages/product/index?id=" +
+        this.productId +
+        (this.data.ownSalesCode
+          ? "&salesCode=" + encodeURIComponent(this.data.ownSalesCode)
+          : ""),
+    };
   },
   select(e) {
     this.setData({
