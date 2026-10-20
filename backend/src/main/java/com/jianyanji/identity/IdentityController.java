@@ -413,31 +413,46 @@ public class IdentityController {
         int page = page(query.get("page"));
         String type = query.get("objectType"), id = query.get("objectId");
         if (type != null)
-            Input.require(Arrays.asList("user", "staff", "permission").contains(type), "业务对象不正确");
+            Input.require(
+                    Arrays.asList(
+                                    "user", "staff", "permission", "request", "content", "settings",
+                                    "brand-post", "category", "product", "shipping", "membership",
+                                    "aftersales", "reward_settings", "address", "order", "shipment",
+                                    "refund", "receipt", "wallet_lot", "cash_refund", "onboarding",
+                                    "reward", "reward_reversal", "reward_settlement", "reward_recovery")
+                            .contains(type),
+                    "业务对象不正确");
         if (id != null) Input.require(id.length() <= 40, "对象编号过长");
-        StringBuilder where = new StringBuilder("is_deleted=0");
+        StringBuilder where = new StringBuilder("a.is_deleted=0");
         List<Object> args = new ArrayList<>();
         if (type != null) {
-            where.append(" AND object_type=?");
+            where.append(" AND a.object_type=?");
             args.add(type);
         }
         if (id != null) {
-            where.append(" AND object_id=?");
+            where.append(" AND a.object_id=?");
             args.add(id);
         }
         long total =
                 l(
                         db.one(
-                                "SELECT count(*) AS total FROM audit_events WHERE " + where,
+                                "SELECT count(*) AS total FROM audit_events a WHERE " + where,
                                 args.toArray()),
                         "total");
         args.add((page - 1) * 30);
         return obj(
                 "items",
                 db.list(
-                        "SELECT id,actor_kind,actor_id,action,object_type,object_id,result,reason,request_id,create_time FROM audit_events WHERE "
+                        // 只对本页记录关联姓名，不逐条查询账号；已移除账号保留原审计编号。
+                        "SELECT a.*,CASE WHEN a.actor_kind='staff' THEN s.display_name "
+                                + "WHEN a.actor_kind='user' THEN u.nickname ELSE NULL END AS actor_name "
+                                + "FROM (SELECT a.id,a.actor_kind,a.actor_id,a.action,a.object_type,a.object_id,"
+                                + "a.result,a.reason,a.request_id,a.create_time FROM audit_events a WHERE "
                                 + where
-                                + " ORDER BY id DESC LIMIT 30 OFFSET ?",
+                                + " ORDER BY a.id DESC LIMIT 30 OFFSET ?) a "
+                                + "LEFT JOIN staff s ON a.actor_kind='staff' AND s.id=a.actor_id AND s.is_deleted=0 "
+                                + "LEFT JOIN users u ON a.actor_kind='user' AND u.id=a.actor_id AND u.is_deleted=0 "
+                                + "ORDER BY a.id DESC",
                         args.toArray()),
                 "page",
                 page,

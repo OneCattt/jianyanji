@@ -284,6 +284,31 @@
   margin: 6px 0;
   font-size: 13px;
 }
+.audit-detail {
+  margin: 0;
+}
+.audit-detail > div {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--admin-border);
+}
+.audit-detail dt {
+  color: var(--admin-muted);
+}
+.audit-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.audit-technical {
+  margin: 20px 0;
+}
+.audit-technical summary {
+  cursor: pointer;
+  color: var(--admin-muted);
+}
 .pagination {
   margin-top: 18px;
   display: flex;

@@ -38,6 +38,13 @@ import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
 import FeedbackToast from "./FeedbackToast.vue";
 import {
+  auditAction,
+  auditActor,
+  auditObject,
+  auditObjectNames,
+  auditReason,
+} from "../audit";
+import {
   api,
   ApiError,
   permissionNames,
@@ -73,6 +80,7 @@ const form = ref({
   reason: "",
 });
 const menuExpanded = ref(false);
+const selectedAudit = ref<Audit | null>(null);
 const navigation = [
   {
     key: "posts",
@@ -191,7 +199,7 @@ const navigation = [
     icon: History,
     group: "协作与记录",
     permission: "audit:read",
-    description: "按业务对象核对操作者、处理结果与原因。",
+    description: "查看谁在什么时候做了什么，以及处理结果和操作原因。",
   },
 ] as const;
 const sections = computed(() =>
@@ -371,22 +379,6 @@ async function save() {
     busy.value = false;
   }
 }
-const actionNames: Record<string, string> = {
-  "user.login": "用户登录",
-  "user.logout": "用户退出",
-  "profile.update": "修改个人资料",
-  "profile.denied": "拦截资料越权",
-  "staff.login": "后台登录",
-  "staff.logout": "后台退出",
-  "staff.create": "新增工作人员",
-  "staff.update": "变更授权或状态",
-  "staff.remove": "移除工作人员",
-  "staff.seed": "初始化演示账号",
-  "staff.bootstrap": "初始化管理员",
-  "permission.denied": "拦截功能越权",
-  "request.denied": "拦截不允许的操作",
-};
-
 const menuItems = computed(() =>
   sectionGroups.value.map((group) => ({
     key: group.label,
@@ -423,8 +415,10 @@ const userColumns = [
 const auditColumns = [
   { title: "操作时间", key: "time", width: 180 },
   { title: "操作者", key: "actor", width: 150 },
-  { title: "操作 / 对象", key: "object", width: 220 },
-  { title: "结果与原因", key: "result", width: 360 },
+  { title: "做了什么", key: "action", width: 240 },
+  { title: "操作对象", key: "object", width: 190 },
+  { title: "处理结果与说明", key: "result", width: 300 },
+  { title: "详情", key: "detail", width: 100 },
 ];
 const permissionOptions = Object.entries(permissionNames).map(
   ([value, label]) => ({ value, label }),
@@ -755,13 +749,13 @@ async function changePage(value: number) {
             ><label
               >业务对象<AdminSelect v-model="filterType"
                 ><option value="">全部对象</option>
-                <option value="user">用户</option>
-                <option value="staff">工作人员</option>
-                <option value="permission">功能权限</option>
-                <option value="order">订单</option>
-                <option value="refund">售后退款</option>
-                <option value="receipt">公司收款</option>
-                <option value="reward">奖励</option></AdminSelect
+                <option
+                  v-for="(label, value) in auditObjectNames"
+                  :key="value"
+                  :value="value"
+                >
+                  {{ label }}
+                </option></AdminSelect
               ></label
             ><label
               >对象编号<a-input
@@ -786,28 +780,20 @@ async function changePage(value: number) {
             row-key="id"
             :loading="busy"
             :pagination="false"
-            :scroll="{ x: 910 }"
+            :scroll="{ x: 1260 }"
             :locale="{ emptyText: '没有符合条件的记录' }"
             ><template #bodyCell="{ column, record }"
               ><span v-if="column.key === 'time'" class="mono">{{
                 new Date(record.create_time).toLocaleString("zh-CN")
               }}</span
-              ><template v-else-if="column.key === 'actor'"
-                >{{
-                  record.actor_kind === "staff"
-                    ? "工作人员"
-                    : record.actor_kind === "user"
-                      ? "用户"
-                      : "系统"
-                }}
-                #{{ record.actor_id }}</template
-              ><template v-else-if="column.key === 'object'"
-                ><strong>{{
-                  actionNames[record.action] || record.action
-                }}</strong
-                ><small class="block muted"
-                  >{{ record.object_type }} · {{ record.object_id }}</small
-                ></template
+              ><template v-else-if="column.key === 'actor'">{{
+                auditActor(record)
+              }}</template
+              ><template v-else-if="column.key === 'action'"
+                ><strong>{{ auditAction(record) }}</strong></template
+              ><template v-else-if="column.key === 'object'">{{
+                auditObject(record)
+              }}</template
               ><template v-else-if="column.key === 'result'"
                 ><a-tag
                   :color="
@@ -825,10 +811,19 @@ async function changePage(value: number) {
                         : "失败"
                   }}</a-tag
                 >
-                <p class="audit-reason">{{ record.reason }}</p>
-                <small class="mono muted">{{
-                  record.request_id
-                }}</small></template
+                <p class="audit-reason">
+                  <span class="muted">{{
+                    record.result === "success" ? "说明：" : "原因："
+                  }}</span
+                  >{{ auditReason(record) }}
+                </p></template
+              ><template v-else-if="column.key === 'detail'"
+                ><a-button
+                  type="link"
+                  size="small"
+                  @click="selectedAudit = record"
+                  >查看详情</a-button
+                ></template
               ></template
             ></a-table
           >
@@ -909,6 +904,86 @@ async function changePage(value: number) {
         >清欣简妍肌 · 品牌方管理后台</a-layout-footer
       >
     </a-layout>
+    <AdminDialog
+      v-if="selectedAudit"
+      title="操作记录详情"
+      @close="selectedAudit = null"
+    >
+      <dl class="audit-detail">
+        <div>
+          <dt>操作时间</dt>
+          <dd>
+            {{ new Date(selectedAudit.create_time).toLocaleString("zh-CN") }}
+          </dd>
+        </div>
+        <div>
+          <dt>操作者</dt>
+          <dd>{{ auditActor(selectedAudit) }}</dd>
+        </div>
+        <div>
+          <dt>操作内容</dt>
+          <dd>{{ auditAction(selectedAudit) }}</dd>
+        </div>
+        <div>
+          <dt>操作对象</dt>
+          <dd>{{ auditObject(selectedAudit) }}</dd>
+        </div>
+        <div>
+          <dt>处理结果</dt>
+          <dd>
+            {{
+              selectedAudit.result === "success"
+                ? "成功"
+                : selectedAudit.result === "denied"
+                  ? "已拦截"
+                  : "失败"
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>操作原因</dt>
+          <dd>{{ selectedAudit.reason || "未填写" }}</dd>
+        </div>
+      </dl>
+      <p
+        v-if="/\.(update|save|settings)$/.test(selectedAudit.action)"
+        class="field-help"
+      >
+        本条记录未保存字段修改前后的对比，无法还原具体修改项。
+      </p>
+      <details class="audit-technical">
+        <summary>排查信息</summary>
+        <dl class="audit-detail">
+          <div>
+            <dt>记录编号</dt>
+            <dd>{{ selectedAudit.id }}</dd>
+          </div>
+          <div>
+            <dt>操作者编号</dt>
+            <dd>
+              {{ selectedAudit.actor_kind }} · {{ selectedAudit.actor_id }}
+            </dd>
+          </div>
+          <div>
+            <dt>操作编码</dt>
+            <dd>{{ selectedAudit.action }}</dd>
+          </div>
+          <div>
+            <dt>对象编码</dt>
+            <dd>
+              {{ selectedAudit.object_type }} · {{ selectedAudit.object_id }}
+            </dd>
+          </div>
+          <div>
+            <dt>排查编号</dt>
+            <dd class="mono">{{ selectedAudit.request_id }}</dd>
+          </div>
+        </dl>
+      </details>
+      <div class="dialog-actions">
+        <a-button @click="selectedAudit = null">关闭</a-button>
+      </div>
+    </AdminDialog>
     <AdminDialog
       v-if="modal"
       :title="

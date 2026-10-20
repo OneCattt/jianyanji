@@ -26,6 +26,7 @@ export interface Audit {
   id: number;
   actor_kind: string;
   actor_id: number;
+  actor_name?: string;
   action: string;
   object_type: string;
   object_id: string;
