@@ -180,16 +180,18 @@ function openClose() {
   error.value = "";
   dialog.value = "close";
 }
-async function act(work: () => Promise<void>) {
+async function act(work: () => Promise<void>, message = "") {
   if (busy.value) return;
   busy.value = true;
   error.value = "";
   notice.value = "";
   try {
     await work();
-    notice.value = "操作已完成，请以当前业务状态为准";
-    reason.value = "";
-    await load();
+    if (message) {
+      await load();
+      reason.value = "";
+      notice.value = message;
+    }
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
@@ -204,6 +206,7 @@ async function refreshPayment(close = false) {
     body: close ? { reason: reason.value } : {},
   });
   await select(id);
+  if (!close) await load();
 }
 async function ship() {
   if (!selected.value) return;
@@ -442,7 +445,12 @@ onMounted(() => act(load));
       <p>当前订单：{{ selected.number }}</p>
       <AdminForm
         v-if="dialog === 'close'"
-        @submit="act(() => refreshPayment(true))"
+        @submit="
+          act(
+            () => refreshPayment(true),
+            '已提交关闭核查，请以当前支付状态为准',
+          )
+        "
       >
         <p>系统核实渠道结果后才释放库存。</p>
         <label
@@ -456,7 +464,7 @@ onMounted(() => act(load));
         </div>
       </AdminForm>
       <template v-else>
-        <AdminForm @submit="act(ship)">
+        <AdminForm @submit="act(ship, '发货记录已保存')">
           <h4>登记品牌仓发货</h4>
           <div class="table-wrap">
             <table>
@@ -521,7 +529,7 @@ onMounted(() => act(load));
       @close="!busy && (correcting = null)"
     >
       <p v-if="error" class="message error" role="alert">{{ error }}</p>
-      <AdminForm v-if="correcting" @submit="act(correct)">
+      <AdminForm v-if="correcting" @submit="act(correct, '物流纠正记录已保存')">
         <label>物流公司<input v-model="correcting.carrier" required /></label
         ><label
           >运单号<input

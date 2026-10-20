@@ -173,6 +173,7 @@ async function load() {
   loading.value = true;
   loadFailed.value = false;
   error.value = "";
+  notice.value = "";
   try {
     if (props.section === "content") {
       const v = await api<typeof content.value | null>("/admin/content");
@@ -198,9 +199,9 @@ async function act(work: () => Promise<void>) {
   notice.value = "";
   try {
     await work();
-    notice.value = "保存成功";
     reason.value = "";
     await load();
+    if (!loadFailed.value) notice.value = "保存成功";
   } catch (e) {
     error.value = (e as Error).message;
   } finally {

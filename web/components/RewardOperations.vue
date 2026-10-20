@@ -135,16 +135,18 @@ async function load() {
     r.some((x) => x.id === id && x.eligible && x.remainingCents > 0),
   );
 }
-async function act(work: () => Promise<void>, closeOnSuccess = false) {
+async function act(work: () => Promise<void>, message = "") {
   if (busy.value) return;
   busy.value = true;
   error.value = "";
   notice.value = "";
   try {
     await work();
-    if (closeOnSuccess) dialog.value = "";
-    await load();
-    notice.value = "操作记录已保存";
+    if (message) {
+      dialog.value = "";
+      await load();
+      notice.value = message;
+    }
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
@@ -163,7 +165,7 @@ function saveSettings() {
         reason: reason.value,
       },
     });
-  }, true);
+  }, "奖励参数已保存");
 }
 function readSource() {
   return act(async () => {
@@ -183,7 +185,7 @@ function register() {
         reason: reason.value,
       },
     });
-  }, true);
+  }, "来源奖励已登记，尚未付款");
 }
 function plan() {
   return act(async () => {
@@ -202,7 +204,7 @@ function plan() {
     });
     planKey = crypto.randomUUID();
     selected.value = [];
-  }, true);
+  }, "待付款月结单已创建，尚未付款");
 }
 function saveResult() {
   return act(async () => {
@@ -219,7 +221,7 @@ function saveResult() {
         reason: reason.value,
       },
     });
-  }, true);
+  }, "结算核实结果已保存");
 }
 function recover() {
   return act(async () => {
@@ -235,7 +237,7 @@ function recover() {
       },
     });
     recoveryKey = crypto.randomUUID();
-  }, true);
+  }, "实际追回记录已保存");
 }
 function showDetail(id: number) {
   return act(async () => {
@@ -251,7 +253,7 @@ function reconcile() {
         body: { reason: reason.value },
       },
     );
-  }, true);
+  }, "退款冲回核对记录已保存");
 }
 function openDialog(next: Dialog) {
   if (busy.value) return;

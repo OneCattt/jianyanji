@@ -206,6 +206,7 @@ const sectionTitle = computed(
   () => sections.value.find((s) => s.key === section.value)?.label || "工作台",
 );
 function report(e: unknown) {
+  notice.value = "";
   error.value = (e as Error).message;
   if (e instanceof ApiError && e.status === 401) {
     me.value = null;
@@ -252,6 +253,7 @@ async function logout() {
   }
 }
 async function load() {
+  notice.value = "";
   busy.value = true;
   error.value = "";
   try {
@@ -289,6 +291,7 @@ async function navigate(key: string) {
   await load();
 }
 function open(mode: "create" | "edit" | "remove", value?: Staff) {
+  notice.value = "";
   selected.value = value || null;
   form.value = {
     username: value?.username || "",
@@ -302,6 +305,7 @@ function open(mode: "create" | "edit" | "remove", value?: Staff) {
   modal.value = mode;
 }
 async function save() {
+  notice.value = "";
   busy.value = true;
   error.value = "";
   try {
@@ -332,7 +336,7 @@ async function save() {
           reason: f.reason,
         },
       });
-    notice.value =
+    const message =
       modal.value === "remove"
         ? "工作人员已移除，历史操作记录已保留"
         : "工作人员设置已保存";
@@ -341,6 +345,7 @@ async function save() {
     if (!me.value.permissions.includes("staff:manage"))
       section.value = "overview";
     else await load();
+    if (!error.value) notice.value = message;
   } catch (e) {
     report(e);
   } finally {

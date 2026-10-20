@@ -48,10 +48,10 @@ async function run(work: () => Promise<any>, refresh = true) {
   try {
     await work();
     if (refresh) {
-      notice.value = "操作已记录";
       await load();
       if (userId.value)
         wallet.value = await api("/admin/wallets/" + userId.value);
+      notice.value = "操作已记录，请查看当前退现金办理状态";
     }
   } catch (e) {
     error.value = (e as Error).message;

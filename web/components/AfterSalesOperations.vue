@@ -39,7 +39,7 @@ async function savePolicy() {
     });
     policy.value = { ...policyDraft.value };
     setupDialog.value = "";
-  });
+  }, "售后政策已保存");
 }
 const current = computed(() =>
   orders.value.find((o) => o.id === selectedOrderId.value),
@@ -78,8 +78,8 @@ async function load() {
   const p = await api<any>("/admin/aftersales-settings");
   if (p) policy.value = p;
 }
-onMounted(() => run(load, false));
-async function run(work: () => Promise<any>, message = true) {
+onMounted(() => run(load));
+async function run(work: () => Promise<any>, message = "") {
   if (busy.value) return;
   busy.value = true;
   error.value = "";
@@ -87,8 +87,8 @@ async function run(work: () => Promise<any>, message = true) {
   try {
     await work();
     if (message) {
-      notice.value = "操作已记录，请以实际处理状态为准";
       await load();
+      notice.value = message;
     }
   } catch (e) {
     error.value = (e as Error).message;
@@ -123,7 +123,7 @@ async function create() {
     quantities.value = {};
     exceptionApproved.value = false;
     exceptionReason.value = "";
-  });
+  }, "售后申请已登记，尚未退款");
 }
 function open(r: any, key: string) {
   error.value = "";
@@ -138,37 +138,42 @@ function open(r: any, key: string) {
   restock.value = false;
 }
 async function submit() {
-  await run(async () => {
-    const id = selected.value.id;
-    let body: any = { reason: reason.value };
-    let endpoint = action.value;
-    if (action.value === "approve" || action.value === "reject") {
-      endpoint = "review";
-      body = {
-        ...body,
-        approve: action.value === "approve",
-        identityDecision:
-          selected.value.kind === "package" ? decision.value : null,
-      };
-    }
-    if (action.value === "inspect")
-      body = {
-        ...body,
-        returnedAt: new Date(paidAt.value).toISOString(),
-        inspection: inspection.value,
-        restock: restock.value,
-      };
-    if (action.value === "offline")
-      body = {
-        ...body,
-        recipient: recipient.value,
-        paidAt: new Date(paidAt.value).toISOString(),
-        proof: proof.value,
-        confirmed: confirmed.value,
-      };
-    await api(`/admin/refunds/${id}/${endpoint}`, { method: "POST", body });
-    action.value = "";
-  });
+  const querying = action.value === "query";
+  await run(
+    async () => {
+      const id = selected.value.id;
+      let body: any = { reason: reason.value };
+      let endpoint = action.value;
+      if (action.value === "approve" || action.value === "reject") {
+        endpoint = "review";
+        body = {
+          ...body,
+          approve: action.value === "approve",
+          identityDecision:
+            selected.value.kind === "package" ? decision.value : null,
+        };
+      }
+      if (action.value === "inspect")
+        body = {
+          ...body,
+          returnedAt: new Date(paidAt.value).toISOString(),
+          inspection: inspection.value,
+          restock: restock.value,
+        };
+      if (action.value === "offline")
+        body = {
+          ...body,
+          recipient: recipient.value,
+          paidAt: new Date(paidAt.value).toISOString(),
+          proof: proof.value,
+          confirmed: confirmed.value,
+        };
+      await api(`/admin/refunds/${id}/${endpoint}`, { method: "POST", body });
+      action.value = "";
+      if (querying) await load();
+    },
+    querying ? "" : "售后处理记录已保存，请查看当前退款状态",
+  );
 }
 </script>
 <template>
