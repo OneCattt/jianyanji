@@ -24,7 +24,8 @@ public class ApiFilter extends OncePerRequestFilter {
         MDC.put("requestId", requestId);
         response.setHeader("X-Request-ID", requestId);
         response.setHeader("X-Content-Type-Options", "nosniff");
-        response.setHeader("Referrer-Policy", "same-origin");
+        // 跨站图片只携带站点来源，供 OSS 防盗链匹配，不泄露页面路径和查询参数。
+        response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
         response.setHeader("X-Frame-Options", "DENY");
         if (request.getRequestURI().startsWith("/api/"))
             response.setHeader("Cache-Control", "no-store");

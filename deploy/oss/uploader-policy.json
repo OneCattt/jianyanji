@@ -1,0 +1,10 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["oss:PutObject"],
+      "Resource": ["acs:oss:*:*:REPLACE_WITH_PRODUCT_BUCKET/products/*"]
+    }
+  ]
+}

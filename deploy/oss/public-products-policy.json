@@ -1,0 +1,11 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": ["*"],
+      "Action": ["oss:GetObject"],
+      "Resource": ["acs:oss:*:*:REPLACE_WITH_PRODUCT_BUCKET/products/*"]
+    }
+  ]
+}

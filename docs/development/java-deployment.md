@@ -71,7 +71,7 @@ sudo systemctl status jianyanji
 sudo journalctl -u jianyanji -n 100 --no-pager
 ```
 
-7. 按 `deploy/nginx.conf` 配置真实域名和证书，执行 `nginx -t` 后重载。Nginx 必须保留外部 `Host`，后台同源检查才可通过。Java 提供 `/`、`/admin`、`/assets/*`、`/api/*`。正式小程序 `apiBase` 改为 HTTPS API 地址，并在微信后台添加 request 合法域名、关联支付商户并配置 HTTPS 通知地址。
+7. 按 [基础防刷与费用告警](basic-traffic-protection.md) 一起安装 `deploy/nginx.conf`、配套限流和封禁文件，配置真实域名和证书，执行 `nginx -t` 后重载。Nginx 保留外部 `Host` 并覆盖来源头，Java 只信任本机代理。Java 提供 `/`、`/admin`、`/assets/*`、`/api/*`。正式小程序 `apiBase` 改为 HTTPS API 地址，并在微信后台添加 request 合法域名、关联支付商户并配置 HTTPS 通知地址。
 
 验证 `/api/public/context` 的 `devAuth=false`；浏览器打开 `/admin` 登录，检查商品保存、权限和退出。真实商户支付、退款与微信真机仍需使用实际账号验收。
 

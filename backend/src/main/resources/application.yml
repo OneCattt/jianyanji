@@ -1,6 +1,13 @@
 server:
   port: ${PORT:3100}
   address: ${HOST:127.0.0.1}
+  # 仅信任本机 Nginx 覆盖后的来源头；外部直连不能用自报头绕过登录限流。
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      remote-ip-header: X-Real-IP
+      protocol-header: X-Forwarded-Proto
+      internal-proxies: '127\.0\.0\.1|::1|0:0:0:0:0:0:0:1'
   max-http-header-size: 16KB
   error:
     include-message: never
@@ -28,7 +35,7 @@ spring:
       add-mappings: false
 logging:
   pattern:
-    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{requestId}] %logger{36} - %msg%n'
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{requestId}] %logger{36} - %msg%n"
 jianyanji:
   production: ${APP_PRODUCTION:false}
   dev-auth: ${DEV_AUTH:false}

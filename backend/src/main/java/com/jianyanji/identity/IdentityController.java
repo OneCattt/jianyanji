@@ -33,7 +33,7 @@ public class IdentityController {
     private final String appId;
     /** 微信服务端密钥，不进入响应和日志。 */
     private final String appSecret;
-    /** 按实际连接地址计算的十五分钟登录限流窗口。 */
+    /** 按可信入口解析后的客户端地址计算的十五分钟登录限流窗口。 */
     private final Map<String, Window> attempts = new ConcurrentHashMap<>();
     /** 不存在账号时仍执行同样的密码推导，避免直接暴露账号存在性。 */
     private final String dummyPassword = Passwords.hash(id());

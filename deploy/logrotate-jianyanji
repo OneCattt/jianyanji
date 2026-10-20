@@ -1,0 +1,10 @@
+/var/log/nginx/jianyanji-access.log /var/log/nginx/jianyanji-error.log {
+    daily
+    maxsize 20M
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}

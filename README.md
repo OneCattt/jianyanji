@@ -47,6 +47,8 @@ npm run bootstrap:admin
 
 正式部署见 [服务器部署说明](docs/development/java-deployment.md)，包含 MySQL、JAR、systemd、Nginx 和旧数据迁移。生产设置 `APP_PRODUCTION=true`、`NODE_ENV=production`、`DEV_AUTH=false`，通过 HTTPS 同源访问。
 
+上线前一并落实 [基础防刷与费用告警](docs/development/basic-traffic-protection.md)：Nginx 限流、来源识别、封禁及临时暂停入口、OSS 权限和云端告警。云端设置需在实际账号启用，预算告警不代表费用封顶。
+
 ```bash
 npm run build       # Vue 静态页面
 npm run build:api   # Java 测试并打包
