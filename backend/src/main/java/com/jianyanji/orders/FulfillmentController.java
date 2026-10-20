@@ -23,7 +23,7 @@ public class FulfillmentController {
 
     @GetMapping("/admin/orders/{id}/fulfillment")
     public Object fulfillment(@PathVariable long id) {
-        access.staff("orders:manage");
+        access.staffAny("orders:manage", "finance:manage");
         return fulfillment.fulfillment(Input.id(id));
     }
 

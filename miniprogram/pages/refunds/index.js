@@ -5,7 +5,7 @@ const amount = (cents, method) =>
     ? (cents / 100).toFixed(2) + " 积分"
     : method
       ? money(cents)
-      : (cents / 100).toFixed(2) + "（按原支付方式退回）";
+      : (cents / 100).toFixed(2) + "（退款方式以原订单为准）";
 Page({
   data: {
     items: [],

@@ -143,7 +143,7 @@ const navigation = [
     icon: RotateCcw,
     group: "交易与履约",
     permission: "orders:manage",
-    description: "受理退货退款，核对商品与原支付记录。",
+    description: "受理退货退款，核对商品与原收款或积分记录。",
   },
   {
     key: "shipping",
@@ -154,8 +154,24 @@ const navigation = [
     description: "设置配送地区、运费与订单付款时限。",
   },
   {
+    key: "receipts",
+    label: "普通订单收款",
+    icon: Banknote,
+    group: "资金与奖励",
+    permission: "finance:manage",
+    description: "核实普通商品线下到账，登记原订单收款；货款不发积分。",
+  },
+  {
+    key: "orderrefunds",
+    label: "订单退款登记",
+    icon: RotateCcw,
+    group: "资金与奖励",
+    permission: "finance:manage",
+    description: "登记商品及产品包实际线下退款，办理原积分退款。",
+  },
+  {
     key: "wallet",
-    label: "公司收款与积分",
+    label: "积分充值收款",
     icon: Wallet,
     group: "资金与奖励",
     permission: "finance:manage",
@@ -226,7 +242,9 @@ const currentSection = computed(
 );
 const quickEntries = computed(() =>
   sections.value.filter((item) =>
-    ["catalog", "orders", "membership", "wallet"].includes(item.key),
+    ["catalog", "orders", "membership", "receipts", "wallet"].includes(
+      item.key,
+    ),
   ),
 );
 const sectionTitle = computed(
@@ -845,12 +863,17 @@ async function changePage(value: number) {
           section="shipping"
         />
         <PaymentOperations
-          v-if="section === 'orders'"
-          :key="'orders:' + refreshKey"
+          v-if="['orders', 'receipts'].includes(section)"
+          :key="section + ':' + refreshKey"
+          :finance-only="section === 'receipts'"
+          :can-finance="me.permissions.includes('finance:manage')"
         />
         <AfterSalesOperations
-          v-if="section === 'aftersales'"
-          :key="'aftersales:' + refreshKey"
+          v-if="['aftersales', 'orderrefunds'].includes(section)"
+          :key="section + ':' + refreshKey"
+          :can-manage="
+            section === 'aftersales' && me.permissions.includes('orders:manage')
+          "
           :canFinance="me.permissions.includes('finance:manage')"
         />
         <CashRefundOperations
@@ -891,6 +914,8 @@ async function changePage(value: number) {
           v-if="
             [
               'wallet',
+              'receipts',
+              'orderrefunds',
               'cashrefunds',
               'orders',
               'aftersales',

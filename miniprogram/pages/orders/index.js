@@ -4,7 +4,7 @@ Page({
   data: {
     orders: [],
     visible: [],
-    tabs: ["全部", "待付款", "待发货", "运输中", "已完成"],
+    tabs: ["全部", "待核款", "待发货", "运输中", "已完成"],
     tab: 0,
     error: "",
     loading: false,

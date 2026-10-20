@@ -5,6 +5,11 @@ import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
+import AdminDatePicker from "./AdminDatePicker.vue";
+const props = withDefaults(
+  defineProps<{ financeOnly?: boolean; canFinance?: boolean }>(),
+  { financeOnly: false, canFinance: false },
+);
 interface OrderLine {
   id: number;
   sku_id: number;
@@ -49,7 +54,14 @@ interface Order {
   lines: OrderLine[];
   shipments: Shipment[];
 }
+interface PaymentReceipt {
+  method: string;
+  transaction_id: string;
+  cents: number;
+  paid_at: string;
+}
 interface Payment {
+  order: Order;
   attempt: {
     number: string;
     state: string;
@@ -57,7 +69,7 @@ interface Payment {
     transactionId?: string;
     lastError?: string;
   } | null;
-  receipt: { transaction_id: string; paid_at: string } | null;
+  receipt: PaymentReceipt | null;
   attempts: {
     id: number;
     number: string;
@@ -84,7 +96,17 @@ const orders = ref<Order[]>([]),
   notice = ref(""),
   busy = ref(false),
   reason = ref("");
-const dialog = ref<"" | "ship" | "close">("");
+const dialog = ref<"" | "ship" | "receipt">("");
+const receipt = ref({
+  sourceChannel: "bank",
+  accountRef: "",
+  externalTransactionId: "",
+  amount: "",
+  receivedAt: "",
+  evidence: "",
+  reason: "",
+  verified: false,
+});
 const shipment = ref({
   carrier: "",
   tracking: "",
@@ -97,7 +119,7 @@ const correcting = ref<{
   tracking: string;
 } | null>(null);
 const labels: Record<string, string> = {
-  pending: "待付款",
+  pending: "待核款",
   paid: "待发货",
   awaiting_shipment: "待发货",
   shipped: "运输中",
@@ -110,18 +132,19 @@ const labels: Record<string, string> = {
   partially_refunded: "部分退款",
 };
 const paymentLabels: Record<string, string> = {
-  unpaid: "未付款",
-  paying: "支付处理中",
+  unpaid: "待核款",
+  paying: "历史交易处理中",
   unknown: "结果待核查",
   review: "需补偿核查",
-  paid: "已付款",
-  failed: "本次支付已结束",
+  paid: "已收款 / 积分已扣款",
+  failed: "未收款",
   partially_refunded: "部分退款",
   refunded: "已退款",
 };
 const visible = computed(() =>
   orders.value.filter(
     (o) =>
+      (!props.financeOnly || o.kind === "goods") &&
       (!status.value || o.status === status.value) &&
       (!query.value ||
         o.number.includes(query.value) ||
@@ -134,6 +157,24 @@ const canShip = computed(
     ["paid", "partially_refunded"].includes(selected.value.payment_state) &&
     ["paid", "awaiting_shipment", "shipped"].includes(selected.value.status),
 );
+const canCollect = computed(() => {
+  const order = selected.value;
+  return (
+    props.canFinance &&
+    order &&
+    order.kind === "goods" &&
+    (order.payment_method === null ||
+      ["", "offline"].includes(order.payment_method)) &&
+    order.status === "pending" &&
+    ["unpaid", "failed"].includes(order.payment_state) &&
+    !payment.value?.receipt
+  );
+});
+const methodNames: Record<string, string> = {
+  offline: "线下付款",
+  points: "积分订货",
+  wechat: "历史微信支付",
+};
 const money = (v: number) => (v / 100).toFixed(2);
 const remaining = (l: OrderLine) =>
   l.quantity - l.shipped_qty - l.refunded_unshipped - l.held_unshipped;
@@ -145,12 +186,14 @@ async function load() {
   orders.value = await api<Order[]>("/admin/orders");
 }
 async function select(id: number) {
-  const [p, f] = await Promise.all([
+  const [details, fulfillment] = await Promise.all([
     api<Payment>("/admin/orders/" + id + "/payment"),
-    api<{ order: Order }>("/admin/orders/" + id + "/fulfillment"),
+    props.financeOnly
+      ? Promise.resolve(null)
+      : api<{ order: Order }>("/admin/orders/" + id + "/fulfillment"),
   ]);
-  selected.value = f.order;
-  payment.value = p;
+  selected.value = fulfillment?.order ?? details.order;
+  payment.value = details;
   shipment.value = {
     carrier: "",
     tracking: "",
@@ -180,10 +223,82 @@ function openCorrection(value: Shipment) {
   reason.value = "";
   error.value = "";
 }
-function openClose() {
-  reason.value = "";
+function openReceipt() {
+  if (!canCollect.value || !selected.value) return;
+  receipt.value = {
+    sourceChannel: "bank",
+    accountRef: "",
+    externalTransactionId: "",
+    amount: money(selected.value.total_cents),
+    receivedAt: "",
+    evidence: "",
+    reason: "",
+    verified: false,
+  };
   error.value = "";
-  dialog.value = "close";
+  dialog.value = "receipt";
+}
+async function collect() {
+  await act(async () => {
+    if (!canCollect.value || !selected.value)
+      throw new Error("当前订单不能登记收款，请刷新后核实订单状态");
+    if (!/^\d+(\.\d{1,2})?$/.test(receipt.value.amount))
+      throw new Error("到账金额须为最多两位小数的正数");
+    const [whole, fraction = ""] = receipt.value.amount.split(".");
+    const amountCents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+    if (
+      !Number.isSafeInteger(amountCents) ||
+      amountCents <= 0 ||
+      amountCents !== selected.value.total_cents
+    )
+      throw new Error("到账金额必须等于原订单应收金额，不能部分核款");
+    const receivedAt = new Date(receipt.value.receivedAt);
+    if (
+      !Number.isFinite(receivedAt.getTime()) ||
+      receivedAt.getTime() >= Date.now()
+    )
+      throw new Error("实际到账时间须为过去的有效时间");
+    if (!receipt.value.verified) throw new Error("请先确认公司实际到账");
+    if (!["bank", "wechat_company"].includes(receipt.value.sourceChannel))
+      throw new Error("请选择线下公司收款渠道");
+    if (
+      [
+        receipt.value.accountRef,
+        receipt.value.externalTransactionId,
+        receipt.value.evidence,
+        receipt.value.reason,
+      ].some((value) => !value.trim())
+    )
+      throw new Error("请完整填写收款账户、原始流水、凭证和核实说明");
+    const result = await api<{
+      order: Order;
+      receipt: unknown;
+      alreadyPaid: boolean;
+    }>(`/admin/orders/${selected.value.id}/receipt`, {
+      method: "POST",
+      body: {
+        sourceChannel: receipt.value.sourceChannel,
+        accountRef: receipt.value.accountRef.trim(),
+        externalTransactionId: receipt.value.externalTransactionId.trim(),
+        amountCents,
+        receivedAt: receivedAt.toISOString(),
+        evidence: receipt.value.evidence.trim(),
+        reason: receipt.value.reason.trim(),
+        verified: true,
+      },
+    });
+    selected.value = result.order;
+    dialog.value = "";
+    notice.value = result.alreadyPaid
+      ? "该订单已核款，本次未重复登记收款"
+      : "普通商品线下收款已核实，可安排发货；货款不发积分";
+    // 收款成功后即更新本地状态，刷新失败也不重新开放核款。
+    orders.value = orders.value.map((order) =>
+      order.id === result.order.id ? result.order : order,
+    );
+    await select(result.order.id);
+    await load();
+  });
 }
 async function act(work: () => Promise<void>, message = "") {
   if (busy.value) return;
@@ -202,16 +317,6 @@ async function act(work: () => Promise<void>, message = "") {
   } finally {
     busy.value = false;
   }
-}
-async function refreshPayment(close = false) {
-  if (!selected.value) return;
-  const id = selected.value.id;
-  await api("/admin/orders/" + id + "/payment/" + (close ? "close" : "query"), {
-    method: "POST",
-    body: close ? { reason: reason.value } : {},
-  });
-  await select(id);
-  if (!close) await load();
 }
 async function ship() {
   if (!selected.value) return;
@@ -265,7 +370,7 @@ onMounted(() => act(load));
 const orderColumns = [
   { title: "订单 / 购买者", key: "order", width: 230 },
   { title: "履约", key: "fulfillment", width: 180 },
-  { title: "支付", key: "payment", width: 180 },
+  { title: "收款 / 积分", key: "payment", width: 180 },
   { title: "订单金额", key: "amount", width: 120 },
   { title: "操作", key: "actions", width: 170, fixed: "right" as const },
 ];
@@ -334,8 +439,16 @@ function statusColor(value: string) {
     <a-card size="small" class="order-list">
       <header class="section-heading">
         <div>
-          <h3>支付与履约订单</h3>
-          <p>从订单进入支付核查、品牌仓发货与物流纠正。</p>
+          <h3>
+            {{ props.financeOnly ? "普通订单线下收款" : "收款与履约订单" }}
+          </h3>
+          <p>
+            {{
+              props.financeOnly
+                ? "按原订单核实公司实际到账；普通货款不发积分，产品包在入驻页核款。"
+                : "核对线下收款或积分扣款结果，登记品牌仓发货与物流纠正。"
+            }}
+          </p>
         </div>
         <span class="list-count">{{ visible.length }} 笔订单</span>
       </header>
@@ -410,7 +523,7 @@ function statusColor(value: string) {
         </div>
         <a-button html-type="button" @click="selected = null">收起</a-button>
       </header>
-      <p class="delivery-address">
+      <p v-if="selected.snapshot.address" class="delivery-address">
         {{ selected.snapshot.address.recipient }} ·
         {{ selected.snapshot.address.phone }} ·
         {{ selected.snapshot.address.province
@@ -419,79 +532,80 @@ function statusColor(value: string) {
         }}{{ selected.snapshot.address.detail }}
       </p>
       <section class="detail-section">
-        <h4>支付核查</h4>
+        <h4>收款与扣款记录</h4>
         <p>
-          订单：{{
-            paymentLabels[selected.payment_state] || selected.payment_state
-          }}　原商户单：{{
-            payment?.attempt?.number || "无微信尝试"
-          }}　渠道流水：{{
-            payment?.receipt?.transaction_id ||
-            payment?.attempt?.transactionId ||
-            "尚未确认"
+          应收：¥{{ money(selected.total_cents) }} ·
+          {{ paymentLabels[selected.payment_state] || selected.payment_state }}
+          ·
+          {{
+            selected.payment_method
+              ? methodNames[selected.payment_method] || selected.payment_method
+              : "待核实线下收款"
           }}
         </p>
-        <details v-if="payment?.attempt?.lastError" class="payment-history">
-          <summary>查看最近支付异常</summary>
-          <p>{{ payment.attempt.lastError }}</p>
-        </details>
-        <p>
-          支付返回确认中时，请查询原交易；需要关闭时，系统核实渠道结果后才释放库存。
+        <p v-if="payment?.receipt">
+          收款 / 扣款流水标识：{{
+            payment.receipt.transaction_id || "无外部流水"
+          }}
+          · 金额 ¥{{ money(payment.receipt.cents) }} · 实际到账 / 扣款时间：{{
+            payment.receipt.paid_at
+          }}
         </p>
-        <a-space wrap class="actions">
-          <a-button
-            html-type="button"
-            :disabled="busy"
-            @click="act(() => refreshPayment())"
-          >
-            查询原支付</a-button
-          ><a-button
-            html-type="button"
-            danger
-            :disabled="busy || selected.payment_state === 'paid'"
-            @click="openClose"
-          >
-            核查并关闭未付交易
-          </a-button>
-        </a-space>
-      </section>
-      <section class="detail-section">
+        <p v-else>
+          尚无已确认的收款或积分扣款记录。公司核实真实到账后才能发货。
+        </p>
+        <p v-if="selected.kind === 'package'">
+          产品包请在“产品包与入驻”中核款。
+        </p>
         <a-button
-          html-type="button"
+          v-if="canCollect"
           type="primary"
-          v-if="canShip"
           :disabled="busy"
-          @click="openShipment"
+          @click="openReceipt"
         >
-          登记品牌仓发货
+          登记普通订单线下收款
         </a-button>
-        <p v-else>当前订单不允许新增发货。</p>
       </section>
-      <section class="detail-section">
-        <h4>包裹与收货记录</h4>
-        <div v-for="s in selected.shipments" :key="s.id" class="parcel">
-          <div>
-            {{ s.carrier }} · {{ s.tracking
-            }}<small class="cell-note"
-              >出库 {{ s.shipped_at }} ·
-              {{
-                s.received_at ? "收货 " + s.received_at : "尚未确认收货"
-              }}</small
-            >
-          </div>
+      <template v-if="!props.financeOnly">
+        <section class="detail-section">
           <a-button
             html-type="button"
+            type="primary"
+            v-if="canShip"
             :disabled="busy"
-            @click="openCorrection(s)"
+            @click="openShipment"
+            >登记品牌仓发货</a-button
           >
-            纠正物流信息
-          </a-button>
-        </div>
-        <p v-if="!selected.shipments.length">尚未登记发货</p>
-      </section>
+          <p v-else>
+            当前订单不允许新增发货；未核款订单须先由财务核实实际到账。
+          </p>
+        </section>
+        <section class="detail-section">
+          <h4>包裹与收货记录</h4>
+          <div v-for="s in selected.shipments" :key="s.id" class="parcel">
+            <div>
+              {{ s.carrier }} · {{ s.tracking }}
+              <small class="cell-note"
+                >出库 {{ s.shipped_at }} ·
+                {{
+                  s.received_at ? "收货 " + s.received_at : "尚未确认收货"
+                }}</small
+              >
+            </div>
+            <a-button
+              html-type="button"
+              :disabled="busy"
+              @click="openCorrection(s)"
+            >
+              纠正物流信息
+            </a-button>
+          </div>
+          <p v-if="!selected.shipments.length">尚未登记发货</p>
+        </section>
+      </template>
       <details class="detail-section payment-evidence">
-        <summary>查看支付尝试、异常到账与补偿证据</summary>
-        <h4>支付尝试与异常到账依据</h4>
+        <summary>查看历史交易与核查记录（只读）</summary>
+        <h4>历史支付尝试与异常到账依据</h4>
         <div class="table-wrap">
           <a-table
             :columns="attemptColumns"
@@ -518,7 +632,7 @@ function statusColor(value: string) {
             ></a-table
           >
         </div>
-        <h4>支付事件与补偿证据</h4>
+        <h4>历史交易事件与核查证据</h4>
         <div class="table-wrap">
           <a-table
             :columns="eventColumns"
@@ -546,41 +660,87 @@ function statusColor(value: string) {
     </a-card>
     <AdminDialog
       v-if="selected && dialog"
-      :title="dialog === 'ship' ? '登记品牌仓发货' : '核查并关闭未付交易'"
+      :title="dialog === 'ship' ? '登记品牌仓发货' : '登记普通订单线下收款'"
       :busy="busy"
       :wide="dialog === 'ship'"
       @close="!busy && (dialog = '')"
     >
       <p>当前订单：{{ selected.number }}</p>
       <AdminForm
+        v-if="dialog === 'receipt'"
         class="dialog-fields"
-        v-if="dialog === 'close'"
-        @submit="
-          act(
-            () => refreshPayment(true),
-            '已提交关闭核查，请以当前支付状态为准',
-          )
-        "
+        @submit="collect"
       >
-        <p>系统核实渠道结果后才释放库存。</p>
+        <p>
+          原订单应收 ¥{{
+            money(selected.total_cents)
+          }}；仅在公司实际到账后核款，普通货款不发积分。
+        </p>
         <label class="field"
-          >操作原因<a-input
-            v-model:value="reason"
+          >到账货款（元）<a-input
+            v-model:value="receipt.amount"
+            pattern="[0-9]+([.][0-9]{1,2})?"
+            inputmode="decimal"
+            required
+            :disabled="busy"
+        /></label>
+        <label class="field"
+          >线下公司收款渠道<AdminSelect
+            v-model="receipt.sourceChannel"
+            :disabled="busy"
+          >
+            <option value="bank">公司银行账户</option>
+            <option value="wechat_company">公司微信收款（线下）</option>
+          </AdminSelect></label
+        >
+        <label class="field"
+          >收款账户标识<a-input
+            v-model:value="receipt.accountRef"
             required
             :maxlength="200"
             :disabled="busy"
         /></label>
+        <label class="field"
+          >原始流水号<a-input
+            v-model:value="receipt.externalTransactionId"
+            required
+            :maxlength="200"
+            :disabled="busy"
+        /></label>
+        <label class="field"
+          >实际到账时间<AdminDatePicker
+            v-model="receipt.receivedAt"
+            type="datetime-local"
+            required
+            :disabled="busy"
+        /></label>
+        <label class="field"
+          >凭证地址 / 归档编号<a-input
+            v-model:value="receipt.evidence"
+            required
+            :maxlength="1000"
+            :disabled="busy"
+        /></label>
+        <label class="field"
+          >核实说明<a-input
+            v-model:value="receipt.reason"
+            required
+            :maxlength="200"
+            :disabled="busy"
+        /></label>
+        <a-checkbox v-model:checked="receipt.verified" required :disabled="busy"
+          >我已核实公司实际到账</a-checkbox
+        >
         <div class="dialog-actions">
-          <a-button html-type="button" :disabled="busy" @click="dialog = ''">
-            取消
-          </a-button>
+          <a-button html-type="button" :disabled="busy" @click="dialog = ''"
+            >取消</a-button
+          >
           <a-button
             html-type="submit"
             type="primary"
-            danger
+            :disabled="busy || !receipt.verified"
             :loading="busy"
-            :disabled="busy"
-            >核查并关闭未付交易</a-button
+            >确认普通订单收款</a-button
           >
         </div>
       </AdminForm>

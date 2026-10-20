@@ -2,7 +2,7 @@
   <view class="settings-eyebrow">MY QINGXIN</view><view class="settings-title">个人设置</view>
   <view class="settings-card">
     <view class="settings-identity"><view class="settings-avatar">妍</view><view><view class="settings-name">{{user ? user.nickname : '欢迎，新朋友'}}</view><view class="settings-role">{{user ? user.identityName : '尚未登录'}}</view></view></view>
-    <view class="settings-help">{{!user ? '使用微信登录后，查看订单并保存你的联系方式。' : user.identity === 'D' ? '当前为游客身份，可直接微信付款购买商品。登录不会自动开通代理身份。' : '你的代理身份已生效，下单时使用对应身份价格，也可选择微信付款。'}}</view>
+    <view class="settings-help">{{!user ? '使用微信登录后，查看订单并保存你的联系方式。' : user.identity === 'D' ? '当前为游客身份，可下单后线下付款，财务核款后发货。登录不会自动开通代理身份。' : '你的代理身份已生效，下单使用对应身份价格，可线下付款或使用已有积分订货。'}}</view>
     <button wx:if="{{!user}}" class="settings-primary" bindtap="onLogin" loading="{{busy}}" disabled="{{busy}}">微信登录</button>
   </view>
   <view wx:if="{{user}}" class="settings-card">

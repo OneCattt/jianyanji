@@ -6,6 +6,11 @@ import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
+const purposeNames: Record<string, string> = {
+  points: "积分充值",
+  package: "入驻产品包",
+  order: "普通商品货款",
+};
 interface Receipt {
   id: number;
   user_id: number;
@@ -217,7 +222,7 @@ const receiptColumns = [
     </Teleport>
     <p class="admin-business-note">
       仅登记已核实的真实到账。1 元对应 1
-      积分，不赠送、不过期；产品包款请到入驻申请核款。
+      积分，不赠送、不过期。普通货款请到“普通订单收款”，产品包款请到入驻申请核款；两类货款均不发积分。
     </p>
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <div class="wallet-workspace">
@@ -366,7 +371,7 @@ const receiptColumns = [
                 >
                 <template v-else-if="column.key === 'c1'"
                   ><div class="table-cell-content">
-                    {{ r.purpose === "points" ? "订货积分" : "入驻产品包" }}
+                    {{ purposeNames[r.purpose] || r.purpose }}
                   </div></template
                 >
                 <template v-else-if="column.key === 'c2'"

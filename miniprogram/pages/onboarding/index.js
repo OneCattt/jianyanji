@@ -3,7 +3,7 @@ const { money } = require("../../utils/catalog");
 const key = () =>
   "onboard-" + Date.now() + "-" + Math.random().toString(36).slice(2);
 const states = {
-  submitted: "等待到账激活",
+  submitted: "待财务核款激活",
   approved: "身份已启用",
   rejected: "申请未通过",
   revoked: "本次身份已撤销",
@@ -168,22 +168,6 @@ Page({
         url: "/pages/order/index?id=" + this.data.current.order.id,
       });
   },
-  async payPackage() {
-    if (this.data.busy || !this.data.current) return;
-    this.setData({ busy: true, error: "" });
-    try {
-      const order = await request(
-        "/onboardings/" + this.data.current.id + "/order",
-        "POST",
-        {},
-      );
-      wx.navigateTo({ url: "/pages/order/index?id=" + order.id });
-    } catch (e) {
-      this.setData({ error: e.message });
-    } finally {
-      this.setData({ busy: false });
-    }
-  },
   async reconfirm() {
     if (this.data.busy || !this.data.current) return;
     this.setData({ busy: true, error: "" });
@@ -276,7 +260,7 @@ Page({
       });
       await this.onShow();
       this.setData({ showTransfer: true });
-      wx.showToast({ title: "申请已提交，待到账激活", icon: "none" });
+      wx.showToast({ title: "申请已提交，待财务核款", icon: "none" });
     } catch (e) {
       this.setData({ error: e.message });
     } finally {

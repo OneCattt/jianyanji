@@ -90,10 +90,10 @@ class AftersalesRefundPreflightTest {
     }
 
     @Test
-    void fullRefundWithRetainCannotReachWechatOrCreateLease() {
+    void disabledOnlineRefundCannotReachWechatOrCreateLease() {
         assertThrows(
                 BusinessException.class, () -> service.channel(11, obj("reason", "原路退货"), false));
-        verify(membership).assertRefundRevocable(order);
+        verifyNoInteractions(membership);
         verify(channel, never()).refund(any());
         verify(channel, never()).queryRefund(anyString());
         assertNoWrite();
@@ -132,15 +132,29 @@ class AftersalesRefundPreflightTest {
     }
 
     @Test
-    void partialRefundWithExplicitRevokeMustAlsoCheckBeforeWechat() {
+    void partialOfflineRefundWithExplicitRevokeChecksBeforeRecordingPayment() {
         refund.put("identity_decision", "revoke");
+        order.put("payment_method", "offline");
         when(db.one(
                         startsWith("SELECT COALESCE(SUM(total_cents),0) AS total FROM refunds"),
                         eq(21L)))
                 .thenReturn(obj("total", 0));
         assertThrows(
                 BusinessException.class,
-                () -> service.channel(11, obj("reason", "部分退货撤销身份"), false));
+                () ->
+                        service.offline(
+                                11,
+                                obj(
+                                        "recipient",
+                                        "本人",
+                                        "paidAt",
+                                        "2020-01-01T00:00:00Z",
+                                        "proof",
+                                        "原退款凭证",
+                                        "confirmed",
+                                        true,
+                                        "reason",
+                                        "部分退货撤销身份")));
         verify(membership).assertRefundRevocable(order);
         verify(channel, never()).refund(any());
         assertNoWrite();

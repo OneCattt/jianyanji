@@ -86,6 +86,21 @@ public class Access {
         return staff != null ? l(staff, "id") : user != null ? l(user, "id") : 0;
     }
 
+    /** 后台只读共用入口允许任一指定功能权限，写入仍由各自业务权限校验。 */
+    public ObjectNode staffAny(String... permissions) {
+        ObjectNode person = staff(null);
+        for (String permission : permissions)
+            if (list(parse(s(person, "permissions"))).stream()
+                    .anyMatch(n -> permission.equals(n.asText()))) return person;
+        audit(
+                "permission.denied",
+                "permission",
+                String.join(",", permissions),
+                "当前账号没有该功能权限",
+                "denied");
+        throw new BusinessException(403, "FORBIDDEN", "当前账号没有该功能权限");
+    }
+
     public void setIdentity(String kind, ObjectNode row) {
         request().setAttribute(kind, row);
     }

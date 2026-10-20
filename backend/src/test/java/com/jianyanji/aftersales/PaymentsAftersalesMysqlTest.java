@@ -695,176 +695,333 @@ class PaymentsAftersalesMysqlTest {
         assertRefundAccounting(orderId, 0, 0);
     }
 
-    /** 使用真实支付发起和服务端查单结算，不直接插入或修改收款凭据。 */
-    private ObjectNode paidWechatOrder() {
+    /** 真实普通订单线下核款输入，不直接插入支付凭据。 */
+    private ObjectNode receiptBody(long orderId) {
+        return obj(
+                "sourceChannel",
+                "bank",
+                "accountRef",
+                tracePrefix,
+                "externalTransactionId",
+                "ordinary-" + orderId,
+                "amountCents",
+                34600,
+                "receivedAt",
+                "2020-01-01T00:00:00Z",
+                "evidence",
+                "真实测试到账依据",
+                "reason",
+                "财务核实普通订单线下货款",
+                "verified",
+                true);
+    }
+
+    private ObjectNode refundProof(boolean confirmed) {
+        return obj(
+                "recipient",
+                "原付款人",
+                "paidAt",
+                "2020-01-01T00:00:00Z",
+                "proof",
+                "线下实际退款凭证",
+                "confirmed",
+                confirmed,
+                "reason",
+                "按原订单退款");
+    }
+
+    private ObjectNode paidOfflineOrder() {
         ObjectNode order = createOrder();
         long orderId = l(order, "id");
-        payments.start(orderId, user);
-        ObjectNode attempt =
-                db.one("SELECT * FROM payment_attempts WHERE order_id=? AND is_deleted=0", orderId);
-        channel.paid(s(attempt, "number"));
-        payments.query(orderId, userId);
+        attachRequest(true);
+        payments.confirmOfflineReceipt(orderId, receiptBody(orderId), staffId);
         assertEquals(16, sku("stock"));
         assertEquals(0, sku("reserved"));
-        attachRequest(true);
         registerReward(orderId);
         return orders.owned(orderId, null);
     }
 
     @Test
-    void wechatTimeoutKeepsOriginalRefundAndQueryCompletesRealCompensationOnce() {
+    void offlineRefundWaitsForActualPaymentAndOnlyReversesOnce() {
         credit();
-        ObjectNode order = paidWechatOrder();
+        ObjectNode order = paidOfflineOrder();
         long orderId = l(order, "id");
-        ObjectNode refund = requestRefund(refundBody(orderId, lineId(orderId), 1, 0));
-        long refundId = l(refund, "id");
+        long refundId = l(requestRefund(refundBody(orderId, lineId(orderId), 1, 0)), "id");
         approve(refundId);
-        channel.refundFailure = new BusinessException(502, "CHANNEL_ERROR", "测试模拟渠道已经退款但响应超时");
-        ObjectNode unknown = aftersales.channel(refundId, reason(), false);
-        assertEquals("unknown", s(unknown, "status"));
-        assertTrue(s(unknown, "last_error").contains(s(order, "number")));
-        assertTrue(s(unknown, "last_error").contains(tracePrefix));
+        assertThrows(
+                BusinessException.class, () -> aftersales.offline(refundId, refundProof(false)));
+        assertEquals("approved", s(aftersales.getRefund(refundId), "status"));
         assertEquals(1, l(line(orderId), "refund_held"));
-        assertEquals(0, l(line(orderId), "refunded_qty"));
-        assertEquals(100000, balance());
         assertRefundAccounting(orderId, 0, 0);
-        assertThrows(BusinessException.class, () -> aftersales.channel(refundId, reason(), false));
-        assertEquals("success", s(aftersales.channel(refundId, reason(), true), "status"));
-        aftersales.channel(refundId, reason(), true);
-        assertEquals(1, channel.refundCalls.get());
-        assertEquals(1, channel.refundQueries.get());
+        // 实际凭证可长于渠道编号字段，完整保存在 proof，线下退款不伪造渠道退款号。
+        String longProof = String.join("", java.util.Collections.nCopies(1000, "凭"));
+        ObjectNode actualRefund = refundProof(true).put("proof", longProof);
+        assertEquals("success", s(aftersales.offline(refundId, actualRefund), "status"));
+        aftersales.offline(refundId, actualRefund);
+        assertEquals(longProof, s(aftersales.getRefund(refundId), "proof"));
+        assertFalse(has(aftersales.getRefund(refundId), "channel_ref"));
         assertEquals(1, l(line(orderId), "refunded_qty"));
         assertEquals(0, l(line(orderId), "refund_held"));
         assertEquals(100000, balance());
         assertRefundAccounting(orderId, 0, 4200);
         assertEquals(
+                8400,
+                l(
+                        db.one(
+                                "SELECT cash_refunded_cents FROM company_receipts WHERE order_id=? AND is_deleted=0",
+                                orderId),
+                        "cash_refunded_cents"));
+        assertEquals(
                 1,
                 count(
                         "SELECT COUNT(*) AS n FROM reward_reversals WHERE refund_id=? AND is_deleted=0",
                         refundId));
-        assertFalse(has(aftersales.getRefund(refundId), "channel_token"));
+        assertEquals(0, channel.refundCalls.get());
+        assertEquals(0, channel.refundQueries.get());
     }
 
     @Test
-    void wrongWechatAmountCannotSettleAndVerifiedQueryRecoversWithoutDuplicateStock() {
+    void wrongOfflineAmountCannotSettleAndOriginalReceiptCannotBeReused() {
         ObjectNode order = createOrder();
         long orderId = l(order, "id");
-        payments.start(orderId, user);
-        ObjectNode attempt =
-                db.one("SELECT * FROM payment_attempts WHERE order_id=? AND is_deleted=0", orderId);
-        String number = s(attempt, "number");
-        channel.paid(number);
-        ((ObjectNode) channel.trades.get(number).get("amount")).put("total", 34599);
-        assertEquals(
-                "PAYMENT_MISMATCH",
-                assertThrows(BusinessException.class, () -> payments.query(orderId, userId))
-                        .getCode());
-        assertEquals("unknown", s(orders.owned(orderId, null), "payment_state"));
+        attachRequest(true);
+        assertThrows(
+                BusinessException.class,
+                () ->
+                        payments.confirmOfflineReceipt(
+                                orderId, receiptBody(orderId).put("amountCents", 34599), staffId));
+        assertEquals("unpaid", s(orders.owned(orderId, null), "payment_state"));
         assertEquals(20, sku("stock"));
         assertEquals(4, sku("reserved"));
         assertEquals(
                 0,
                 count(
-                        "SELECT COUNT(*) AS n FROM payments WHERE order_id=? AND is_deleted=0",
+                        "SELECT COUNT(*) AS n FROM company_receipts WHERE order_id=? AND is_deleted=0",
                         orderId));
-        assertEquals(
-                1,
-                count(
-                        "SELECT COUNT(*) AS n FROM payment_events WHERE order_id=? AND result='failure' AND request_id LIKE ? AND is_deleted=0",
-                        orderId,
-                        tracePrefix + "%"));
-        ((ObjectNode) channel.trades.get(number).get("amount")).put("total", 34600);
-        payments.query(orderId, userId);
-        payments.query(orderId, userId);
-        assertEquals("paid", s(orders.owned(orderId, null), "payment_state"));
+        payments.confirmOfflineReceipt(orderId, receiptBody(orderId), staffId);
+        assertTrue(
+                b(
+                        payments.confirmOfflineReceipt(orderId, receiptBody(orderId), staffId),
+                        "alreadyPaid"));
+        assertThrows(
+                BusinessException.class,
+                () ->
+                        payments.confirmOfflineReceipt(
+                                orderId,
+                                receiptBody(orderId).put("externalTransactionId", "another"),
+                                staffId));
         assertEquals(16, sku("stock"));
         assertEquals(0, sku("reserved"));
+        assertEquals(0, balance());
         assertEquals(
                 1,
                 count(
                         "SELECT COUNT(*) AS n FROM payments WHERE order_id=? AND is_deleted=0",
                         orderId));
-        assertTrue(
-                has(
-                        db.one(
-                                "SELECT verified_trade FROM payment_attempts WHERE order_id=? AND is_deleted=0",
-                                orderId),
-                        "verified_trade"));
+        assertEquals(staffId, l(orders.owned(orderId, null), "update_user_id"));
+        ObjectNode second = createAnotherOrder();
+        long secondId = l(second, "id");
+        assertEquals(
+                "RECEIPT_ALREADY_USED",
+                assertThrows(
+                                BusinessException.class,
+                                () ->
+                                        payments.confirmOfflineReceipt(
+                                                secondId, receiptBody(orderId), staffId))
+                        .getCode());
+        assertEquals("unpaid", s(orders.owned(secondId, null), "payment_state"));
+        assertEquals(16, sku("stock"));
+        assertEquals(4, sku("reserved"));
     }
 
     @Test
-    void liveRefundLeasePreventsConcurrentQueryWhileNetworkIsOutsideTransaction() throws Exception {
-        ObjectNode order = paidWechatOrder();
+    void receiptReferenceLengthsMatchActualMysqlColumns() {
+        ObjectNode order = createOrder();
         long orderId = l(order, "id");
-        long refundId = l(requestRefund(refundBody(orderId, lineId(orderId), 1, 0)), "id");
-        approve(refundId);
-        channel.refundEntered = new CountDownLatch(1);
-        channel.refundContinue = new CountDownLatch(1);
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        try {
-            Future<ObjectNode> first =
-                    executor.submit(
-                            () -> inRequest(() -> aftersales.channel(refundId, reason(), false)));
-            assertTrue(channel.refundEntered.await(5, TimeUnit.SECONDS));
-            assertTrue(has(aftersales.getRefund(refundId), "channel_token"));
-            assertThrows(
-                    BusinessException.class, () -> aftersales.channel(refundId, reason(), true));
-            assertEquals(0, channel.refundQueries.get());
-            channel.refundContinue.countDown();
-            assertEquals("success", s(first.get(10, TimeUnit.SECONDS), "status"));
+        attachRequest(true);
+        String reference =
+                tracePrefix
+                        + String.join(
+                                "", java.util.Collections.nCopies(200 - tracePrefix.length(), "号"));
+        ObjectNode body =
+                receiptBody(orderId)
+                        .put("accountRef", reference)
+                        .put("externalTransactionId", reference);
+        for (String field : new String[] {"accountRef", "externalTransactionId"}) {
             assertEquals(
-                    1,
-                    count(
-                            "SELECT COUNT(*) AS n FROM reward_reversals WHERE refund_id=? AND is_deleted=0",
-                            refundId));
-        } finally {
-            channel.refundContinue.countDown();
-            executor.shutdownNow();
-            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+                    400,
+                    assertThrows(
+                                    BusinessException.class,
+                                    () ->
+                                            payments.confirmOfflineReceipt(
+                                                    orderId,
+                                                    body.deepCopy().put(field, reference + "号"),
+                                                    staffId))
+                            .getStatus());
         }
+        assertEquals("unpaid", s(orders.owned(orderId, null), "payment_state"));
+        assertEquals(20, sku("stock"));
+        ObjectNode receipt =
+                (ObjectNode) payments.confirmOfflineReceipt(orderId, body, staffId).path("receipt");
+        assertEquals(reference, s(receipt, "account_ref"));
+        assertEquals(reference, s(receipt, "external_transaction_id"));
+        assertEquals("paid", s(orders.owned(orderId, null), "payment_state"));
+        assertEquals(16, sku("stock"));
+    }
+
+    private ObjectNode createAnotherOrder() {
+        attachRequest(false);
+        ObjectNode quote =
+                orders.quote(
+                        obj(
+                                "addressId",
+                                addressId,
+                                "items",
+                                arr(obj("skuId", skuId, "quantity", 4))),
+                        user);
+        return orders.create(obj("quoteId", l(quote, "id"), "requestKey", id()), user);
     }
 
     @Test
-    void expiredLeaseCanQueryOriginalRefundAndLateFailureCannotOverwriteSuccess() throws Exception {
-        ObjectNode order = paidWechatOrder();
+    void concurrentOfflineReceiptsAndRefundsProduceOneFinancialResult() throws Exception {
+        ObjectNode order = createOrder();
         long orderId = l(order, "id");
-        long refundId = l(requestRefund(refundBody(orderId, lineId(orderId), 1, 0)), "id");
-        approve(refundId);
-        channel.refundEntered = new CountDownLatch(1);
-        channel.refundContinue = new CountDownLatch(1);
-        channel.refundFailure = new BusinessException(502, "CHANNEL_ERROR", "旧请求迟到的超时响应");
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             Future<ObjectNode> first =
                     executor.submit(
-                            () -> inRequest(() -> aftersales.channel(refundId, reason(), false)));
-            assertTrue(channel.refundEntered.await(5, TimeUnit.SECONDS));
-            db.tx(
-                    () ->
-                            db.update(
-                                    "UPDATE refunds SET channel_until=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
-                                    Instant.now().minusSeconds(1).toString(),
-                                    staffId,
-                                    refundId));
-            assertEquals("success", s(aftersales.channel(refundId, reason(), true), "status"));
-            channel.refundContinue.countDown();
-            assertEquals("success", s(first.get(10, TimeUnit.SECONDS), "status"));
-            ObjectNode stored = aftersales.getRefund(refundId);
-            assertEquals("success", s(stored, "status"));
-            assertEquals("", s(stored, "last_error"));
-            assertFalse(has(stored, "channel_token"));
-            assertEquals(1, l(line(orderId), "refunded_qty"));
+                            () ->
+                                    inRequest(
+                                            () ->
+                                                    payments.confirmOfflineReceipt(
+                                                            orderId,
+                                                            receiptBody(orderId),
+                                                            staffId)));
+            Future<ObjectNode> second =
+                    executor.submit(
+                            () ->
+                                    inRequest(
+                                            () ->
+                                                    payments.confirmOfflineReceipt(
+                                                            orderId,
+                                                            receiptBody(orderId),
+                                                            staffId)));
+            assertNotEquals(
+                    b(first.get(10, TimeUnit.SECONDS), "alreadyPaid"),
+                    b(second.get(10, TimeUnit.SECONDS), "alreadyPaid"));
+            assertEquals(16, sku("stock"));
+            assertEquals(0, sku("reserved"));
+            assertEquals(
+                    1,
+                    count(
+                            "SELECT COUNT(*) AS n FROM company_receipts WHERE order_id=? AND is_deleted=0",
+                            orderId));
+            attachRequest(true);
+            registerReward(orderId);
+            long refundId = l(requestRefund(refundBody(orderId, lineId(orderId), 1, 0)), "id");
+            approve(refundId);
+            Future<ObjectNode> one =
+                    executor.submit(
+                            () -> inRequest(() -> aftersales.offline(refundId, refundProof(true))));
+            Future<ObjectNode> two =
+                    executor.submit(
+                            () -> inRequest(() -> aftersales.offline(refundId, refundProof(true))));
+            assertEquals("success", s(one.get(10, TimeUnit.SECONDS), "status"));
+            assertEquals("success", s(two.get(10, TimeUnit.SECONDS), "status"));
             assertEquals(
                     1,
                     count(
                             "SELECT COUNT(*) AS n FROM reward_reversals WHERE refund_id=? AND is_deleted=0",
                             refundId));
+            assertEquals(1, l(line(orderId), "refunded_qty"));
             assertRefundAccounting(orderId, 0, 4200);
         } finally {
-            channel.refundContinue.countDown();
             executor.shutdownNow();
             assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
         }
+    }
+
+    @Test
+    void offlineRefundFailureRollsBackReceiptProofQuantityAndRewardsThenRetries() {
+        ObjectNode order = paidOfflineOrder();
+        long orderId = l(order, "id");
+        long refundId = l(requestRefund(refundBody(orderId, lineId(orderId), 1, 0)), "id");
+        approve(refundId);
+        String original = s(aftersales.getRefund(refundId), "lines");
+        JsonNode corrupt = parse(original);
+        ((ObjectNode) corrupt.get(0)).put("principalCents", 7000);
+        db.tx(
+                () ->
+                        db.update(
+                                "UPDATE refunds SET \u0060lines\u0060=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                                stringify(corrupt),
+                                staffId,
+                                refundId));
+        assertThrows(
+                BusinessException.class, () -> aftersales.offline(refundId, refundProof(true)));
+        assertEquals("approved", s(aftersales.getRefund(refundId), "status"));
+        assertFalse(has(aftersales.getRefund(refundId), "proof"));
+        assertEquals(0, l(line(orderId), "refunded_qty"));
+        assertEquals(1, l(line(orderId), "refund_held"));
+        assertEquals(
+                0,
+                l(
+                        db.one(
+                                "SELECT cash_refunded_cents FROM company_receipts WHERE order_id=? AND is_deleted=0",
+                                orderId),
+                        "cash_refunded_cents"));
+        assertRefundAccounting(orderId, 0, 0);
+        db.tx(
+                () ->
+                        db.update(
+                                "UPDATE refunds SET \u0060lines\u0060=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                                original,
+                                staffId,
+                                refundId));
+        aftersales.offline(refundId, refundProof(true));
+        aftersales.offline(refundId, refundProof(true));
+        assertRefundAccounting(orderId, 0, 4200);
+        assertEquals(
+                8400,
+                l(
+                        db.one(
+                                "SELECT cash_refunded_cents FROM company_receipts WHERE order_id=? AND is_deleted=0",
+                                orderId),
+                        "cash_refunded_cents"));
+    }
+
+    @Test
+    void historicalUnknownTradeCannotBeReplacedWithNewOfflineReceipt() {
+        ObjectNode order = createOrder();
+        long orderId = l(order, "id");
+        db.tx(
+                () -> {
+                    db.update(
+                            "UPDATE orders SET payment_method='wechat',payment_state='unknown',update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                            staffId,
+                            orderId);
+                    db.insert(
+                            "INSERT INTO payment_attempts(order_id,number,state,app_id,mch_id,cents,openid,last_request_id,create_user_id,update_user_id) VALUES(?,?,'unknown','app','merchant',34600,?,?,?,?)",
+                            orderId,
+                            id(),
+                            s(user, "openid"),
+                            tracePrefix,
+                            staffId,
+                            staffId);
+                });
+        attachRequest(true);
+        assertThrows(
+                BusinessException.class,
+                () -> payments.confirmOfflineReceipt(orderId, receiptBody(orderId), staffId));
+        payments.reconcile();
+        assertEquals("unknown", s(orders.owned(orderId, null), "payment_state"));
+        assertEquals(
+                0,
+                count(
+                        "SELECT COUNT(*) AS n FROM company_receipts WHERE order_id=? AND is_deleted=0",
+                        orderId));
+        assertEquals(4, sku("reserved"));
+        assertEquals(20, sku("stock"));
     }
 
     /** 显式测试渠道：只模拟微信网络，不替换真实金额核对、持久租约、事务及跨域补偿。 */

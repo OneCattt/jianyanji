@@ -11,7 +11,7 @@ function decorate(order) {
   );
   const locked = !paid && !["unpaid", "failed"].includes(order.payment_state);
   const labels = {
-    pending: "待付款",
+    pending: "待核款",
     paid: "待发货",
     awaiting_shipment: "待发货",
     shipped: "运输中",
@@ -19,14 +19,11 @@ function decorate(order) {
     closed: "已关闭",
     refunded: "已退款",
   };
-  const failed = order.status === "pending" && order.payment_state === "failed";
   const stateText = locked
-    ? "支付确认中"
-    : failed
-      ? "支付失败，待付款"
-      : order.payment_state === "refunded"
-        ? "已退款"
-        : labels[order.status] || "处理中";
+    ? "原交易待核查"
+    : order.payment_state === "refunded"
+      ? "已退款"
+      : labels[order.status] || "处理中";
   const amount = (cents) =>
     order.payment_method === "points"
       ? format(cents) + " 积分"
@@ -38,25 +35,39 @@ function decorate(order) {
     paid,
     locked,
     canPay: order.status === "pending" && !locked && !paid,
+    receiptText:
+      order.payment_state === "refunded"
+        ? "已退款"
+        : paid
+          ? order.payment_method === "points"
+            ? "积分已扣减"
+            : "已核款"
+          : locked
+            ? "待核查"
+            : order.status === "closed"
+              ? "已关闭"
+              : "待核款",
     amountText: amount(order.total_cents),
     goodsText: amount(order.goods_cents),
     shippingText: amount(order.shipping_cents),
     methodText:
       {
-        wechat: "微信支付",
+        wechat: "历史微信付款",
         points: "积分钱包",
         offline: "公司转款",
         company: "公司转款",
-      }[order.payment_method] || "尚未支付",
+      }[order.payment_method] || "线下付款",
     count: (snapshot.lines || []).reduce((n, l) => n + l.quantity, 0),
     displayLines: (snapshot.lines || []).map((line) => ({
       ...line,
       priceText: amount(line.unitCents),
     })),
     hint: locked
-      ? "原交易结果待确认，请查询原支付结果"
-      : failed
-        ? "上次支付已结束，可继续付款或取消订单"
+      ? "请联系品牌方核实原交易，结果确认前请勿重复转款"
+      : order.payment_state === "refunded"
+        ? order.payment_method === "points"
+          ? "退款积分已退回原批次"
+          : "现金退款已由财务线下办理并登记"
         : order.status === "paid" || order.status === "awaiting_shipment"
           ? "品牌仓正在配货"
           : order.status === "shipped"
@@ -65,7 +76,9 @@ function decorate(order) {
               ? "订单已确认收货，感谢你的信任"
               : order.status === "closed"
                 ? "订单已关闭，预占库存已释放"
-                : "请在有效期内完成付款",
+                : order.kind === "package"
+                  ? "产品包请线下转款并联系财务核款，核实到账后激活身份"
+                  : "请按订单号线下付款并联系财务核款；代理也可使用已有积分订货",
     createdText: dateText(order.create_time),
     receivedText: dateText(order.received_at),
   };

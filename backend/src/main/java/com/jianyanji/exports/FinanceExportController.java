@@ -35,7 +35,7 @@ public class FinanceExportController {
                 table = "company_receipts";
                 permission = "finance:manage";
                 columns =
-                        "id,user_id,purpose,onboarding_id,amount_cents,cash_refunded_cents,cash_held_cents,received_at,confirmed_at";
+                        "id,user_id,purpose,onboarding_id,order_id,amount_cents,cash_refunded_cents,cash_held_cents,received_at,confirmed_at";
                 break;
             case "payments":
                 table = "payments";

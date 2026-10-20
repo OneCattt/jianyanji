@@ -1,5 +1,7 @@
 # Java 首期迁移共同约定
 
+> 2026-10-20 后续业务范围已调整为 V2.1：首期所有实际资金收付在线下办理，新增普通订单财务核款，线上支付动作统一拒绝、渠道定时核查停用。当前合同以 [线下交易实施说明](../docs/development/v2-offline-transactions.md)及 V2.1 为准，下方保留旧迁移约定供追溯，不能据此重新开放微信支付。
+
 现有 Node `server/*.ts` 是行为基准，保留所有 `/api` 路径、HTTP 状态、字段名、权限、业务校验及幂等。只迁移实现，不删除现有功能。Vue 与小程序不改接口。
 
 - Java 8 / Spring Boot 2.7.18 / Maven / MySQL 8，包 `com.jianyanji`。各业务包使用 `@RestController` + `@Service`，构造注入。循环依赖使用 `@Lazy` 参数，禁止开启全局循环依赖。

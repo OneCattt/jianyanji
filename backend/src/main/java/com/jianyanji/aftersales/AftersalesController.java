@@ -36,7 +36,7 @@ public class AftersalesController {
 
     @GetMapping("/api/admin/refunds")
     public Object adminRefunds() {
-        access.staff("orders:manage");
+        access.staffAny("orders:manage", "finance:manage");
         return aftersales.listRefunds(null);
     }
 

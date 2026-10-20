@@ -869,13 +869,13 @@ const debtColumns = [
           >
           <a-descriptions-item
             v-if="basis.snapshot.paymentMethod"
-            label="原支付方式"
+            label="原付款方式"
             >{{
               basis.snapshot.paymentMethod === "points"
                 ? "积分"
                 : basis.snapshot.paymentMethod === "wechat"
-                  ? "微信"
-                  : "公司转款"
+                  ? "历史微信支付"
+                  : "线下付款"
             }}</a-descriptions-item
           >
         </a-descriptions>

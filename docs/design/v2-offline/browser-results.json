@@ -1,0 +1,132 @@
+{
+  "environment": {
+    "frontend": "http://127.0.0.1:5175",
+    "backend": "http://127.0.0.1:3104",
+    "isolated": true
+  },
+  "orderId": 63,
+  "orderNumber": "JY202610202b15726498e544df",
+  "totalCents": 24500,
+  "simulatedFundsOnly": true,
+  "cashActuallyTransferred": false,
+  "api": [
+    {
+      "actor": "fixture-admin",
+      "method": "GET",
+      "path": "/api/admin/orders/63/payment",
+      "status": 200
+    },
+    {
+      "actor": "finance-only-browser",
+      "method": "POST",
+      "path": "/api/admin/login",
+      "status": 200
+    },
+    {
+      "actor": "finance-only-browser",
+      "method": "POST",
+      "path": "/api/admin/orders/63/receipt",
+      "status": 200
+    },
+    {
+      "actor": "fixture-admin",
+      "method": "GET",
+      "path": "/api/admin/orders/63/payment",
+      "status": 200
+    },
+    {
+      "actor": "fixture-admin",
+      "method": "POST",
+      "path": "/api/admin/refunds",
+      "status": 403
+    },
+    {
+      "actor": "finance-only-browser",
+      "method": "POST",
+      "path": "/api/admin/login",
+      "status": 200
+    },
+    {
+      "actor": "fixture-admin",
+      "method": "GET",
+      "path": "/api/admin/orders/63/payment",
+      "status": 200
+    },
+    {
+      "actor": "fixture-admin",
+      "method": "POST",
+      "path": "/api/admin/refunds",
+      "status": 200
+    },
+    {
+      "actor": "fixture-admin",
+      "method": "POST",
+      "path": "/api/admin/refunds/26/review",
+      "status": 200
+    },
+    {
+      "actor": "finance-only-browser",
+      "method": "POST",
+      "path": "/api/admin/refunds/26/offline",
+      "status": 200
+    },
+    {
+      "actor": "fixture-admin",
+      "method": "GET",
+      "path": "/api/admin/orders/63/payment",
+      "status": 200
+    }
+  ],
+  "screenshots": [
+    "01-finance-null-order.png",
+    "02-receipt-unchecked-disabled.png",
+    "08-final-order-stable.png",
+    "09-final-refund-stable.png"
+  ],
+  "checks": {
+    "actualInitialNullPaymentMethod": true,
+    "financePermissions": [
+      "finance:manage"
+    ],
+    "nullOrderReceiptButtonVisible": true,
+    "uncheckedVerifiedNoPost": true,
+    "receiptPostCount": 1,
+    "refundRequiresExplicitConfirmation": true,
+    "noWechatOperationButtons": true,
+    "finalRefundedQuantity": 1,
+    "stableFinalScreenshotsWithoutSpinner": true
+  },
+  "status": "passed",
+  "receipt": {
+    "orderStatus": "paid",
+    "paymentState": "paid",
+    "paymentMethod": "offline",
+    "alreadyPaid": false,
+    "receiptId": 39,
+    "amountCents": 24500
+  },
+  "createdRefundId": 26,
+  "refund": {
+    "id": 26,
+    "number": "RF275a856054d341778083f853e9f0bb29",
+    "amountCents": 12000,
+    "quantity": 1,
+    "status": "success"
+  },
+  "verification": {
+    "typecheck": "passed",
+    "webDiffWhitespace": "passed",
+    "fullBuildRun": false,
+    "mavenRun": false,
+    "original3100Or5173Accessed": false
+  },
+  "scriptIssuesResolved": [
+    "Date picker is readonly; selected date and time with real popup controls",
+    "Admin POST lacked Origin; with Origin http://127.0.0.1:3104 refund create and review returned 200"
+  ],
+  "notes": [
+    "All transfers are simulated in an isolated test database; no real cash moved.",
+    "The initial refund setup request lacked the Origin header and was rejected with 403; the corrected same-origin request passed.",
+    "Browser evidence predates the final length validation fix; that fix is covered by the final MySQL suite."
+  ]
+}

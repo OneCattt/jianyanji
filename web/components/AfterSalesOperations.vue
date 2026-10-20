@@ -6,7 +6,10 @@ import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
-const props = defineProps<{ canFinance: boolean }>();
+const props = withDefaults(
+  defineProps<{ canFinance: boolean; canManage?: boolean }>(),
+  { canManage: true },
+);
 const orders = ref<any[]>([]),
   refunds = ref<any[]>([]),
   busy = ref(false),
@@ -67,7 +70,7 @@ const names: Record<string, string> = {
   approved: "已通过待退款",
   processing: "退款处理中",
   unknown: "结果待核查",
-  failed: "渠道失败待处理",
+  failed: "退款失败待处理",
   rejected: "已驳回",
   success: "实际退款完成",
 };
@@ -82,8 +85,10 @@ async function load() {
     api<any[]>("/admin/orders"),
     api<any[]>("/admin/refunds"),
   ]);
-  const p = await api<any>("/admin/aftersales-settings");
-  if (p) policy.value = p;
+  if (props.canManage) {
+    const p = await api<any>("/admin/aftersales-settings");
+    if (p) policy.value = p;
+  }
 }
 onMounted(() => run(load));
 async function run(work: () => Promise<any>, message = "") {
@@ -156,44 +161,91 @@ function open(r: any, key: string) {
   paidAt.value = "";
   inspection.value = "";
   restock.value = false;
+  decision.value = "retain";
+}
+function refundMethod(refund: any): string | undefined {
+  return orders.value.find((order) => order.id === refund.order_id)
+    ?.payment_method;
+}
+async function loadRefundOrder(refund: any) {
+  await run(async () => {
+    const { order } = await api<{ order: any }>(
+      `/admin/orders/${refund.order_id}/payment`,
+    );
+    orders.value = [
+      ...orders.value.filter((value) => value.id !== order.id),
+      order,
+    ];
+  });
+}
+function awaitingInspection(refund: any): boolean {
+  return (
+    !refund.returned_at &&
+    refund.lines.some((line: any) => line.returnQuantity > 0)
+  );
+}
+function canRefund(refund: any, method: "offline" | "points") {
+  return (
+    props.canFinance &&
+    ["approved", "failed"].includes(refund.status) &&
+    !awaitingInspection(refund) &&
+    refundMethod(refund) === method
+  );
 }
 async function submit() {
-  const querying = action.value === "query";
-  await run(
-    async () => {
-      const id = selected.value.id;
-      let body: any = { reason: reason.value };
-      let endpoint = action.value;
-      if (action.value === "approve" || action.value === "reject") {
-        endpoint = "review";
-        body = {
-          ...body,
-          approve: action.value === "approve",
-          identityDecision:
-            selected.value.kind === "package" ? decision.value : null,
-        };
-      }
-      if (action.value === "inspect")
-        body = {
-          ...body,
-          returnedAt: new Date(paidAt.value).toISOString(),
-          inspection: inspection.value,
-          restock: restock.value,
-        };
-      if (action.value === "offline")
-        body = {
-          ...body,
-          recipient: recipient.value,
-          paidAt: new Date(paidAt.value).toISOString(),
-          proof: proof.value,
-          confirmed: confirmed.value,
-        };
-      await api(`/admin/refunds/${id}/${endpoint}`, { method: "POST", body });
-      action.value = "";
-      if (querying) await load();
-    },
-    querying ? "" : "售后处理记录已保存，请查看当前退款状态",
-  );
+  await run(async () => {
+    const id = selected.value.id;
+    if (
+      ["offline", "points"].includes(action.value) &&
+      !canRefund(selected.value, action.value as "offline" | "points")
+    )
+      throw new Error("请核对原订单付款方式和退款状态后重新办理");
+    if (
+      ["approve", "reject", "inspect"].includes(action.value) &&
+      !props.canManage
+    )
+      throw new Error("当前账号没有售后审核或验收权限");
+    if (action.value === "offline") {
+      const time = new Date(paidAt.value).getTime();
+      if (!Number.isFinite(time) || time >= Date.now())
+        throw new Error("实际退款时间须为过去的有效时间");
+      if (!confirmed.value) throw new Error("请确认公司已经实际退款");
+      if (
+        ![recipient.value, proof.value, reason.value].every((value) =>
+          value.trim(),
+        )
+      )
+        throw new Error("请完整填写实际收款人、转账凭证和处理原因");
+    }
+    let body: any = { reason: reason.value };
+    let endpoint = action.value;
+    if (action.value === "approve" || action.value === "reject") {
+      endpoint = "review";
+      body = {
+        ...body,
+        approve: action.value === "approve",
+        identityDecision:
+          selected.value.kind === "package" ? decision.value : null,
+      };
+    }
+    if (action.value === "inspect")
+      body = {
+        ...body,
+        returnedAt: new Date(paidAt.value).toISOString(),
+        inspection: inspection.value,
+        restock: restock.value,
+      };
+    if (action.value === "offline")
+      body = {
+        ...body,
+        recipient: recipient.value,
+        paidAt: new Date(paidAt.value).toISOString(),
+        proof: proof.value,
+        confirmed: confirmed.value,
+      };
+    await api(`/admin/refunds/${id}/${endpoint}`, { method: "POST", body });
+    action.value = "";
+  }, "售后处理记录已保存，请查看当前退款状态");
 }
 
 function statusColor(value: string) {
@@ -261,16 +313,14 @@ const actionNames: Record<string, string> = {
   approve: "审核同意售后",
   reject: "驳回售后申请",
   inspect: "登记实际退货验收",
-  offline: "登记产品包实际线下退款",
-  wechat: "原微信退款",
+  offline: "登记实际线下退款",
   points: "退回原积分",
-  query: "查询原微信退款",
 };
 </script>
 <template>
   <section class="aftersales" :aria-busy="busy">
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
-    <div class="setup-panels">
+    <div v-if="props.canManage" class="setup-panels">
       <a-card size="small" class="setup-panel">
         <div class="section-heading">
           <h3>售后政策</h3>
@@ -303,7 +353,12 @@ const actionNames: Record<string, string> = {
     </div>
     <a-card size="small" class="refund-list">
       <header class="section-heading">
-        <h3>售后处理记录</h3>
+        <div>
+          <h3>{{ props.canManage ? "售后处理记录" : "订单退款登记" }}</h3>
+          <p>
+            现金由财务在线下退还后登记；积分订单退回原积分。审核通过不代表实际退款完成。
+          </p>
+        </div>
         <span class="list-count">{{ filteredRefunds.length }} 笔记录</span>
       </header>
 
@@ -365,7 +420,7 @@ const actionNames: Record<string, string> = {
                 html-type="button"
                 size="small"
                 :disabled="busy"
-                v-if="r.status === 'requested'"
+                v-if="props.canManage && r.status === 'requested'"
                 type="primary"
                 @click="open(r, 'approve')"
               >
@@ -374,7 +429,7 @@ const actionNames: Record<string, string> = {
                 html-type="button"
                 size="small"
                 :disabled="busy"
-                v-if="r.status === 'requested'"
+                v-if="props.canManage && r.status === 'requested'"
                 danger
                 @click="open(r, 'reject')"
               >
@@ -384,6 +439,7 @@ const actionNames: Record<string, string> = {
                 size="small"
                 :disabled="busy"
                 v-if="
+                  props.canManage &&
                   r.status !== 'requested' &&
                   r.status !== 'rejected' &&
                   !r.returned_at &&
@@ -392,45 +448,54 @@ const actionNames: Record<string, string> = {
                 @click="open(r, 'inspect')"
               >
                 登记实际退货验收</a-button
-              ><template
-                v-if="
-                  props.canFinance && ['approved', 'failed'].includes(r.status)
-                "
-                ><a-button
-                  html-type="button"
-                  size="small"
-                  :disabled="busy"
-                  @click="open(r, 'wechat')"
-                >
-                  原微信退款</a-button
-                ><a-button
-                  html-type="button"
-                  size="small"
-                  :disabled="busy"
-                  @click="open(r, 'points')"
-                >
-                  退回原积分</a-button
-                ><a-button
-                  html-type="button"
-                  size="small"
-                  :disabled="busy"
-                  v-if="r.kind === 'package'"
-                  @click="open(r, 'offline')"
-                >
-                  登记产品包实际线下退款
-                </a-button></template
               ><a-button
                 html-type="button"
                 size="small"
                 :disabled="busy"
+                v-if="canRefund(r, 'points')"
+                @click="open(r, 'points')"
+              >
+                退回原积分 </a-button
+              ><a-button
+                html-type="button"
+                size="small"
+                :disabled="busy"
+                v-if="canRefund(r, 'offline')"
+                @click="open(r, 'offline')"
+              >
+                登记实际线下退款
+              </a-button>
+              <a-button
                 v-if="
                   props.canFinance &&
-                  ['processing', 'unknown', 'failed'].includes(r.status)
+                  ['approved', 'failed'].includes(r.status) &&
+                  refundMethod(r) === undefined
                 "
-                @click="open(r, 'query')"
+                html-type="button"
+                size="small"
+                :disabled="busy"
+                @click="loadRefundOrder(r)"
+                >核对原订单付款方式</a-button
               >
-                查询原微信退款
-              </a-button>
+              <small
+                v-if="
+                  props.canFinance &&
+                  ['approved', 'failed', 'processing', 'unknown'].includes(
+                    r.status,
+                  ) &&
+                  !canRefund(r, 'offline') &&
+                  !canRefund(r, 'points')
+                "
+                class="cell-note"
+              >
+                {{
+                  awaitingInspection(r)
+                    ? "请先由客服登记实际退货验收，再办理退款。"
+                    : ["processing", "unknown"].includes(r.status)
+                      ? "历史退款结果待核实，请先核对实际退款记录。"
+                      : "请核对原订单付款记录；历史交易须先核实处理依据。"
+                }}
+              </small>
             </a-space></template
           >
         </template>
@@ -508,7 +573,9 @@ const actionNames: Record<string, string> = {
             >
               <option :value="0" disabled>选择已付款订单</option>
               <option
-                v-for="o in orders.filter((o) => o.payment_state === 'paid')"
+                v-for="o in orders.filter((o) =>
+                  ['paid', 'partially_refunded'].includes(o.payment_state),
+                )"
                 :key="o.id"
                 :value="o.id"
               >
@@ -634,7 +701,10 @@ const actionNames: Record<string, string> = {
             >实际验货确认可重新销售并回库存</a-checkbox
           ></template
         ><template v-if="action === 'offline'"
-          ><label class="field"
+          ><p class="wide-field">
+            请先在线下完成本次退款，再登记真实收款人、付款时间和凭证；保存成功后才确认退款并联动资格及奖励。
+          </p>
+          <label class="field"
             >实际收款人<a-input
               v-model:value="recipient"
               required
@@ -671,7 +741,7 @@ const actionNames: Record<string, string> = {
           <a-button
             html-type="submit"
             type="primary"
-            :disabled="busy"
+            :disabled="busy || (action === 'offline' && !confirmed)"
             :loading="busy"
             :danger="action === 'reject'"
             >{{ actionNames[action] }}</a-button

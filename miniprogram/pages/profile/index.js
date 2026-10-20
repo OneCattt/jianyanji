@@ -27,7 +27,7 @@ Page({
     headerTop: 62,
     headerHeight: 250,
     orderShortcuts: [
-      { tab: 1, name: "待付款", icon: "pending" },
+      { tab: 1, name: "待核款", icon: "pending" },
       { tab: 2, name: "待发货", icon: "paid" },
       { tab: 3, name: "运输中", icon: "shipped" },
       { tab: 4, name: "已完成", icon: "completed" },

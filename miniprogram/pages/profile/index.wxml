@@ -83,7 +83,7 @@
       <view class="mine-welcome-title"
         >{{user ? '欢迎来到清欣' : '与美好肌肤相遇'}}</view
       ><view class="mine-welcome-copy"
-        >{{user ? '当前为游客身份，可直接微信付款购买商品。' :
+        >{{user ? '当前为游客身份，可下单后线下付款，财务核款后发货。' :
         '登录后查看订单、管理资料，开启清欣之旅。'}}</view
       >
       <view class="mine-wallet-actions"

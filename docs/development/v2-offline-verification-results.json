@@ -1,0 +1,317 @@
+{
+  "date": "2026-10-20",
+  "scope": "V2.1 线下交易",
+  "javaVersion": "Corretto 1.8.0_452",
+  "mysqlDatabase": "java_rewards_test_offline_20261020",
+  "businessDatabaseChanged": false,
+  "migration": {
+    "version": 11,
+    "validated": true,
+    "freshV1ThroughV11PreviouslyAppliedInIsolatedDatabase": true
+  },
+  "command": "JAVA8_HOME=<JDK8> MYSQL_TEST_URL=<isolated-database> MYSQL_TEST_USER=<test-user> MYSQL_TEST_PASSWORD=<test-password> npm run test:api:mysql",
+  "java": {
+    "totals": {
+      "tests": 193,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "mysqlTests": 53,
+    "suites": [
+      {
+        "name": "com.jianyanji.aftersales.AftersalesRefundPreflightTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.aftersales.AftersalesRevocationReviewTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.aftersales.AftersalesServiceTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.aftersales.CustomerAftersalesMysqlTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.aftersales.CustomerAftersalesServiceTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.aftersales.PaymentsAftersalesMysqlTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.catalog.CatalogControllerTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.catalog.CatalogServiceTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.common.InputTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.common.ProxyAddressTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.content.BrandContentMysqlTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.content.BrandContentServiceTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.content.ContentPermissionTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.content.CourseRightsServiceTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.exports.FinanceExportControllerTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.exports.OperationsExportControllerTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.identity.PasswordsTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.media.ImageUploadControllerTest",
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.media.OssUploadSignerTest",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.membership.MembershipBoundaryMysqlTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.membership.MembershipBoundaryTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.membership.MembershipMysqlTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.membership.MembershipServiceTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.membership.MembershipSkuControllerTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.membership.TeamControllerTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.orders.FulfillmentServiceTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.orders.OrderControllerTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.orders.OrderInputTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.orders.OrderServiceTest",
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.orders.OrdersMysqlTest",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.payments.OfflinePaymentControllerTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.payments.PaymentServiceTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.payments.WechatPayClientTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.rewards.RewardsFundsContractTest",
+        "tests": 12,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.wallet.CashRefundServiceTest",
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.wallet.WalletMysqlTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.jianyanji.wallet.WalletServiceTest",
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "frontend": {
+    "typecheck": "passed",
+    "targetedPrettier": "passed",
+    "fullBuildRun": false
+  },
+  "miniprogram": {
+    "passed": true,
+    "failures": [],
+    "warnings": [],
+    "wxml": 24,
+    "wxss": 26,
+    "js": 29,
+    "json": 28,
+    "registeredPages": 22,
+    "unregisteredPages": [],
+    "missingFiles": []
+  },
+  "nodeBehaviorTests": {
+    "tests": 16,
+    "pass": 16,
+    "fail": 0,
+    "skipped": 0
+  },
+  "browser": {
+    "status": "passed",
+    "report": "../design/v2-offline/browser-results.json",
+    "simulatedFundsOnly": true,
+    "cashActuallyTransferred": false
+  },
+  "limitations": [
+    "Finance confirmation must occur within the configured order validity period. Expired received funds require manual verification.",
+    "Real bank receipts, actual refunds and WeChat device checks are pending.",
+    "V11 has only been applied to the isolated test database; deployment migration remains required."
+  ]
+}

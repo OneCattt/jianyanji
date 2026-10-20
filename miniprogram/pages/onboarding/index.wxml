@@ -134,13 +134,7 @@
             ><view wx:if="{{current.receipt}}"
               >原收款：{{current.receipt.external_transaction_id}}</view
             ></view
-          ><button
-            wx:if="{{current.status==='submitted'}}"
-            bindtap="payPackage"
-            disabled="{{busy}}"
-          >
-            微信付款／查看原交易</button
-          ><button
+          ><view wx:if="{{current.status==='submitted'}}" class="ob-body">请按申请编号 #{{current.id}} 线下转款 {{current.amountText}}，注明产品包用途，并联系财务核款；核实到账后激活身份。</view><button
             wx:if="{{current.status==='submitted'}}"
             bindtap="reconfirm"
             disabled="{{busy}}"
@@ -161,7 +155,7 @@
           ><view class="ob-body"
             >{{transfer.transferNotes}}<view>{{transfer.customerService}}</view
             ><view
-              >入驻产品包款仅用于商品交付，不发订货积分。提交申请或转款截图均不代表公司已核实到账。</view
+              >产品包仅线下付款，财务核款后激活身份。货款仅用于商品交付，不发订货积分。提交申请或转款截图均不代表公司已核实到账。</view
             ></view
           ></view
         >

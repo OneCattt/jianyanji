@@ -62,7 +62,7 @@ ASSETS_DIR=/opt/jianyanji/miniprogram/assets
 
 JAR 本身不自动读 `.env` 文件：systemd 的 `EnvironmentFile` 加载上述配置。直接在终端启动时须先向进程导出环境变量，或传入 Spring 参数。初始化正式管理员可在受控环境中临时设置 `BOOTSTRAP_ADMIN=true`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`，运行一次 JAR，成功后取消这些初始化变量再启动常驻服务；不要保留 `SEED_DEMO` 或 `LEGACY_IMPORT_FILE`。
 
-6. 创建系统账号 `jianyanji`，让它能读取应用、素材和微信 PEM 文件。复制 `deploy/jianyanji.service` 到 `/etc/systemd/system/`，将 `/opt/java8` 调整到已确认的 JDK 8 路径：
+6. 创建系统账号 `jianyanji`，让它能读取应用和素材。首期无需支付商户或微信支付 PEM 文件。复制 `deploy/jianyanji.service` 到 `/etc/systemd/system/`，将 `/opt/java8` 调整到已确认的 JDK 8 路径：
 
 ```bash
 sudo systemctl daemon-reload
@@ -71,9 +71,9 @@ sudo systemctl status jianyanji
 sudo journalctl -u jianyanji -n 100 --no-pager
 ```
 
-7. 按 [基础防刷与费用告警](basic-traffic-protection.md) 一起安装 `deploy/nginx.conf`、配套限流和封禁文件，配置真实域名和证书，执行 `nginx -t` 后重载。Nginx 保留外部 `Host` 并覆盖来源头，Java 只信任本机代理。Java 提供 `/`、`/admin`、`/assets/*`、`/api/*`。正式小程序 `apiBase` 改为 HTTPS API 地址，并在微信后台添加 request 合法域名、关联支付商户并配置 HTTPS 通知地址。
+7. 按 [基础防刷与费用告警](basic-traffic-protection.md) 一起安装 `deploy/nginx.conf`、配套限流和封禁文件，配置真实域名和证书，执行 `nginx -t` 后重载。Nginx 保留外部 `Host` 并覆盖来源头，Java 只信任本机代理。Java 提供 `/`、`/admin`、`/assets/*`、`/api/*`。正式小程序 `apiBase` 改为 HTTPS API 地址，并在微信后台添加 request 合法域名；登录、分享及视频保留实际 AppID、域名与设备要求，首期不关联支付商户或配置支付通知地址。
 
-验证 `/api/public/context` 的 `devAuth=false`；浏览器打开 `/admin` 登录，检查商品保存、权限和退出。真实商户支付、退款与微信真机仍需使用实际账号验收。
+验证 `/api/public/context` 的 `devAuth=false`；浏览器打开 `/admin` 登录，检查商品保存、权限和退出，并按 [线下交易实施说明](v2-offline-transactions.md)核验普通货款、产品包及积分充值。真实线下到账、退款凭证及微信真机仍由实际财务和设备验收。
 
 ## 保留旧本地数据
 
@@ -99,7 +99,7 @@ MYSQL_TEST_URL='jdbc:mysql://127.0.0.1:3306/java_rewards_test_integration?server
 MYSQL_TEST_USER=root MYSQL_TEST_PASSWORD=测试库密码 npm run test:api:mysql
 ```
 
-集成命令先以非 Web 模式运行 Flyway，再执行全套测试，不占用 API 端口。所有测试使用专属记录或事务回滚，禁止清表。外部微信渠道使用替代实现，RSA 验签和 AES-GCM 另有本地算法测试；这些不等同真实微信商户验收。
+集成命令先以非 Web 模式运行 Flyway，再执行全套测试，不占用 API 端口。所有测试使用专属记录或事务回滚，禁止清表。首期验证真实 HTTP 核款、线下退款登记、积分及奖励链路，并确认线上支付动作被拒绝。保留的微信算法测试仅验证历史实现，不作为首期支付能力。
 
 HTTP 身份和后台合同检查：在独立库显式初始化演示账号并启动独立端口后，执行：
 
@@ -109,6 +109,6 @@ JAVA_API_TEST_BASE=http://127.0.0.1:3102 JAVA_API_TEST_ISOLATED=1 node scripts/j
 
 ## 日志、备份与更新
 
-错误日志包含 `requestId`、路径和相关订单/退款编号；接口响应返回请求编号，便于从后台报错定位服务日志。付款与退款未决状态、重试租约、核查事件和人工补偿依据持久化。渠道网络操作在数据库事务外执行；定时付款核查与人工操作共用租约，避免重复处理。
+错误日志包含 `requestId`、路径和相关订单/退款编号；接口响应返回请求编号，便于从后台报错定位服务日志。公司收款关联业务用途、原流水、实际到账时间、经办人员和凭证；核款与库存、订单同事务提交，实际退款登记与资格、奖励冲回同事务提交。首期支付渠道定时核查停用，不发起渠道支付、查单、关单或退款。历史线上未决交易保留状态并阻止重复付款，更新前按线下交易说明核实处理，不能直接改成成功。
 
 更新前备份 MySQL（例如 `mysqldump --single-transaction`），保留当前 JAR、dist、素材及配置。部署新版后检查 Flyway 成功、`/api/public/context` 和后台登录。代码回退不自动回退数据库结构，按迁移兼容性核对备份方案。正式数据库、密钥与备份均不提交 Git。

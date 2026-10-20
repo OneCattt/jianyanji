@@ -4,10 +4,10 @@
       <image src="assets/detail-imgIcon.png" /></button
     ><text>订单详情</text></view
   >
-  <view wx:if="error" class="jy-error"
+  <view wx:if="{{error}}" class="jy-error"
     >{{error}}<button bindtap="load">重新查询</button></view
   >
-  <block wx:if="order">
+  <block wx:if="{{order}}">
     <view class="jy-banner"
       ><image src="assets/detail-imgIcon1.png" /><view
         ><view>{{order.stateText}}</view><text>{{order.hint}}</text></view
@@ -19,7 +19,7 @@
           ><view
             >{{order.shipments.length?'查看包裹物流':'品牌仓履约进度'}}</view
           ><text
-            >{{order.shipments.length?'查看物流公司和运单号':'付款后由品牌仓安排发货'}}</text
+            >{{order.shipments.length?'查看物流公司和运单号':'核款或积分扣减成功后由品牌仓安排发货'}}</text
           ></view
         ><image class="jy-arrow" src="assets/detail-imgIcon3.png"
       /></view>
@@ -52,62 +52,49 @@
           ><text>订单编号</text
           ><button bindtap="copy">{{order.number}}　复制</button></view
         ><view><text>创建时间</text><text>{{order.createdText}}</text></view
-        ><view><text>支付方式</text><text>{{order.methodText}}</text></view
+        ><view><text>付款方式</text><text>{{order.methodText}}</text></view
+        ><view><text>款项状态</text><text>{{order.receiptText}}</text></view
         ><view
-          ><text>支付流水</text
-          ><text>{{payment.receipt.transaction_id||'尚未确认到账'}}</text></view
+          ><text>收款流水</text
+          ><text>{{payment.receipt.transaction_id||'尚无已确认流水'}}</text></view
         ><view><text>配送方式</text><text>品牌仓快递</text></view
         ><view><text>商品合计</text><text>{{order.goodsText}}</text></view
         ><view><text>运费</text><text>{{order.shippingText}}</text></view
         ><view
           ><text>{{order.paid?'实付':'应付'}}</text
           ><text>{{order.amountText}}</text></view
-        ><view wx:if="order.receivedText"
+        ><view wx:if="{{order.receivedText}}"
           ><text>收货完成</text><text>{{order.receivedText}}</text></view
         ></view
       >
+      <view wx:if="{{order.status==='pending'}}" class="jy-card jy-transfer">
+        <view class="jy-store">线下付款与财务核款</view>
+        <view>付款用途：{{order.kind==='package'?'产品包款':'普通商品货款'}} · {{order.amountText}}</view>
+        <view>订单号：{{order.number}} <button bindtap="copy">复制</button></view>
+        <block wx:if="{{transferConfigured}}">
+          <view>户名：{{transfer.companyName}}</view>
+          <view>开户行：{{transfer.bankName}}</view>
+          <view><text user-select>账号：{{transfer.bankAccount}}</text></view>
+        </block>
+        <view wx:else>公司收款资料尚未配置，请联系品牌方核实后付款。</view>
+        <view wx:if="{{transfer.transferNotes}}">{{transfer.transferNotes}}</view>
+        <view wx:if="{{transfer.customerService}}">{{transfer.customerService}}</view>
+        <view>{{order.locked?'原交易待核查，请先联系品牌方，勿重复转款。':'请按订单号和付款用途线下转款，保留流水并联系财务核款。提交订单或转款截图不代表已核款。'}}</view>
+        <view>{{order.kind==='package'?'产品包款不发积分，财务核款后激活身份并安排交付。':'普通货款不发积分；积分充值须单独注明用途。同身份线下付款与积分订货同价。'}}</view>
+      </view>
       <view class="jy-contact"
         ><image src="assets/detail-imgIcon6.png" /><text
           >订单有疑问？联系专属顾问协助处理</text
         ><button bindtap="contact">联系顾问</button></view
       >
-      <view
-        wx:if="order.canPay &amp;&amp; !capabilities.wechatAvailable"
-        class="jy-error"
-        >{{capabilities.message}}</view
-      >
     </view>
     <view class="jy-actions">
-      <block wx:if="order.status==='pending'">
-        <button class="jy-outline" bindtap="cancel" disabled="{{busy}}">
+      <block wx:if="{{order.status==='pending'}}">
+        <button class="jy-outline" bindtap="cancel" disabled="{{busy||!order.canPay}}">
           取消订单
         </button>
-        <button
-          wx:if="order.locked"
-          class="jy-solid"
-          bindtap="query"
-          disabled="{{busy}}"
-          loading="{{busy}}"
-        >
-          查询原支付
-        </button>
-        <block wx:else
-          ><button
-            wx:if="{{order.kind==='goods'}}"
-            class="jy-outline"
-            bindtap="points"
-            disabled="{{busy}}"
-          >
-            积分支付</button
-          ><button
-            class="jy-solid"
-            bindtap="pay"
-            disabled="{{busy||!capabilities.wechatAvailable}}"
-            loading="{{busy}}"
-          >
-            微信付款
-          </button></block
-        >
+        <button wx:if="{{canUsePoints}}" class="jy-outline" bindtap="points" disabled="{{busy}}">积分订货</button>
+        <button class="jy-solid" bindtap="load" disabled="{{busy}}">刷新核款进度</button>
       </block>
       <block wx:else
         ><button

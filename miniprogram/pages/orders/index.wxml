@@ -2,9 +2,9 @@
   <view class="jy-header"><button class="jy-back" bindtap="back" aria-label="返回"><image src="/pages/order/assets/list-imgIcon.png"/></button><text>我的订单</text></view>
   <view class="jy-tabs"><button wx:for="{{tabs}}" wx:key="*this" data-index="{{index}}" class="{{tab===index?'selected':''}}" bindtap="select">{{item}}</button></view>
   <view class="jy-list">
-    <view wx:if="error" class="jy-error" role="alert">{{error}}<button bindtap="load">重试</button></view>
-    <view wx:if="loading" class="jy-empty">正在查询订单…</view>
-    <view wx:elif="!visible.length &amp;&amp; !error" class="jy-empty">暂无{{tab?tabs[tab]:''}}订单</view>
+    <view wx:if="{{error}}" class="jy-error" role="alert">{{error}}<button bindtap="load">重试</button></view>
+    <view wx:if="{{loading}}" class="jy-empty">正在查询订单…</view>
+    <view wx:elif="{{!visible.length && !error}}" class="jy-empty">暂无{{tab?tabs[tab]:''}}订单</view>
     <view wx:for="{{visible}}" wx:key="id" class="jy-card">
       <view class="jy-order-top"><text>订单 {{item.number}}</text><text class="jy-status">{{item.stateText}}</text></view>
       <view wx:for="{{item.displayLines}}" wx:for-item="line" wx:key="skuId" class="jy-product"><image src="{{line.image}}" mode="aspectFill"/><view class="jy-product-copy"><view>{{line.name}}</view><text>{{line.skuName}} · 品牌仓发货</text></view><view class="jy-line-price">{{line.priceText}}<view>×{{line.quantity}}</view></view></view>

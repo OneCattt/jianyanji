@@ -8,16 +8,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
 import com.jianyanji.common.BusinessException;
 import com.jianyanji.common.Db;
+import com.jianyanji.common.Input;
 import com.jianyanji.orders.OrderService;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /** 支付状态机：到账凭据、库存扣减同事务，原渠道单号和数据库租约确保核对幂等。 */
@@ -36,8 +35,9 @@ public class PaymentService {
     /** 产品包到账激活钩子，延迟注入避免订单与退款依赖环。 */
     @org.springframework.beans.factory.annotation.Autowired @Lazy
     private com.jianyanji.membership.MembershipService membership;
-    /** 单进程定时核对重入保护；跨进程由数据库租约保护。 */
-    private final AtomicBoolean running = new AtomicBoolean();
+    /** 公司收款校验及原始流水登记，普通货款不发放积分。 */
+    @org.springframework.beans.factory.annotation.Autowired @Lazy
+    private com.jianyanji.wallet.WalletService wallet;
     /** 更新审计字段的 SQL 片段，操作人由参数明确传入。 */
     private static final String STAMP = "update_user_id=?,update_time=CURRENT_TIMESTAMP(3)";
 
@@ -51,6 +51,12 @@ public class PaymentService {
 
     /** 必须由调用方持有事务，积分与公司转款结算复用该入口。 */
     public ObjectNode settlePaid(ObjectNode order, String method, String transactionId) {
+        return settlePaid(order, method, transactionId, l(order, "user_id"));
+    }
+
+    /** 财务核款时使用真实经办人员维护订单、库存与收款凭据审计字段。 */
+    private ObjectNode settlePaid(
+            ObjectNode order, String method, String transactionId, long actor) {
         db.assertTransaction();
         if (transactionId == null || transactionId.trim().isEmpty()) throw conflict("缺少支付流水号");
         ObjectNode current = orders.owned(l(order, "id"), null);
@@ -86,7 +92,7 @@ public class PaymentService {
                                     + " WHERE id=? AND is_deleted=0 AND stock>=? AND reserved>=?",
                             quantity,
                             quantity,
-                            userId,
+                            actor,
                             l(line, "sku_id"),
                             quantity,
                             quantity)
@@ -97,7 +103,7 @@ public class PaymentService {
                         + STAMP
                         + " WHERE id=? AND is_deleted=0",
                 method,
-                userId,
+                actor,
                 orderId);
         db.insert(
                 "INSERT INTO payments(order_id,method,transaction_id,cents,paid_at,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?)",
@@ -106,10 +112,10 @@ public class PaymentService {
                 transactionId,
                 l(current, "total_cents"),
                 now(),
-                userId,
-                userId);
+                actor,
+                actor);
         if ("package".equals(s(current, "kind")))
-            membership.activatePaid(orders.owned(orderId, null), userId);
+            membership.activatePaid(orders.owned(orderId, null), actor);
         return obj("alreadyPaid", false, "order", orders.owned(orderId, null));
     }
 
@@ -119,18 +125,107 @@ public class PaymentService {
                                 + "WHERE o.user_id=? AND o.id!=? AND p.is_deleted=0 AND p.state NOT IN ('closed','success') LIMIT 1",
                         userId,
                         exceptOrderId)
-                != null) throw conflict("PAYMENT_UNRESOLVED", "存在待确认的原微信交易，请先查询或关闭原交易");
+                != null) throw conflict("PAYMENT_UNRESOLVED", "存在历史线上交易待人工核实，请联系品牌方处理，不能重复收款");
     }
 
     public ObjectNode capabilities() {
         return obj(
                 "wechatAvailable",
-                channel.configured(),
+                false,
+                "offlineAvailable",
+                true,
                 "message",
-                channel.configured() ? "" : "微信支付尚未配置，请联系品牌方");
+                "首期货款均线下支付，请按订单说明付款并等待财务核款");
+    }
+
+    /** 首期统一拒绝外部支付动作，避免已有商户配置意外启用线上交易。 */
+    public static void requireOnlinePayment() {
+        throw new BusinessException(409, "ONLINE_PAYMENT_DISABLED", "首期仅支持线下交易，请联系品牌方核实收退款");
+    }
+
+    /** 普通货款收款、库存结算和凭据同事务提交，原流水不得跨订单或用途复用。 */
+    public ObjectNode confirmOfflineReceipt(long orderId, JsonNode raw, long actor) {
+        Input.strict(
+                raw,
+                "sourceChannel",
+                "accountRef",
+                "externalTransactionId",
+                "amountCents",
+                "receivedAt",
+                "evidence",
+                "reason",
+                "verified");
+        try {
+            return db.tx(
+                    () -> {
+                        ObjectNode order = orders.owned(orderId, null);
+                        if (!"goods".equals(s(order, "kind")))
+                            throw conflict("产品包请通过入驻申请核款，不能作为普通货款登记");
+                        ObjectNode input = ((ObjectNode) raw).deepCopy();
+                        input.put("userId", l(order, "user_id"))
+                                .put("purpose", "order")
+                                .put("orderId", orderId);
+                        ObjectNode value = wallet.validateReceipt(input);
+                        if (l(value, "amountCents") != l(order, "total_cents"))
+                            throw conflict("到账金额须与原订单应收总额一致");
+                        ObjectNode old =
+                                db.one(
+                                        "SELECT * FROM company_receipts WHERE order_id=? AND purpose='order' AND is_deleted=0",
+                                        orderId);
+                        if (old != null) {
+                            if (!s(old, "source_channel").equals(s(value, "sourceChannel"))
+                                    || !s(old, "account_ref").equals(s(value, "accountRef"))
+                                    || !s(old, "external_transaction_id")
+                                            .equals(s(value, "externalTransactionId"))
+                                    || l(old, "amount_cents") != l(value, "amountCents"))
+                                throw conflict("订单已有其他有效收款，请核对原流水");
+                            settlePaid(order, "offline", "company_receipt:" + l(old, "id"), actor);
+                            return obj(
+                                    "order",
+                                    orders.view(order),
+                                    "receipt",
+                                    old,
+                                    "alreadyPaid",
+                                    true);
+                        }
+                        if (!"pending".equals(s(order, "status")) || expired(order))
+                            throw conflict("订单已付款、关闭或过期，请先核对原订单和实际到账");
+                        orders.assertRelationsCurrent(order);
+                        long receiptId = wallet.registerReceipt(input, actor);
+                        settlePaid(order, "offline", "company_receipt:" + receiptId, actor);
+                        db.update(
+                                "UPDATE payments SET paid_at=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE order_id=? AND method='offline' AND is_deleted=0",
+                                s(value, "receivedAt"),
+                                actor,
+                                orderId);
+                        access.audit(
+                                "order.receipt",
+                                "order",
+                                orderId,
+                                "核实线下货款，收款编号=" + receiptId + "；" + s(value, "reason"));
+                        return obj(
+                                "order",
+                                orders.view(orders.owned(orderId, null)),
+                                "receipt",
+                                db.one(
+                                        "SELECT * FROM company_receipts WHERE id=? AND is_deleted=0",
+                                        receiptId),
+                                "alreadyPaid",
+                                false);
+                    });
+        } catch (RuntimeException e) {
+            LOG.error(
+                    "普通订单核款失败，orderId={}，requestId={}，经办人员={}，原因={}",
+                    orderId,
+                    access.requestId(),
+                    actor,
+                    e.getMessage());
+            throw e;
+        }
     }
 
     public ObjectNode start(long orderId, ObjectNode user) {
+        requireOnlinePayment();
         channel.requireConfigured();
         final String requestId = access.requestId();
         long actor = l(user, "id");
@@ -272,6 +367,7 @@ public class PaymentService {
     }
 
     public ObjectNode query(long id, Long userId) {
+        requireOnlinePayment();
         ObjectNode order = orders.owned(id, userId), attempt = active(id);
         if (attempt != null && !"success".equals(s(attempt, "state"))) {
             channel.requireConfigured();
@@ -286,6 +382,7 @@ public class PaymentService {
     }
 
     public ObjectNode close(long id, Long userId, String reason) {
+        requireOnlinePayment();
         long actor = access.actor();
         ObjectNode attempt =
                 db.tx(
@@ -313,6 +410,7 @@ public class PaymentService {
     /** 回调无会话，所有失败仍返回微信通知约定的 FAIL 结构。 */
     public org.springframework.http.ResponseEntity<ObjectNode> notify(
             byte[] raw, HttpServletRequest request) {
+        requireOnlinePayment();
         ObjectNode attempt = null;
         String requestId = access.requestId();
         try {
@@ -627,44 +725,11 @@ public class PaymentService {
         }
     }
 
-    /** 每轮最多二十笔，逐项失败独立记录；不会把未决交易计为结算成功。 */
-    public void reconcile() {
-        if (!channel.configured() || !running.compareAndSet(false, true)) return;
-        try {
-            List<ObjectNode> attempts =
-                    db.list(
-                            "SELECT p.* FROM payment_attempts p JOIN orders o ON o.id=p.order_id AND o.is_deleted=0 "
-                                    + "WHERE p.is_deleted=0 AND p.state NOT IN ('closed','success') AND (p.lease_until IS NULL OR p.lease_until<?) ORDER BY p.update_time,p.id LIMIT 20",
-                            now());
-            for (ObjectNode attempt : attempts) {
-                String requestId = "payment-reconcile-" + id();
-                try {
-                    ObjectNode order = orders.owned(l(attempt, "order_id"), null);
-                    reconcileAttempt(
-                            attempt, requestId, b(attempt, "close_requested") || expired(order), 0);
-                } catch (RuntimeException e) {
-                    LOG.error(
-                            "支付定时核对单项失败，orderId={}，支付单={}，requestId={}，原因={}",
-                            l(attempt, "order_id"),
-                            s(attempt, "number"),
-                            requestId,
-                            e.getMessage());
-                }
-            }
-        } finally {
-            running.set(false);
-        }
-    }
+    /** 首期不执行支付渠道核对；历史未决交易保留原状态，按原编号人工核实。 */
+    public void reconcile() {}
 
-    @Scheduled(fixedDelayString = "${payments.reconcile-delay-ms:30000}")
-    public void scheduledReconcile() {
-        if (com.jianyanji.common.MaintenanceMode.enabled()) return;
-        try {
-            reconcile();
-        } catch (RuntimeException e) {
-            LOG.error("支付核对任务失败，requestId=payment-reconcile，原因={}", e.getMessage());
-        }
-    }
+    /** 保留旧调用入口，首期不注册支付渠道定时任务。 */
+    public void scheduledReconcile() {}
 
     private static boolean expired(JsonNode order) {
         return !Instant.parse(s(order, "expires_at")).isAfter(Instant.now());

@@ -1,1 +1,14 @@
 @import "common.wxss";
+.jy-transfer {
+  font-size: 20rpx;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.jy-transfer > view:not(.jy-store) {
+  margin-top: 16rpx;
+  white-space: pre-wrap;
+}
+.jy-transfer button {
+  display: inline;
+  color: #8d1724;
+}

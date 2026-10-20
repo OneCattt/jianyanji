@@ -5,11 +5,11 @@ import AdminSelect from "./AdminSelect.vue";
 import AdminForm from "./AdminForm.vue";
 const props = defineProps<{ permissions: readonly string[] }>();
 const kinds = [
-  ["receipts", "公司收款", "finance:manage"],
+  ["receipts", "线下公司收款（货款 / 积分充值）", "finance:manage"],
   ["points", "指定用户积分流水", "finance:manage"],
   ["cash-refunds", "未用积分退现金", "finance:manage"],
-  ["payments", "指定订单支付", "orders:manage"],
-  ["refunds", "订单退款", "orders:manage"],
+  ["payments", "指定订单收款 / 积分扣款", "orders:manage"],
+  ["refunds", "订单线下退款 / 积分退款", "orders:manage"],
   ["rewards", "各收益人奖励", "rewards:manage"],
   ["settlements", "月结实转", "rewards:manage"],
   ["reversals", "奖励冲回及待收回", "rewards:manage"],
@@ -37,7 +37,7 @@ async function download() {
     if (selection === "points" && !userId.value)
       throw new Error("请填写需要导出积分流水的用户 ID");
     if (selection === "payments" && !orderId.value)
-      throw new Error("请填写需要导出支付记录的订单 ID");
+      throw new Error("请填写需要导出收款或积分扣款记录的订单 ID");
     const params = new URLSearchParams();
     for (const [key, value] of [
       ["userId", userId.value],
@@ -93,7 +93,7 @@ async function download() {
             inputmode="numeric"
         /></label>
         <label
-          >订单 ID（支付必填；仅支付、退款、积分、奖励支持）<a-input
+          >订单 ID（指定订单收款必填；公司收款汇总不支持）<a-input
             v-model:value="orderId"
             :required="selectedKind === 'payments'"
             pattern="[1-9][0-9]*"

@@ -6,8 +6,9 @@ Page({
     payment: null,
     error: "",
     busy: false,
-    capabilities: { wechatAvailable: false },
-    contact: "",
+    transfer: null,
+    transferConfigured: false,
+    canUsePoints: false,
   },
   onLoad(options) {
     this.orderId = Number(options.id);
@@ -17,15 +18,29 @@ Page({
   },
   async load() {
     if (!this.orderId) return;
+    this.setData({ canUsePoints: false });
     try {
-      const [payment, capabilities] = await Promise.all([
+      const [payment, content, user] = await Promise.all([
         request("/orders/" + this.orderId + "/payment"),
-        request("/payments/capabilities"),
+        request("/public/content"),
+        request("/me"),
       ]);
+      const order = decorate(payment.order);
+      const transfer = content.content;
       this.setData({
         payment,
-        order: decorate(payment.order),
-        capabilities,
+        order,
+        transfer,
+        transferConfigured: !!(
+          transfer &&
+          transfer.companyName &&
+          transfer.bankName &&
+          transfer.bankAccount
+        ),
+        canUsePoints:
+          order.canPay &&
+          order.kind === "goods" &&
+          ["B", "C"].includes(user.identity),
         error: "",
       });
     } catch (e) {
@@ -46,68 +61,24 @@ Page({
     wx.navigateTo({ url: "/pages/refunds/index?orderId=" + this.orderId });
   },
   points() {
+    if (this.data.busy || !this.data.canUsePoints) return;
     wx.navigateTo({ url: "/pages/wallet/index?orderId=" + this.orderId });
   },
-  async query() {
-    if (this.data.busy) return;
-    this.setData({ busy: true, error: "" });
-    try {
-      await request("/orders/" + this.orderId + "/payment/query", "POST", {});
-      await this.load();
-    } catch (e) {
-      this.setData({ error: e.message });
-    } finally {
-      this.setData({ busy: false });
-    }
-  },
-  async pay() {
-    if (this.data.busy) return;
-    this.setData({ busy: true, error: "" });
-    try {
-      const result = await request(
-        "/orders/" + this.orderId + "/pay/wechat",
-        "POST",
-        {},
-      );
-      if (result.parameters) {
-        // 客户端回调只触发服务端查询，绝不据此显示到账成功。
-        await new Promise((resolve) =>
-          wx.requestPayment({
-            ...result.parameters,
-            success: resolve,
-            fail: resolve,
-          }),
-        );
-      }
-      await request("/orders/" + this.orderId + "/payment/query", "POST", {});
-      await this.load();
-    } catch (e) {
-      await this.load();
-      this.setData({ error: e.message });
-    } finally {
-      this.setData({ busy: false });
-    }
-  },
   async cancel() {
-    if (this.data.busy) return;
-    const confirm = await new Promise((resolve) =>
-      wx.showModal({
-        title: "取消购买",
-        content: "将核对并关闭原交易，确认关闭后释放商品库存。",
-        success: resolve,
-        fail: () => resolve({ confirm: false }),
-      }),
-    );
-    if (!confirm.confirm) return;
+    if (this.data.busy || !this.data.order || !this.data.order.canPay) return;
     this.setData({ busy: true, error: "" });
     try {
-      await request(
-        "/orders/" +
-          this.orderId +
-          (this.data.order.locked ? "/payment/close" : "/cancel"),
-        "POST",
-        {},
+      const confirm = await new Promise((resolve) =>
+        wx.showModal({
+          title: "取消购买",
+          content:
+            "取消后将释放预占库存。如已线下转款，请先联系品牌方核实款项，避免重复付款。",
+          success: resolve,
+          fail: () => resolve({ confirm: false }),
+        }),
       );
+      if (!confirm.confirm) return;
+      await request("/orders/" + this.orderId + "/cancel", "POST", {});
       await this.load();
     } catch (e) {
       await this.load();
@@ -116,17 +87,13 @@ Page({
       this.setData({ busy: false });
     }
   },
-  async contact() {
-    try {
-      const result = await request("/public/content");
-      const c = result.content;
-      wx.showModal({
-        title: "联系顾问",
-        content: (c && c.customerService) || "品牌方尚未配置客服联系方式",
-        showCancel: false,
-      });
-    } catch (e) {
-      this.setData({ error: e.message });
-    }
+  contact() {
+    wx.showModal({
+      title: "联系顾问",
+      content:
+        (this.data.transfer && this.data.transfer.customerService) ||
+        "品牌方尚未配置客服联系方式",
+      showCancel: false,
+    });
   },
 });

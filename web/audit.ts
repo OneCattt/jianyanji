@@ -31,6 +31,7 @@ export const auditActionNames: Record<string, string> = {
   "reward.settings": "修改奖励规则",
   "address.save": "保存收货地址",
   "order.create": "提交订单",
+  "order.receipt": "核实普通订单线下收款",
   "order.cancel": "取消未支付订单",
   "order.pay_points": "使用积分支付订单",
   "shipment.create": "登记订单发货",

@@ -413,28 +413,42 @@ public class AftersalesService {
                 reason = Input.reason(body);
         Input.require(Input.bool(body, "confirmed"), "请确认实际已付款");
         long actor = access.actor();
-        db.tx(
-                () -> {
-                    ObjectNode refund = getRefund(id),
-                            order = orders.owned(l(refund, "order_id"), null);
-                    if (!"package".equals(s(order, "kind"))
-                            || !"offline".equals(s(order, "payment_method")))
-                        throw conflict("仅公司转款产品包可登记线下退款");
-                    if ("success".equals(s(refund, "status"))) return;
-                    assertRefundRevocableIfNeeded(refund, order);
-                    db.update(
-                            "UPDATE refunds SET recipient=?,paid_at=?,proof=?,channel_ref=?,"
-                                    + STAMP
-                                    + " WHERE id=? AND is_deleted=0",
-                            recipient,
-                            paidAt,
-                            proof,
-                            proof,
-                            actor,
-                            id);
-                    finishRefund(refund, actor, access.requestId());
-                    access.audit("refund.offline", "refund", id, reason);
-                });
+        try {
+            db.tx(
+                    () -> {
+                        ObjectNode refund = getRefund(id),
+                                order = orders.owned(l(refund, "order_id"), null);
+                        if (!"offline".equals(s(order, "payment_method")))
+                            throw conflict("仅原线下付款订单可登记线下退款，积分订货请退回原积分");
+                        if ("success".equals(s(refund, "status"))) {
+                            if (!recipient.equals(s(refund, "recipient"))
+                                    || !paidAt.equals(s(refund, "paid_at"))
+                                    || !proof.equals(s(refund, "proof")))
+                                throw conflict("退款已登记成功，不能改写原实际退款凭证");
+                            return;
+                        }
+                        assertRefundRevocableIfNeeded(refund, order);
+                        db.update(
+                                "UPDATE refunds SET recipient=?,paid_at=?,proof=?,channel_ref=NULL,"
+                                        + STAMP
+                                        + " WHERE id=? AND is_deleted=0",
+                                recipient,
+                                paidAt,
+                                proof,
+                                actor,
+                                id);
+                        finishRefund(refund, actor, access.requestId());
+                        access.audit("refund.offline", "refund", id, reason);
+                    });
+        } catch (RuntimeException e) {
+            LOG.error(
+                    "线下退款登记失败，refundId={}，requestId={}，经办人员={}，原因={}",
+                    id,
+                    access.requestId(),
+                    actor,
+                    e.getMessage());
+            throw e;
+        }
         return view(getRefund(id));
     }
 
@@ -488,6 +502,25 @@ public class AftersalesService {
                     has(current, "identity_decision") ? s(current, "identity_decision") : null,
                     actor,
                     s(current, "reason"));
+        else if ("offline".equals(s(order, "payment_method"))) {
+            long refunded =
+                    l(
+                            db.one(
+                                    "SELECT COALESCE(SUM(total_cents),0) AS total FROM refunds WHERE order_id=? AND status='success' AND is_deleted=0",
+                                    l(order, "id")),
+                            "total");
+            if (db.update(
+                            "UPDATE company_receipts SET cash_refunded_cents=?,"
+                                    + STAMP
+                                    + " WHERE order_id=? AND purpose='order' AND amount_cents=? AND cash_refunded_cents<=? AND cash_held_cents+?<=amount_cents AND is_deleted=0",
+                            refunded,
+                            actor,
+                            l(order, "id"),
+                            l(order, "total_cents"),
+                            refunded,
+                            refunded)
+                    != 1) throw conflict("实际退款与原普通货款收款记录不一致，请核对原业务");
+        }
         rewards.reconcileReversals(l(order, "id"), actor, requestId);
         if (full)
             db.update(
@@ -529,6 +562,7 @@ public class AftersalesService {
 
     /** 发起与查询共用持久租约，退款单号持久复用；旧响应不能覆盖新租约结果。 */
     public ObjectNode channel(long id, JsonNode body, boolean query) {
+        com.jianyanji.payments.PaymentService.requireOnlinePayment();
         String reason = strictReason(body);
         if (!channel.configured())
             throw new BusinessException(503, "WECHAT_PAY_NOT_CONFIGURED", "微信商户退款尚未配置");

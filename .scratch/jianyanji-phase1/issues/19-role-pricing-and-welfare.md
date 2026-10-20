@@ -1,6 +1,6 @@
 # 19: 普通商品折扣、福利价与订货收益
 
-**What to build:** 从后台定价、商城报价到微信／积分成交统一价格和收益依据。
+**What to build:** 从后台定价、商城报价到线下付款／积分订货统一价格和收益依据。
 
 **Blocked by:** None (can start immediately)
 

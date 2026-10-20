@@ -97,7 +97,7 @@ public class OrderController {
 
     @GetMapping("/admin/orders")
     public Object adminOrders() {
-        access.staff("orders:manage");
+        access.staffAny("orders:manage", "finance:manage");
         return orders.orders(null);
     }
 

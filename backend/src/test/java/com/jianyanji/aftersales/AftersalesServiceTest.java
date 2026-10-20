@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
 import com.jianyanji.common.BusinessException;
@@ -229,90 +228,63 @@ class AftersalesServiceTest {
     }
 
     @Test
-    void staleChannelResponseCannotFinalizeOrOverwriteNewLease() {
-        refund.put("channel_token", "new-owner-token");
-        when(channel.queryRefund("RF-persisted"))
-                .thenReturn(
-                        obj(
-                                "status",
-                                "success",
-                                "outRefundNo",
-                                "RF-persisted",
-                                "outTradeNo",
-                                "P-original",
-                                "totalCents",
-                                1000,
-                                "refundCents",
-                                300,
-                                "refundId",
-                                "wx-refund"));
-        service.channel(11, obj("reason", "核对原单"), true);
-        verifyNoInteractions(wallet, membership, rewards);
-        assertEquals(0, sqlCalls("update", "UPDATE refunds SET status=?,channel_ref="));
-        verify(channel).queryRefund("RF-persisted");
+    void onlineRefundQueryIsDisabledWithoutTouchingOriginalUnknownState() {
+        refund.put("status", "unknown");
+        assertEquals(
+                "ONLINE_PAYMENT_DISABLED",
+                assertThrows(
+                                BusinessException.class,
+                                () -> service.channel(11, obj("reason", "核对原单"), true))
+                        .getCode());
+        assertEquals("unknown", s(refund, "status"));
+        verifyNoInteractions(channel, wallet, membership, rewards);
+        assertEquals(0, sqlCalls("update", ""));
     }
 
     @Test
-    void mismatchedChannelObjectsRemainUnknownAndDoNotChangeRefundedQuantity() {
-        trackChannelState = true;
-        when(channel.queryRefund("RF-persisted"))
-                .thenReturn(
-                        obj(
-                                "status",
-                                "success",
-                                "outRefundNo",
-                                "RF-persisted",
-                                "outTradeNo",
-                                "other-payment",
-                                "totalCents",
-                                1000,
-                                "refundCents",
-                                300));
-        JsonNode result = service.channel(11, obj("reason", "核对原单"), true);
-        assertEquals("unknown", s(result, "status"));
-        assertTrue(s(result, "last_error").contains("RF-persisted"));
-        assertTrue(s(result, "last_error").contains("request-test"));
-        assertEquals(0, sqlCalls("update", "UPDATE order_lines"));
+    void configuredMerchantCannotEnableOnlineRefund() {
+        assertEquals(
+                "ONLINE_PAYMENT_DISABLED",
+                assertThrows(
+                                BusinessException.class,
+                                () -> service.channel(11, obj("reason", "退款"), false))
+                        .getCode());
+        verifyNoInteractions(channel, wallet, membership, rewards);
+        assertEquals(0, sqlCalls("update", ""));
+    }
+
+    @Test
+    void offlineRefundRequiresActualPaymentConfirmation() {
+        order.put("payment_method", "offline");
+        assertThrows(BusinessException.class, () -> service.offline(11, offlineProof(false)));
+        verifyNoInteractions(wallet, membership, rewards);
+        assertEquals(0, sqlCalls("update", ""));
+    }
+
+    @Test
+    void completedOfflineRefundCannotBeRewrittenWithDifferentProof() {
+        order.put("payment_method", "offline");
+        refund.put("status", "success")
+                .put("recipient", "原收款人")
+                .put("paid_at", "2020-01-01T00:00:00Z")
+                .put("proof", "原凭证");
+        assertThrows(BusinessException.class, () -> service.offline(11, offlineProof(true)));
+        assertEquals(0, sqlCalls("update", ""));
         verifyNoInteractions(wallet, membership, rewards);
     }
 
-    @Test
-    void networkFailurePersistsBusinessKeysAndKeepsGoodsHeld() {
-        trackChannelState = true;
-        when(channel.refund(any()))
-                .thenThrow(new BusinessException(502, "CHANNEL_ERROR", "微信支付网络异常"));
-        JsonNode result = service.channel(11, obj("reason", "按原交易退货"), false);
-        assertEquals("unknown", s(result, "status"));
-        assertTrue(s(result, "last_error").contains("ORDER-original"));
-        assertTrue(s(result, "last_error").contains("request-test"));
-        assertFalse(has(refund, "channel_token"));
-        assertEquals(0, sqlCalls("update", "UPDATE order_lines"));
-    }
-
-    @Test
-    void verifiedRefundCompensatesOnceAndRepeatedQueryUsesStoredSuccess() {
-        trackChannelState = true;
-        when(db.one(startsWith("SELECT id FROM order_lines"), anyLong())).thenReturn(obj("id", 32));
-        when(channel.queryRefund("RF-persisted"))
-                .thenReturn(
-                        obj(
-                                "status",
-                                "success",
-                                "outRefundNo",
-                                "RF-persisted",
-                                "outTradeNo",
-                                "P-original",
-                                "totalCents",
-                                1000,
-                                "refundCents",
-                                300,
-                                "refundId",
-                                "wx-refund"));
-        assertEquals("success", s(service.channel(11, obj("reason", "核对原单"), true), "status"));
-        assertEquals("success", s(service.channel(11, obj("reason", "再次核对"), true), "status"));
-        verify(channel, times(1)).queryRefund("RF-persisted");
-        verify(rewards, times(1)).reconcileReversals(21, 7, "request-test");
-        assertEquals(1, sqlCalls("update", "UPDATE order_lines"));
+    private ObjectNode offlineProof(boolean confirmed) {
+        return obj(
+                "recipient",
+                "原收款人",
+                "paidAt",
+                "2020-01-01T00:00:00Z",
+                "proof",
+                "实际线下退款凭证",
+                "confirmed",
+                confirmed,
+                "reason",
+                "退货退款");
     }
 
     private long sqlCalls(String method, String prefix) {

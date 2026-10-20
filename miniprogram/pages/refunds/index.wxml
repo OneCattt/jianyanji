@@ -1,5 +1,5 @@
 <view class="qx qx-flow"><view class="qx-flow-content">
-  <view class="qx-sheet"><view class="qx-label">退款 / 退货退款</view><view class="qx-notice">选择本人订单商品和数量提交申请。提交仅代表受理，退款金额由品牌方按原支付及可退额度审核。已发货商品须按原政策寄回并验货；运费问题请联系品牌客服核实。</view><view class="qx-about">{{service||'客服资料尚未配置'}}</view><button wx:if="{{service}}" class="qx-text" bindtap="copy">复制客服联系方式</button></view>
+  <view class="qx-sheet"><view class="qx-label">退款 / 退货退款</view><view class="qx-notice">选择本人订单商品和数量提交申请。提交仅代表受理，退款金额由品牌方按原订单及可退额度审核。现金退款由财务线下办理并登记，积分订单退回原批次；审核通过不代表实际退款成功。已发货商品须按原政策寄回并验货；运费问题请联系品牌客服核实。</view><view class="qx-about">{{service||'客服资料尚未配置'}}</view><button wx:if="{{service}}" class="qx-text" bindtap="copy">复制客服联系方式</button></view>
   <view wx:if="{{loading}}" class="qx-empty">正在读取售后资料…</view>
   <view wx:if="{{!order && !loading}}" class="qx-sheet"><button class="qx-primary" bindtap="chooseOrder">从本人订单申请售后</button></view>
   <view wx:if="{{order}}" class="qx-sheet"><view class="qx-label">订单 {{order.number}}</view>
@@ -8,6 +8,6 @@
     <view class="qx-about">商品申请金额参考 {{amountText}}，最终以审核核定为准。</view><button class="qx-primary" bindtap="submit" loading="{{busy}}" disabled="{{busy || loading}}">提交售后申请</button>
   </view>
   <view wx:if="{{submitted}}" class="qx-notice">售后申请已受理，等待品牌方审核，尚未退款。</view>
-  <view class="qx-sheet" wx:for="{{items}}" wx:key="id"><view class="qx-section-row"><view class="qx-label">{{item.statusName}}</view><view class="qx-price">{{item.amountText}}</view></view><view class="qx-muted">{{item.number}}</view><view class="qx-about">{{item.reason}}</view><view wx:for="{{item.lines}}" wx:for-item="line" wx:key="lineId" class="qx-info-row"><text>商品行 #{{line.lineId}}</text><text>申请 {{line.quantity}} 件</text></view><view wx:if="{{item.status === 'failed' || item.status === 'unknown'}}" class="qx-notice">品牌方正在核查原退款交易，请勿重复付款或重复申请。</view><view wx:if="{{item.completed_at}}" class="qx-muted">实际完成：{{item.completed_at}}</view></view>
+  <view class="qx-sheet" wx:for="{{items}}" wx:key="id"><view class="qx-section-row"><view class="qx-label">{{item.statusName}}</view><view class="qx-price">{{item.amountText}}</view></view><view class="qx-muted">{{item.number}}</view><view class="qx-about">{{item.reason}}</view><view wx:for="{{item.lines}}" wx:for-item="line" wx:key="lineId" class="qx-info-row"><text>商品行 #{{line.lineId}}</text><text>申请 {{line.quantity}} 件</text></view><view wx:if="{{item.status === 'failed' || item.status === 'unknown'}}" class="qx-notice">品牌方正在核查退款办理结果，现金以财务线下实际退款登记为准，请勿重复申请。</view><view wx:if="{{item.completed_at}}" class="qx-muted">实际完成：{{item.completed_at}}</view></view>
   <view wx:if="{{!items.length && !loading}}" class="qx-empty">暂无售后记录</view><view wx:if="{{error}}" class="error">{{error}}</view>
 </view></view>

@@ -96,7 +96,7 @@ const selected = computed(() =>
   orders.value.find((order) => order.id === selectedId.value),
 );
 const orderStates: Record<string, string> = {
-  pending: "待付款",
+  pending: "待核款",
   paid: "待发货",
   shipping: "配送中",
   shipped: "已发货",
@@ -108,14 +108,14 @@ const orderStates: Record<string, string> = {
   partially_refunded: "部分退款",
 };
 const paymentStates: Record<string, string> = {
-  unpaid: "未支付",
-  paying: "支付中",
+  unpaid: "待核款",
+  paying: "历史交易处理中",
   processing: "处理中",
   confirming: "确认中",
   pending: "待确认",
-  paid: "支付成功",
-  succeeded: "支付成功",
-  failed: "支付失败",
+  paid: "已收款 / 积分已扣款",
+  succeeded: "已收款 / 积分已扣款",
+  failed: "未收款",
   refunded: "已退款",
   partially_refunded: "部分退款",
   review: "待核实",
@@ -127,11 +127,11 @@ const identityNames: Record<string, string> = {
   D: "游客",
 };
 const paymentMethods: Record<string, string> = {
-  wechat: "微信支付",
-  points: "积分支付",
-  offline: "公司转款",
-  company: "公司转款",
-  transfer: "公司转款",
+  wechat: "历史微信支付",
+  points: "积分订货",
+  offline: "线下付款",
+  company: "线下公司转款",
+  transfer: "线下公司转款",
 };
 const states = computed(() => [
   ...new Set(orders.value.map((order) => order.status)),
@@ -313,7 +313,7 @@ const orderColumns = [
   { title: "购买者 / 类型", key: "buyer", width: 180 },
   { title: "收货人", key: "recipient", width: 180 },
   { title: "订单状态", key: "status", width: 180 },
-  { title: "支付状态", key: "payment", width: 180 },
+  { title: "收款 / 积分状态", key: "payment", width: 180 },
   { title: "订单金额", key: "amount", width: 120 },
   { title: "详情", key: "actions", width: 170, fixed: "right" as const },
 ];
@@ -471,7 +471,7 @@ function statusColor(value: string) {
             <dd>{{ selected.snapshot.principalId ?? "—" }}</dd>
           </div>
           <div>
-            <dt>支付状态</dt>
+            <dt>收款 / 积分状态</dt>
             <dd>
               {{
                 paymentStates[selected.payment_state] ?? selected.payment_state
@@ -479,7 +479,7 @@ function statusColor(value: string) {
             </dd>
           </div>
           <div>
-            <dt>支付方式</dt>
+            <dt>付款方式</dt>
             <dd>
               {{
                 selected.payment_method
@@ -650,7 +650,7 @@ function statusColor(value: string) {
               </option>
             </AdminSelect></label
           ><label class="field"
-            >支付状态<AdminSelect
+            >收款 / 积分状态<AdminSelect
               v-model="paymentState"
               :disabled="loading || saving"
             >

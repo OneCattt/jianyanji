@@ -6,5 +6,5 @@
     <button wx:for="{{visible}}" wx:key="eventKey" class="reward-row" data-id="{{item.id}}" bindtap="detail"><view class="reward-icon {{item.isReversal ? 'muted' : ''}}"><image src="{{item.isReversal ? 'assets/reversal.png' : 'assets/wallet.png'}}" /></view><view class="reward-source"><view class="reward-title">{{item.title}}</view><view class="source-number">订单 {{item.orderNumber}}</view><view class="source-date">{{item.date}}</view></view><view class="reward-value {{item.isReversal ? 'muted-value' : ''}}"><view>¥ {{item.isReversal ? '-' + item.amount : '+' + item.amount}}</view><text>{{item.statusName}}</text></view></button>
   </view></view>
   <view wx:if="{{summary && summary.debtCents !== '0.00'}}" class="debt-note">尚待收回 ¥ {{summary.debtCents}} · 可在原奖励明细核对抵扣与实收</view>
-  <view class="reward-footer"><image src="assets/shield.png" /><text>每笔收益关联原始入驻或商品订单 · 订单退款后，对应收益将同步冲回</text></view>
+  <view class="reward-footer"><image src="assets/shield.png" /><text>奖励由公司线下核实结算，与订货积分分别记账 · 每笔收益关联原始入驻或商品订单，实际退款后对应收益同步冲回</text></view>
 </view>

@@ -37,14 +37,14 @@
     ><button
       wx:if="{{!paid}}"
       bindtap="pay"
-      disabled="{{busy||order.status!=='pending'}}"
+      disabled="{{busy||!canPay||insufficient}}"
       class="wallet-primary"
     >
-      {{busy?'核对支付结果中…':'确认整单积分付款'}}</button
-    ><button wx:else bindtap="order" class="wallet-primary">
-      查看订单与商品交付</button
+      {{busy?'积分扣减中…':'确认整单积分付款'}}</button
+    ><button bindtap="order" class="wallet-primary">
+      查看订单与线下付款说明</button
     ><view class="wallet-payment-note"
-      >积分不足请核实公司转款；待原微信交易结果明确后才可选择其他整单支付方式。</view
+      >{{insufficient?'可用积分不足，请线下充值并经财务核款发积分，或返回订单整笔线下付款。':'整单积分扣减成功后安排发货；退款积分按原批次退回。'}}</view
     ></view
   >
   <view class="wallet-heading"
@@ -78,7 +78,7 @@
   >
   <button class="wallet-cash" bindtap="cashRefunds">现金退款办理记录 ›</button>
   <view class="wallet-bottom-note"
-    >未用积分对应款项须经客服人工审核退回原公司收款，不提供线上提现。</view
+    >未用积分对应款项须经客服审核，由财务线下退款并登记；实际退款成功后扣回对应积分。奖励与积分分别记账。</view
   >
   <view wx:if="{{showTransfer}}" class="wallet-mask" bindtap="closeTransfer"
     ><view class="wallet-transfer" catchtap="stop"
@@ -96,7 +96,7 @@
           >{{wallet?wallet.transfer.customerService:''}}</view
         ><view
           >仅有效调肤店主、主理人可办理。1 元对应 1
-          积分，不赠送、不过期。请保留原流水并联系品牌方核实到账；产品包货款不发积分。</view
+          积分，不赠送、不过期。请保留原流水并联系品牌方核实到账；普通商品和产品包货款均不发积分，请单独注明积分充值用途。</view
         ></view
       ><button class="wallet-primary" bindtap="closeTransfer">
         我已了解，联系品牌方核实

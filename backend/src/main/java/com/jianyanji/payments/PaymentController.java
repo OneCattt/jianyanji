@@ -40,8 +40,15 @@ public class PaymentController {
 
     @GetMapping("/api/admin/orders/{id}/payment")
     public Object adminDetails(@PathVariable long id) {
-        access.staff("orders:manage");
+        access.staffAny("orders:manage", "finance:manage");
         return payments.details(Input.id(id), null, true);
+    }
+
+    /** 财务核实普通订单线下到账；金额与购买者均以原订单为准。 */
+    @PostMapping("/api/admin/orders/{id}/receipt")
+    public Object confirmReceipt(@PathVariable long id, @RequestBody JsonNode body) {
+        long actor = l(access.staff("finance:manage"), "id");
+        return payments.confirmOfflineReceipt(Input.id(id), body, actor);
     }
 
     @PostMapping("/api/orders/{id}/payment/query")

@@ -81,7 +81,7 @@ Page({
     if (agentOnly && !["B", "C"].includes(this.data.user.identity)) {
       this.setData({
         error:
-          "该入口仅对调肤店主、调肤主理人开放；游客可在商城微信付款购买商品",
+          "该入口仅对调肤店主、调肤主理人开放；游客可在商城下单后线下付款购买商品",
       });
       this.next = "";
       return;

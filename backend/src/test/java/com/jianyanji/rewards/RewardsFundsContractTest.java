@@ -2,7 +2,6 @@ package com.jianyanji.rewards;
 
 import static com.jianyanji.common.J.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
@@ -18,10 +17,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import javax.servlet.http.Cookie;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,7 +33,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-/** 真实 MySQL、Spring HTTP 链和模拟微信渠道的资金奖励合同验证。 默认跳过；只允许显式启用且库名以 java_rewards_test_ 开头的独立测试库，不监听任何端口。 */
+/** 真实 MySQL、Spring HTTP 线下核款及退款的资金奖励合同验证。 默认跳过；只允许显式启用且库名以 java_rewards_test_ 开头的独立测试库，不监听任何端口。 */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.MOCK,
         properties = {
@@ -53,7 +52,7 @@ class RewardsFundsContractTest {
     @Autowired private Db db;
     /** 跨模块冲回钩子，用于检验外层事务回滚及乱序退款。 */
     @Autowired private RewardService rewards;
-    /** 唯一替换的外部依赖；支付、钱包、售后及奖励服务均为真实实现。 */
+    /** 隔离外部渠道并验证零调用；核款、钱包、售后及奖励服务均为真实实现。 */
     @MockBean private WechatPayClient wechat;
     /** 本次测试专属数据前缀，不覆盖已有用户、商品或订单。 */
     private String runId;
@@ -143,41 +142,6 @@ class RewardsFundsContractTest {
                                     "独立验收规格",
                                     "瓶");
                 });
-        when(wechat.configured()).thenReturn(true);
-        when(wechat.appId()).thenReturn("isolated-app");
-        when(wechat.mchId()).thenReturn("isolated-mch");
-        when(wechat.create(any(JsonNode.class)))
-                .thenReturn(
-                        obj(
-                                "timeStamp",
-                                "1",
-                                "nonceStr",
-                                runId,
-                                "package",
-                                "prepay_id=isolated",
-                                "signType",
-                                "RSA",
-                                "paySign",
-                                "仅测试渠道"));
-        when(wechat.query(anyString())).thenAnswer(call -> trade(call.getArgument(0)));
-        when(wechat.refund(any(JsonNode.class)))
-                .thenAnswer(
-                        call -> {
-                            JsonNode input = call.getArgument(0);
-                            return obj(
-                                    "status",
-                                    "success",
-                                    "outTradeNo",
-                                    s(input, "outTradeNo"),
-                                    "outRefundNo",
-                                    s(input, "outRefundNo"),
-                                    "totalCents",
-                                    l(input, "totalCents"),
-                                    "refundCents",
-                                    l(input, "refundCents"),
-                                    "refundId",
-                                    "isolated-refund-" + id());
-                        });
         admin(
                 "PUT",
                 "/reward-settings",
@@ -236,13 +200,22 @@ class RewardsFundsContractTest {
                         "id");
     }
 
+    /** 首期每个资金合同均须通过线下核款及退款，不得触发任何微信渠道动作。 */
+    @AfterEach
+    void assertNoOnlineChannelCalls() {
+        verifyNoInteractions(wechat);
+    }
+
     @Test
-    void wechatPointsRefundOffsetAndRecoveryKeepFundsOwnership() throws Exception {
+    void offlinePointsRefundOffsetAndRecoveryKeepFundsOwnership() throws Exception {
         long order = order(5);
-        call("POST", "/api/orders/" + order + "/pay/wechat", null, buyerToken, 200);
-        call("POST", "/api/orders/" + order + "/payment/query", null, buyerToken, 200);
-        call("POST", "/api/orders/" + order + "/payment/query", null, buyerToken, 200);
-        assertEquals(1, count("payments", "order_id", order), "重复查询不能重复入账");
+        JsonNode firstReceipt = payOffline(order);
+        JsonNode repeatedReceipt = payOffline(order);
+        assertEquals(
+                l(firstReceipt.path("receipt"), "id"), l(repeatedReceipt.path("receipt"), "id"));
+        assertTrue(b(repeatedReceipt, "alreadyPaid"));
+        assertEquals(1, count("payments", "order_id", order), "重复核款不能重复入账");
+        assertEquals(1, count("company_receipts", "order_id", order), "重复核款只能登记一笔公司收款");
         assertEquals(
                 36000,
                 l(
@@ -250,7 +223,7 @@ class RewardsFundsContractTest {
                                 "SELECT cents FROM payments WHERE order_id=? AND is_deleted=0",
                                 order),
                         "cents"));
-        assertEquals(0, count("wallet_lots", "user_id", buyerId), "微信商品实付不得重复生成订货积分");
+        assertEquals(0, count("wallet_lots", "user_id", buyerId), "线下普通货款不得重复生成订货积分");
         received(order, 0);
         long reward = register(order, 17500);
         assertFalse(b(admin("GET", "/rewards/" + reward, null, 200), "eligible"));
@@ -265,13 +238,19 @@ class RewardsFundsContractTest {
         paid(l(paid, "id"), 200);
 
         long refund = refund(order, 5);
-        JsonNode refunded =
-                admin("POST", "/refunds/" + refund + "/wechat", obj("reason", runId), 200);
+        JsonNode refunded = refundOffline(refund);
         assertEquals("success", s(refunded, "status"));
-        ArgumentCaptor<JsonNode> channelInput = ArgumentCaptor.forClass(JsonNode.class);
-        verify(wechat).refund(channelInput.capture());
-        assertEquals(36000, l(channelInput.getValue(), "totalCents"), "原渠道总额必须包含原运费");
-        assertEquals(35000, l(channelInput.getValue(), "refundCents"), "本次仅退货款，不退运费");
+        JsonNode originalPayment =
+                call("GET", "/api/orders/" + order + "/payment", null, buyerToken, 200);
+        assertEquals(36000, l(originalPayment.path("receipt"), "cents"), "原实际收款总额必须包含原运费");
+        assertEquals(35000, l(refunded, "total_cents"), "本次仅退货款，不退运费");
+        assertEquals(
+                35000,
+                l(
+                        db.one(
+                                "SELECT cash_refunded_cents FROM company_receipts WHERE order_id=? AND is_deleted=0",
+                                order),
+                        "cash_refunded_cents"));
         assertEquals(17500, l(admin("GET", "/rewards/" + reward, null, 200), "reversedCents"));
         long firstDebt = l(debtFor(reward), "id");
         assertEquals(17500, l(debtFor(reward), "remainingCents"));
@@ -372,8 +351,7 @@ class RewardsFundsContractTest {
     @Test
     void historicalMarginSnapshotAndRefundBeforeRegistrationRemainTraceable() throws Exception {
         long order = order(5);
-        call("POST", "/api/orders/" + order + "/pay/wechat", null, buyerToken, 200);
-        call("POST", "/api/orders/" + order + "/payment/query", null, buyerToken, 200);
+        payOffline(order);
         received(order, 8);
         ObjectNode line =
                 db.one(
@@ -539,8 +517,7 @@ class RewardsFundsContractTest {
                                 buyerToken,
                                 200),
                         "id");
-        call("POST", "/api/orders/" + order + "/pay/wechat", null, buyerToken, 200);
-        call("POST", "/api/orders/" + order + "/payment/query", null, buyerToken, 200);
+        payOffline(order);
         assertEquals(
                 24471,
                 l(
@@ -598,14 +575,14 @@ class RewardsFundsContractTest {
                 "/refunds/" + refundId + "/review",
                 obj("approve", true, "identityDecision", null, "reason", runId),
                 200);
-        admin("POST", "/refunds/" + refundId + "/wechat", obj("reason", runId), 200);
+        refundOffline(refundId);
         assertEquals(0, l(admin("GET", "/rewards/" + reward, null, 200), "reversedCents"));
         long first = refund(order, 1);
-        admin("POST", "/refunds/" + first + "/wechat", obj("reason", runId), 200);
+        refundOffline(first);
         assertEquals(3501, l(admin("GET", "/rewards/" + reward, null, 200), "reversedCents"));
         long remaining = refund(order, 2);
-        admin("POST", "/refunds/" + remaining + "/wechat", obj("reason", runId), 200);
-        admin("POST", "/refunds/" + remaining + "/wechat", obj("reason", runId), 200);
+        refundOffline(remaining);
+        refundOffline(remaining);
         JsonNode detail = admin("GET", "/rewards/" + reward, null, 200);
         assertEquals(10503, l(detail, "reversedCents"));
         assertEquals(3, detail.path("reversals").size());
@@ -614,7 +591,7 @@ class RewardsFundsContractTest {
     }
 
     @Test
-    void v2PointsAndWechatUseSamePriceAndWelfareCannotGenerateMargin() throws Exception {
+    void v2PointsAndOfflineUseSamePriceAndWelfareCannotGenerateMargin() throws Exception {
         long welfare =
                 db.tx(
                         () -> {
@@ -653,11 +630,10 @@ class RewardsFundsContractTest {
                 200);
         JsonNode items =
                 arr(obj("skuId", skuId, "quantity", 3), obj("skuId", welfare, "quantity", 2));
-        long pointsOrder = orderItems(items), wechatOrder = orderItems(items);
+        long pointsOrder = orderItems(items), offlineOrder = orderItems(items);
         call("POST", "/api/orders/" + pointsOrder + "/pay/points", null, buyerToken, 200);
-        call("POST", "/api/orders/" + wechatOrder + "/pay/wechat", null, buyerToken, 200);
-        call("POST", "/api/orders/" + wechatOrder + "/payment/query", null, buyerToken, 200);
-        for (long value : new long[] {pointsOrder, wechatOrder}) {
+        payOffline(offlineOrder);
+        for (long value : new long[] {pointsOrder, offlineOrder}) {
             assertEquals(
                     24471,
                     l(
@@ -1109,8 +1085,7 @@ class RewardsFundsContractTest {
         long bOrder = salesOrder(items, runId + "-sale-b");
         long organic = order(1);
         for (long order : new long[] {cOrder, bOrder, organic}) {
-            call("POST", "/api/orders/" + order + "/pay/wechat", null, buyerToken, 200);
-            call("POST", "/api/orders/" + order + "/payment/query", null, buyerToken, 200);
+            payOffline(order);
         }
         JsonNode c = admin("GET", "/rewards/source/" + cOrder, null, 200),
                 b = admin("GET", "/rewards/source/" + bOrder, null, 200);
@@ -1133,13 +1108,13 @@ class RewardsFundsContractTest {
                             skuId);
                 });
         long first = refund(cOrder, 1);
-        admin("POST", "/refunds/" + first + "/wechat", obj("reason", runId), 200);
+        refundOffline(first);
         assertEquals(3000, l(admin("GET", "/rewards/" + reward, null, 200), "reversedCents"));
         long second = refund(cOrder, 1);
-        admin("POST", "/refunds/" + second + "/wechat", obj("reason", runId), 200);
+        refundOffline(second);
         assertEquals(6001, l(admin("GET", "/rewards/" + reward, null, 200), "reversedCents"));
         long third = refund(cOrder, 1);
-        admin("POST", "/refunds/" + third + "/wechat", obj("reason", runId), 200);
+        refundOffline(third);
         assertEquals(9001, l(admin("GET", "/rewards/" + reward, null, 200), "reversedCents"));
         assertEquals(otherId, l(admin("GET", "/rewards/" + reward, null, 200), "userId"));
         db.tx(
@@ -1239,25 +1214,57 @@ class RewardsFundsContractTest {
         return token;
     }
 
-    private JsonNode trade(String number) {
-        ObjectNode attempt =
-                db.one("SELECT * FROM payment_attempts WHERE number=? AND is_deleted=0", number);
-        assertNotNull(attempt);
-        return obj(
-                "out_trade_no",
-                number,
-                "mchid",
-                "isolated-mch",
-                "appid",
-                "isolated-app",
-                "trade_state",
-                "SUCCESS",
-                "transaction_id",
-                "isolated-wx-" + number,
-                "amount",
-                obj("total", l(attempt, "cents"), "currency", "CNY"),
-                "payer",
-                obj("openid", s(attempt, "openid")));
+    /** 通过真实财务 HTTP 接口核款，金额取原订单；稳定流水与时间支持重复核款验证。 */
+    private JsonNode payOffline(long orderId) throws Exception {
+        JsonNode order = call("GET", "/api/orders/" + orderId, null, buyerToken, 200);
+        JsonNode result =
+                admin(
+                        "POST",
+                        "/orders/" + orderId + "/receipt",
+                        obj(
+                                "sourceChannel",
+                                "bank",
+                                "accountRef",
+                                runId,
+                                "externalTransactionId",
+                                runId + "-order-" + orderId,
+                                "amountCents",
+                                l(order, "total_cents"),
+                                "receivedAt",
+                                "2020-01-01T00:00:00Z",
+                                "evidence",
+                                "隔离测试普通货款到账凭证",
+                                "verified",
+                                true,
+                                "reason",
+                                runId),
+                        200);
+        assertEquals(orderId, l(result.path("order"), "id"));
+        assertEquals("paid", s(result.path("order"), "payment_state"));
+        assertEquals("offline", s(result.path("order"), "payment_method"));
+        assertEquals("order", s(result.path("receipt"), "purpose"));
+        assertEquals(buyerId, l(result.path("receipt"), "user_id"));
+        assertEquals(l(order, "total_cents"), l(result.path("receipt"), "amount_cents"));
+        return result;
+    }
+
+    /** 审核验货后通过真实财务 HTTP 接口登记线下实际退款，同笔重试使用相同凭证。 */
+    private JsonNode refundOffline(long refundId) throws Exception {
+        return admin(
+                "POST",
+                "/refunds/" + refundId + "/offline",
+                obj(
+                        "recipient",
+                        "隔离资金验收购买者",
+                        "paidAt",
+                        "2020-01-02T00:00:00Z",
+                        "proof",
+                        runId + "-refund-" + refundId,
+                        "confirmed",
+                        true,
+                        "reason",
+                        runId),
+                200);
     }
 
     private long order(int quantity) throws Exception {

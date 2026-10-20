@@ -115,6 +115,7 @@ public class WalletService {
                 "userId",
                 "purpose",
                 "onboardingId",
+                "orderId",
                 "sourceChannel",
                 "accountRef",
                 "externalTransactionId",
@@ -124,7 +125,7 @@ public class WalletService {
                 "reason",
                 "verified");
         long userId = entity(raw, "userId");
-        String purpose = choice(raw, "purpose", "package", "points");
+        String purpose = choice(raw, "purpose", "package", "points", "order");
         String channel = choice(raw, "sourceChannel", "bank", "wechat_company");
         ObjectNode v =
                 obj(
@@ -150,6 +151,7 @@ public class WalletService {
         Input.require(Input.bool(raw, "verified"), "必须确认已核实真实到账");
         v.put("verified", true);
         if (raw.has("onboardingId")) v.put("onboardingId", entity(raw, "onboardingId"));
+        if (raw.has("orderId")) v.put("orderId", entity(raw, "orderId"));
         return v;
     }
 
@@ -165,10 +167,19 @@ public class WalletService {
                         s(v, "sourceChannel"),
                         s(v, "accountRef"),
                         s(v, "externalTransactionId"))
-                != null) throw conflict("RECEIPT_ALREADY_USED", "该原收款流水已登记，不得重复用于产品包或发积分");
+                != null) throw conflict("RECEIPT_ALREADY_USED", "该原收款流水已登记，不得跨订单或用途重复使用");
+        if (!"order".equals(s(v, "purpose")) && has(v, "orderId")) throw conflict("仅普通订单货款可指定订单编号");
         if ("points".equals(s(v, "purpose"))) {
             requireAgent(userId);
             if (has(v, "onboardingId")) throw conflict("订货款不能绑定入驻用途");
+        } else if ("order".equals(s(v, "purpose"))) {
+            if (!has(v, "orderId") || has(v, "onboardingId"))
+                throw conflict("普通货款必须指定原订单，不能绑定入驻申请");
+            ObjectNode order = orders.owned(l(v, "orderId"), null);
+            if (!"goods".equals(s(order, "kind"))
+                    || !"pending".equals(s(order, "status"))
+                    || l(order, "user_id") != userId
+                    || l(order, "total_cents") != amount) throw conflict("普通货款与原待核款订单不一致");
         } else {
             if (!has(v, "onboardingId")) throw conflict("产品包款必须指定入驻申请");
             ObjectNode application =
@@ -184,7 +195,7 @@ public class WalletService {
         }
         long receiptId =
                 db.insert(
-                        "INSERT INTO company_receipts(user_id,purpose,onboarding_id,source_channel,account_ref,external_transaction_id,amount_cents,received_at,evidence,reason,confirmed_by,confirmed_at,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "INSERT INTO company_receipts(user_id,purpose,onboarding_id,source_channel,account_ref,external_transaction_id,amount_cents,received_at,evidence,reason,confirmed_by,confirmed_at,create_user_id,update_user_id,order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         userId,
                         s(v, "purpose"),
                         has(v, "onboardingId") ? l(v, "onboardingId") : null,
@@ -198,7 +209,8 @@ public class WalletService {
                         actor,
                         now(),
                         actor,
-                        actor);
+                        actor,
+                        has(v, "orderId") ? l(v, "orderId") : null);
         if ("points".equals(s(v, "purpose"))) {
             long lotId =
                     db.insert(
@@ -323,7 +335,7 @@ public class WalletService {
                     ObjectNode order = orders.owned(orderId, userId);
                     if ("points".equals(s(order, "payment_method"))
                             && "paid".equals(s(order, "payment_state"))) return orders.view(order);
-                    if (!"goods".equals(s(order, "kind"))) throw conflict("产品包支持微信或公司转款，不支持积分");
+                    if (!"goods".equals(s(order, "kind"))) throw conflict("产品包仅支持线下付款，不支持订货积分抵付");
                     if (!"pending".equals(s(order, "status"))
                             || !Arrays.asList("unpaid", "failed")
                                     .contains(s(order, "payment_state")))
@@ -351,7 +363,7 @@ public class WalletService {
                                 "积分不足，还差 "
                                         + String.format(
                                                 Locale.ROOT, "%.2f", (amount - available) / 100.0)
-                                        + " 积分，请核实公司转款或待原交易明确后整单微信付款");
+                                        + " 积分，请线下充值核款后订货，或改为整单线下付款");
                     long left = amount;
                     for (ObjectNode lot : lots) {
                         if (left == 0) break;
@@ -394,7 +406,7 @@ public class WalletService {
     /** 后台确认普通订货收款并发放积分；失败另记审计，失败事务不留下部分账务。 */
     public ObjectNode confirmReceipt(JsonNode raw, long actor) {
         ObjectNode v = validateReceipt(raw);
-        if ("package".equals(s(v, "purpose"))) throw conflict("产品包核款请从入驻申请办理");
+        if (!"points".equals(s(v, "purpose"))) throw conflict("此入口仅办理积分充值，产品包和普通货款请从对应申请或订单核款");
         try {
             long receiptId =
                     db.tx(
