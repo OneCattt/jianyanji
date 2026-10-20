@@ -40,6 +40,13 @@ public class MembershipController {
         return membership.updateSettings(body, actor);
     }
 
+    /** 入驻配置使用的在售商品规格，仅需入驻管理权限，不开放商品维护权限。 */
+    @GetMapping("/api/admin/membership-skus")
+    public Object packageSkuOptions() {
+        access.staff("onboarding:manage");
+        return membership.packageSkuOptions();
+    }
+
     @PostMapping("/api/onboardings")
     public Object apply(@RequestBody JsonNode body) {
         ObjectNode user = access.user();

@@ -72,6 +72,16 @@ public class MembershipService {
         return db.setting("membership");
     }
 
+    /** 一次读取产品包可选规格，只返回未删除且商品、分类、规格均启用的名称与编号。 */
+    public List<ObjectNode> packageSkuOptions() {
+        return db.list(
+                "SELECT s.id,p.name AS productName,s.name AS skuName,s.unit "
+                        + "FROM skus s JOIN products p ON p.id=s.product_id "
+                        + "JOIN categories c ON c.id=p.category_id "
+                        + "WHERE s.is_deleted=0 AND p.is_deleted=0 AND c.is_deleted=0 "
+                        + "AND s.active=1 AND p.active=1 AND c.active=1 ORDER BY p.id,s.id");
+    }
+
     /** 严格验证恰好两种身份产品包，单价分摊总和必须等于实收货款。 */
     public ObjectNode validateSettings(JsonNode raw) {
         Input.strict(raw, "packages");

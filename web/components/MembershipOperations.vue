@@ -28,6 +28,12 @@ interface Package {
   active: boolean;
   lines: { skuId: number; quantity: number; unitCents: number }[];
 }
+interface PackageSku {
+  id: number;
+  productName: string;
+  skuName: string;
+  unit: string;
+}
 interface Order {
   id: number;
   number: string;
@@ -65,6 +71,7 @@ type PackageForm = Omit<Package, "amountCents" | "valueCents" | "lines"> & {
 };
 const dialog = ref<"packages" | "receipt" | null>(null);
 const packageDraft = ref<PackageForm[]>([]);
+const packageSkus = ref<PackageSku[]>([]);
 const packages = ref<PackageForm[]>([]),
   applications = ref<Application[]>([]),
   selected = ref<Application | null>(null),
@@ -103,6 +110,51 @@ function cents(value: string) {
   if (!Number.isSafeInteger(n) || n <= 0 || n > 100000000)
     throw new Error("金额超出允许范围");
   return n;
+}
+function lineSubtotal(line: PackageForm["lines"][number]): number | null {
+  if (
+    !Number.isInteger(line.quantity) ||
+    line.quantity < 1 ||
+    line.quantity > 999
+  )
+    return null;
+  try {
+    return cents(line.unit) * line.quantity;
+  } catch {
+    return null;
+  }
+}
+const allocations = computed(() =>
+  Object.fromEntries(
+    packageDraft.value.map((p) => {
+      const total = p.lines.reduce(
+        (sum, line) => sum + (lineSubtotal(line) ?? 0),
+        0,
+      );
+      let difference: number | null = null;
+      try {
+        difference = cents(p.amount) - total;
+      } catch {
+        // 货款尚未填好时先展示已分摊金额。
+      }
+      return [p.targetIdentity, { total, difference }];
+    }),
+  ),
+);
+function differenceLabel(difference: number | null): string {
+  if (difference === null) return "请先填写入驻货款";
+  if (difference === 0) return "已配平";
+  return `${difference > 0 ? "还差" : "超出"} ¥${money(Math.abs(difference))}`;
+}
+function skuChoices(p: PackageForm, index: number) {
+  const selected = new Set(
+    p.lines.filter((_, i) => i !== index).map((l) => l.skuId),
+  );
+  return packageSkus.value.map((sku) => ({
+    value: sku.id,
+    label: `${sku.productName} · ${sku.skuName}（${sku.unit}）`,
+    disabled: selected.has(sku.id),
+  }));
 }
 function defaults(): PackageForm[] {
   return (["C", "B"] as const).map((targetIdentity) => ({
@@ -171,16 +223,34 @@ async function save() {
             line.quantity > 999,
         )
       )
-        throw new Error("商品规格编号须为正整数，数量须为 1～999 的整数");
+        throw new Error("请选择商品规格，数量须为 1～999 的整数");
+      const selected = new Set<number>();
+      const packageLines = lines.map((line) => {
+        if (!packageSkus.value.some((sku) => sku.id === line.skuId))
+          throw new Error("所选商品规格已不可用，请重新选择");
+        if (selected.has(line.skuId))
+          throw new Error("同一产品包不能重复选择同一规格");
+        selected.add(line.skuId);
+        return {
+          skuId: line.skuId,
+          quantity: line.quantity,
+          unitCents: cents(line.unit),
+        };
+      });
+      const amountCents = cents(amount);
+      const total = packageLines.reduce(
+        (sum, line) => sum + line.quantity * line.unitCents,
+        0,
+      );
+      if (total !== amountCents)
+        throw new Error(
+          `${p.targetIdentity === "C" ? "店主" : "主理人"}产品包分摊未配平，${differenceLabel(amountCents - total)}`,
+        );
       return {
         ...rest,
-        amountCents: cents(amount),
+        amountCents,
         valueCents: cents(value),
-        lines: lines.map((l) => ({
-          skuId: Number(l.skuId),
-          quantity: Number(l.quantity),
-          unitCents: cents(l.unit),
-        })),
+        lines: packageLines,
       };
     });
     await api("/admin/membership-settings", {
@@ -192,14 +262,16 @@ async function save() {
     notice.value = "产品包权益、条件与货款已保存；历史申请保持原快照";
   });
 }
-function openPackages() {
-  packageDraft.value = packages.value.map((p) => ({
-    ...p,
-    lines: p.lines.map((line) => ({ ...line })),
-  }));
-  reason.value = "";
-  error.value = "";
-  dialog.value = "packages";
+async function openPackages() {
+  await run(async () => {
+    packageSkus.value = await api<PackageSku[]>("/admin/membership-skus");
+    packageDraft.value = packages.value.map((p) => ({
+      ...p,
+      lines: p.lines.map((line) => ({ ...line })),
+    }));
+    reason.value = "";
+    dialog.value = "packages";
+  });
 }
 function closeDialog() {
   if (!busy.value && !uploadingImage.value) dialog.value = null;
@@ -610,15 +682,40 @@ const packageLineColumns = [
           <p class="muted">
             各商品分摊货款合计须等于产品包货款，用于交付与后续部分退款。
           </p>
-          <div v-for="(line, i) in p.lines" :key="i" class="inline">
-            <label class="field"
-              >商品规格编号<a-input-number
-                type="number"
-                :step="1"
-                v-model:value="line.skuId"
-                :min="1"
+          <div v-for="(line, i) in p.lines" :key="i" class="package-line">
+            <label class="field package-line-product"
+              >商品与规格<AdminSelect
+                v-model="line.skuId"
+                :aria-label="`${p.targetIdentity === 'C' ? '店主' : '主理人'}产品包第${i + 1}项商品与规格`"
                 required
-                :disabled="busy" /></label
+                :disabled="busy"
+              >
+                <option :value="0" disabled>
+                  {{
+                    packageSkus.length
+                      ? "搜索商品名或规格名"
+                      : "暂无在售规格，请先在商品管理中上架"
+                  }}
+                </option>
+                <option
+                  v-if="
+                    line.skuId &&
+                    !packageSkus.some((sku) => sku.id === line.skuId)
+                  "
+                  :value="line.skuId"
+                  disabled
+                >
+                  原商品规格已不可用，请重新选择
+                </option>
+                <option
+                  v-for="choice in skuChoices(p, i)"
+                  :key="choice.value"
+                  :value="choice.value"
+                  :disabled="choice.disabled"
+                >
+                  {{ choice.label }}
+                </option>
+              </AdminSelect></label
             ><label class="field"
               >数量<a-input-number
                 type="number"
@@ -635,23 +732,56 @@ const packageLineColumns = [
                 data-error-message="请填写最多两位小数的金额"
                 inputmode="decimal"
                 required
-                :disabled="busy" /></label
-            ><a-button
-              html-type="button"
-              :disabled="busy || uploadingImage"
-              v-if="p.lines.length > 1"
-              @click="p.lines.splice(i, 1)"
-            >
-              移除规格
-            </a-button>
+                :disabled="busy"
+            /></label>
+            <div class="package-line-footer">
+              <span class="package-line-subtotal"
+                >小计
+                {{
+                  lineSubtotal(line) === null
+                    ? "—"
+                    : `¥${money(lineSubtotal(line)!)}`
+                }}</span
+              >
+              <a-button
+                html-type="button"
+                type="link"
+                size="small"
+                :disabled="busy || uploadingImage"
+                v-if="p.lines.length > 1"
+                @click="p.lines.splice(i, 1)"
+              >
+                移除规格
+              </a-button>
+            </div>
           </div>
           <a-button
             html-type="button"
-            :disabled="busy || uploadingImage"
+            :disabled="busy || uploadingImage || p.lines.length >= 50"
             @click="p.lines.push({ skuId: 0, quantity: 1, unit: '' })"
           >
             添加商品规格
           </a-button>
+          <dl class="allocation-summary" aria-live="polite" aria-atomic="true">
+            <div>
+              <dt>分摊合计</dt>
+              <dd>¥{{ money(allocations[p.targetIdentity].total) }}</dd>
+            </div>
+            <div>
+              <dt>差额</dt>
+              <dd
+                :class="{
+                  'allocation-balanced':
+                    allocations[p.targetIdentity].difference === 0,
+                  'allocation-unbalanced':
+                    allocations[p.targetIdentity].difference !== null &&
+                    allocations[p.targetIdentity].difference !== 0,
+                }"
+              >
+                {{ differenceLabel(allocations[p.targetIdentity].difference) }}
+              </dd>
+            </div>
+          </dl>
         </fieldset>
         <label class="field"
           >修改原因<a-input
@@ -850,6 +980,55 @@ p {
 }
 .package-fields > .check {
   margin: 16px 0;
+}
+.package-line {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--admin-border);
+}
+.package-line-product,
+.package-line-footer {
+  grid-column: 1 / -1;
+}
+.package-line-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.package-line-subtotal,
+.allocation-summary dd {
+  font-variant-numeric: tabular-nums;
+}
+.package-line-subtotal {
+  color: var(--admin-muted);
+}
+.allocation-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border);
+}
+.allocation-summary dt {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.allocation-summary dd {
+  margin: 4px 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.allocation-balanced {
+  color: #237346;
+}
+.allocation-unbalanced {
+  color: var(--admin-accent);
 }
 .inline {
   display: flex;
