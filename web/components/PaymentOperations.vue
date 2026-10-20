@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
 import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
@@ -87,8 +88,7 @@ interface Payment {
     create_time: string;
   }[];
 }
-const orders = ref<Order[]>([]),
-  selected = ref<Order | null>(null),
+const selected = ref<Order | null>(null),
   payment = ref<Payment | null>(null),
   query = ref(""),
   status = ref(""),
@@ -141,16 +141,23 @@ const paymentLabels: Record<string, string> = {
   partially_refunded: "部分退款",
   refunded: "已退款",
 };
-const visible = computed(() =>
-  orders.value.filter(
-    (o) =>
-      (!props.financeOnly || o.kind === "goods") &&
-      (!status.value || o.status === status.value) &&
-      (!query.value ||
-        o.number.includes(query.value) ||
-        String(o.user_id) === query.value),
-  ),
+const {
+  rows: orders,
+  total: orderTotal,
+  pagination: orderPagination,
+  loading: listLoading,
+  load: loadOrders,
+} = useAdminList<Order>(
+  "/admin/orders",
+  () => ({
+    q: query.value,
+    status: status.value,
+    kind: props.financeOnly ? "goods" : "",
+  }),
+  error,
 );
+const visible = computed(() => orders.value);
+
 const canShip = computed(
   () =>
     selected.value &&
@@ -183,7 +190,7 @@ const name = (l: OrderLine) =>
   `商品规格 ${l.sku_id}`;
 const freshKey = () => globalThis.crypto.randomUUID();
 async function load() {
-  orders.value = await api<Order[]>("/admin/orders");
+  await loadOrders();
 }
 async function select(id: number) {
   const [details, fulfillment] = await Promise.all([
@@ -450,7 +457,7 @@ function statusColor(value: string) {
             }}
           </p>
         </div>
-        <span class="list-count">{{ visible.length }} 笔订单</span>
+        <span class="list-count">共 {{ orderTotal }} 笔订单</span>
       </header>
       <AdminForm class="filters" @submit="act(load)">
         <label class="field"
@@ -474,14 +481,10 @@ function statusColor(value: string) {
           :columns="orderColumns"
           :data-source="visible || []"
           row-key="id"
-          :pagination="{
-            pageSize: 20,
-            showSizeChanger: false,
-            hideOnSinglePage: true,
-          }"
+          :pagination="orderPagination"
           :scroll="{ x: 880 }"
           size="small"
-          :loading="busy"
+          :loading="busy || listLoading"
           ><template #bodyCell="{ column, record: o }"
             ><template v-if="column.key === 'order'">
               {{ o.number

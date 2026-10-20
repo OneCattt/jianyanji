@@ -39,9 +39,10 @@ public class WalletController {
     public Object receipts(
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) String receiptId,
-            @RequestParam(required = false) String externalTransactionId) {
+            @RequestParam(required = false) String externalTransactionId,
+            @RequestParam java.util.Map<String, String> query) {
         access.staff("finance:manage");
-        return wallet.receipts(userId, receiptId, externalTransactionId);
+        return query.containsKey("page") ? wallet.adminPage(query) : wallet.receipts(userId, receiptId, externalTransactionId);
     }
 
     @PostMapping("/api/admin/receipts")
@@ -51,9 +52,15 @@ public class WalletController {
     }
 
     @GetMapping("/api/admin/wallets/{id}")
-    public Object adminView(@PathVariable long id) {
+    public Object adminView(@PathVariable long id, @RequestParam(defaultValue = "true") boolean includeLedger) {
         access.staff("finance:manage");
-        return wallet.walletView(Input.id(id));
+        return wallet.walletView(Input.id(id), includeLedger);
+    }
+
+    @GetMapping("/api/admin/wallets/{id}/ledger")
+    public Object ledger(@PathVariable long id, @RequestParam java.util.Map<String, String> query) {
+        access.staff("finance:manage");
+        return wallet.ledgerPage(Input.id(id), query);
     }
 
     @PostMapping("/api/admin/wallet-lots/{id}/correct")

@@ -25,9 +25,10 @@ Page({
       error: "",
     });
     try {
-      const addresses = await request("/addresses"),
-        selected = wx.getStorageSync("jyj_address");
-      const address = addresses.find((a) => a.id === selected) || addresses[0];
+      const selected = wx.getStorageSync("jyj_address");
+      const { address } = await request(
+        "/mini/address" + (selected ? "?id=" + selected : ""),
+      );
       this.setData({ address });
       if (this.salesCode) {
         const sales = await request(

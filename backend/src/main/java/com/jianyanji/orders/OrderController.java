@@ -96,9 +96,9 @@ public class OrderController {
     }
 
     @GetMapping("/admin/orders")
-    public Object adminOrders() {
+    public Object adminOrders(@RequestParam java.util.Map<String, String> query) {
         access.staffAny("orders:manage", "finance:manage");
-        return orders.orders(null);
+        return query.containsKey("page") ? orders.adminPage(query) : orders.orders(null);
     }
 
     @PostMapping("/orders/{id}/cancel")

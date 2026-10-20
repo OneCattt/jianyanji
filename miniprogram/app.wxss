@@ -167,3 +167,21 @@ input {
   text-align: center;
   padding-top: 120rpx;
 }
+
+/* 列表状态使用稳定占位，数据刷新时保留现有内容。 */
+.list-footer {
+  min-height: 72rpx;
+  padding: 20rpx;
+  text-align: center;
+  color: #8e8178;
+  font-size: 24rpx;
+  box-sizing: border-box;
+}
+.list-footer button {
+  font-size: 24rpx;
+  color: #8d1724;
+  background: transparent;
+}
+.list-footer button::after {
+  border: 0;
+}

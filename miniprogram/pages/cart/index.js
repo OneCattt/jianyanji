@@ -1,8 +1,10 @@
 const { request } = require("../../utils/api");
 const { money } = require("../../utils/catalog");
+const { listData, loadPage } = require("../../utils/list");
+const { isFresh, remember } = require("../../utils/state");
 Page({
   data: {
-    items: [],
+    ...listData(),
     totalText: "¥0.00",
     kinds: 0,
     pieces: 0,
@@ -10,23 +12,31 @@ Page({
     busy: false,
   },
   async onShow() {
-    await this.load();
+    if (!isFresh(this) && !this.data.itemsLoading) await this.load();
   },
-  async load() {
+  async load(reset = true) {
+    if (
+      await loadPage(this, {
+        reset,
+        url: "/mini/cart",
+        map: (i) => ({ ...i, priceText: money(i.priceCents) }),
+        extra: (r) => ({
+          kinds: r.kinds,
+          pieces: r.pieces,
+          totalText: money(r.totalCents),
+        }),
+      })
+    )
+      remember(this);
+  },
+  onReachBottom() {
+    return this.load(false);
+  },
+  async onPullDownRefresh() {
     try {
-      const r = await request("/cart");
-      const selected = r.items.filter((i) => i.selected);
-      this.setData({
-        items: r.items.map((i) => ({ ...i, priceText: money(i.priceCents) })),
-        kinds: selected.length,
-        pieces: selected.reduce((n, i) => n + i.quantity, 0),
-        totalText: money(
-          selected.reduce((n, i) => n + (i.priceCents || 0) * i.quantity, 0),
-        ),
-        error: "",
-      });
-    } catch (e) {
-      this.setData({ error: e.message });
+      await this.load();
+    } finally {
+      wx.stopPullDownRefresh();
     }
   },
   async change(e) {
@@ -54,16 +64,17 @@ Page({
       this.setData({ busy: false });
     }
   },
-  checkout() {
-    const selected = this.data.items.filter((i) => i.selected);
-    if (!selected.length || selected.some((i) => !i.available)) {
-      this.setData({ error: "请选择可购买商品后结算" });
-      return;
+  async checkout() {
+    if (this.data.busy) return;
+    this.setData({ busy: true, error: "" });
+    try {
+      const result = await request("/mini/cart/selection");
+      wx.setStorageSync("jyj_checkout", result.items);
+      wx.navigateTo({ url: "/pages/checkout/index" });
+    } catch (e) {
+      this.setData({ error: e.message });
+    } finally {
+      this.setData({ busy: false });
     }
-    wx.setStorageSync(
-      "jyj_checkout",
-      selected.map((i) => ({ skuId: i.skuId, quantity: i.quantity })),
-    );
-    wx.navigateTo({ url: "/pages/checkout/index" });
   },
 });

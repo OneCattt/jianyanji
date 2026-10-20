@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
@@ -10,9 +11,7 @@ const props = withDefaults(
   defineProps<{ canFinance: boolean; canManage?: boolean }>(),
   { canManage: true },
 );
-const orders = ref<any[]>([]),
-  refunds = ref<any[]>([]),
-  busy = ref(false),
+const busy = ref(false),
   error = ref(""),
   notice = ref(""),
   reason = ref(""),
@@ -34,6 +33,13 @@ function openSetup(key: "policy" | "create") {
     exceptionReason.value = "";
   }
   setupDialog.value = key;
+  if (key === "create") {
+    chosenOrder.value = null;
+    orderQuery.value = "";
+    void loadOrderOptions().catch((e) => {
+      error.value = (e as Error).message;
+    });
+  }
 }
 async function savePolicy() {
   await run(async () => {
@@ -51,9 +57,28 @@ async function savePolicy() {
     setupDialog.value = "";
   }, "售后政策已保存");
 }
-const current = computed(() =>
-  orders.value.find((o) => o.id === selectedOrderId.value),
+const orderQuery = ref("");
+const chosenOrder = ref<any>(null);
+const {
+  rows: orders,
+  pagination: orderPagination,
+  loading: orderLoading,
+  load: loadOrderOptions,
+} = useAdminList<any>(
+  "/admin/orders",
+  () => ({ q: orderQuery.value, paidOnly: "true" }),
+  error,
+  () => setupDialog.value === "create",
 );
+const orderOptions = computed(() =>
+  chosenOrder.value && !orders.value.some((o) => o.id === chosenOrder.value.id)
+    ? [chosenOrder.value, ...orders.value]
+    : orders.value,
+);
+watch(selectedOrderId, (id) => {
+  chosenOrder.value = orders.value.find((o) => o.id === id) ?? null;
+});
+const current = computed(() => chosenOrder.value);
 const exceptionApproved = ref(false),
   exceptionReason = ref("");
 const action = ref(""),
@@ -81,10 +106,7 @@ function cents(v: string) {
   return Number(a) * 100 + Number(b.padEnd(2, "0"));
 }
 async function load() {
-  [orders.value, refunds.value] = await Promise.all([
-    api<any[]>("/admin/orders"),
-    api<any[]>("/admin/refunds"),
-  ]);
+  await loadRefunds();
   if (props.canManage) {
     const p = await api<any>("/admin/aftersales-settings");
     if (p) policy.value = p;
@@ -288,19 +310,19 @@ function statusColor(value: string) {
 
 const refundQuery = ref("");
 const refundStatus = ref("");
-const filteredRefunds = computed(() => {
-  const keyword = refundQuery.value.trim().toLowerCase();
-  return refunds.value.filter(
-    (record) =>
-      (!refundStatus.value || record.status === refundStatus.value) &&
-      (!keyword ||
-        [record.number, record.order_id, record.reason].some((value) =>
-          String(value ?? "")
-            .toLowerCase()
-            .includes(keyword),
-        )),
-  );
-});
+const {
+  rows: refunds,
+  total: refundTotal,
+  pagination: refundPagination,
+  loading: listLoading,
+  load: loadRefunds,
+} = useAdminList<any>(
+  "/admin/refunds",
+  () => ({ q: refundQuery.value, status: refundStatus.value }),
+  error,
+);
+const filteredRefunds = computed(() => refunds.value);
+
 const refundColumns = [
   { title: "售后编号", key: "number", width: 140 },
   { title: "原订单", key: "order", width: 110 },
@@ -359,7 +381,7 @@ const actionNames: Record<string, string> = {
             现金由财务在线下退还后登记；积分订单退回原积分。审核通过不代表实际退款完成。
           </p>
         </div>
-        <span class="list-count">{{ filteredRefunds.length }} 笔记录</span>
+        <span class="list-count">共 {{ refundTotal }} 笔记录</span>
       </header>
 
       <AdminForm class="filters" @submit="() => {}">
@@ -382,12 +404,8 @@ const actionNames: Record<string, string> = {
         :columns="refundColumns"
         :data-source="filteredRefunds"
         row-key="id"
-        :loading="busy"
-        :pagination="{
-          pageSize: 10,
-          showSizeChanger: false,
-          hideOnSinglePage: true,
-        }"
+        :loading="busy || listLoading"
+        :pagination="refundPagination"
         :scroll="{ x: 1040 }"
         size="small"
         :locale="{ emptyText: '暂无符合条件的售后记录' }"
@@ -565,6 +583,12 @@ const actionNames: Record<string, string> = {
       <template v-else>
         <AdminForm class="form-grid setup-form" @submit="create">
           <label class="field wide-field"
+            >搜索已付款订单<a-input
+              v-model:value="orderQuery"
+              placeholder="订单号、用户编号、收货人或电话"
+              :disabled="busy"
+          /></label>
+          <label class="field wide-field"
             >原订单<AdminSelect
               v-model.number="selectedOrderId"
               required
@@ -572,18 +596,19 @@ const actionNames: Record<string, string> = {
               :disabled="busy"
             >
               <option :value="0" disabled>选择已付款订单</option>
-              <option
-                v-for="o in orders.filter((o) =>
-                  ['paid', 'partially_refunded'].includes(o.payment_state),
-                )"
-                :key="o.id"
-                :value="o.id"
-              >
+              <option v-for="o in orderOptions" :key="o.id" :value="o.id">
                 {{ o.number }} · 用户{{ o.user_id }} ·
                 {{ money(o.total_cents) }}
               </option>
             </AdminSelect></label
-          ><template v-if="current"
+          >
+          <div class="wide-field">
+            <a-pagination
+              v-bind="orderPagination"
+              :disabled="busy || orderLoading"
+            />
+          </div>
+          <template v-if="current"
             ><div
               v-for="l in current.lines"
               :key="l.id"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
 import { onMounted, ref } from "vue";
 import { api } from "../client";
@@ -47,8 +48,7 @@ interface Wallet {
   ledger: Entry[];
 }
 const dialog = ref<"receipt" | "correction" | null>(null);
-const receipts = ref<Receipt[]>([]),
-  wallet = ref<Wallet | null>(null),
+const wallet = ref<Wallet | null>(null),
   busy = ref(false),
   error = ref(""),
   notice = ref(""),
@@ -103,15 +103,38 @@ async function run(work: () => Promise<void>) {
     busy.value = false;
   }
 }
+const {
+  rows: receipts,
+  pagination: receiptPagination,
+  loading: listLoading,
+  load: loadReceipts,
+} = useAdminList<Receipt>(
+  "/admin/receipts",
+  () => ({
+    userId: userId.value,
+    receiptId: receiptId.value,
+    externalTransactionId: externalTransactionId.value,
+  }),
+  error,
+);
+const {
+  rows: ledger,
+  pagination: ledgerPagination,
+  loading: ledgerLoading,
+  load: loadLedger,
+} = useAdminList<Entry>(
+  () => "/admin/wallets/" + userId.value + "/ledger",
+  () => ({ userId: userId.value }),
+  error,
+  () => Boolean(userId.value),
+);
 async function refresh() {
-  const query = new URLSearchParams();
-  if (userId.value) query.set("userId", userId.value);
-  if (receiptId.value) query.set("receiptId", receiptId.value);
-  if (externalTransactionId.value)
-    query.set("externalTransactionId", externalTransactionId.value);
-  receipts.value = await api<Receipt[]>("/admin/receipts?" + query.toString());
+  await loadReceipts();
   if (userId.value)
-    wallet.value = await api<Wallet>("/admin/wallets/" + userId.value);
+    [wallet.value] = await Promise.all([
+      api<Wallet>("/admin/wallets/" + userId.value + "?includeLedger=false"),
+      loadLedger(),
+    ]);
   else wallet.value = null;
 }
 function closeDialog() {
@@ -282,13 +305,13 @@ const receiptColumns = [
               :columns="pointLotColumns"
               row-key="id"
               size="middle"
-              :loading="busy"
+              :loading="busy || listLoading"
               :scroll="{ x: 680 }"
               :pagination="{
                 defaultPageSize: 10,
                 showSizeChanger: true,
                 pageSizeOptions: ['10', '20', '50'],
-                hideOnSinglePage: true,
+                hideOnSinglePage: false,
               }"
               ><template #bodyCell="{ column, record: lot }"
                 ><template v-if="column.key === 'c0'"
@@ -329,7 +352,7 @@ const receiptColumns = [
             仅能纠正该原批次未消费且未占用的积分，已消费差额须人工核实处理。
           </p>
           <h3>积分流水</h3>
-          <div v-for="entry in wallet.ledger" :key="entry.id" class="entry">
+          <div v-for="entry in ledger" :key="entry.id" class="entry">
             <div>
               {{ kinds[entry.kind] || entry.kind }} ·
               {{ entry.order_number || "原收款 #" + entry.receipt_id
@@ -340,7 +363,10 @@ const receiptColumns = [
               }}{{ money(entry.delta_cents) }}</strong
             >
           </div>
-          <p v-if="!wallet.ledger.length" class="empty-state">暂无积分流水。</p>
+          <p v-if="!ledger.length && !ledgerLoading" class="empty-state">
+            暂无积分流水。
+          </p>
+          <a-pagination v-bind="ledgerPagination" :disabled="ledgerLoading" />
         </a-card>
         <a-card size="small" class="receipts-panel" aria-label="真实收款记录">
           <h3>真实收款记录</h3>
@@ -355,14 +381,9 @@ const receiptColumns = [
               :columns="receiptColumns"
               row-key="id"
               size="middle"
-              :loading="busy"
+              :loading="busy || listLoading"
               :scroll="{ x: 850 }"
-              :pagination="{
-                defaultPageSize: 10,
-                showSizeChanger: true,
-                pageSizeOptions: ['10', '20', '50'],
-                hideOnSinglePage: true,
-              }"
+              :pagination="receiptPagination"
               ><template #bodyCell="{ column, record: r }"
                 ><template v-if="column.key === 'c0'"
                   ><div class="table-cell-content">

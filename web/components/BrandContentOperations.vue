@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
 import { computed, onMounted, ref } from "vue";
 import { contentApi, type BrandPost, type PostInput } from "../content-client";
@@ -7,8 +8,7 @@ import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
 
-const posts = ref<BrandPost[]>([]),
-  busy = ref(false),
+const busy = ref(false),
   error = ref(""),
   notice = ref(""),
   editing = ref(false),
@@ -38,7 +38,7 @@ const action = ref<{ post: BrandPost; kind: string } | null>(null),
   actionReason = ref("");
 async function load() {
   try {
-    posts.value = await contentApi.list();
+    await loadPosts();
   } catch (e) {
     error.value = e instanceof Error ? e.message : "内容读取失败";
   }
@@ -137,16 +137,18 @@ onMounted(load);
 
 const search = ref(""),
   status = ref("");
-const filteredPosts = computed(() =>
-  posts.value.filter(
-    (post) =>
-      (!status.value || post.status === status.value) &&
-      (!search.value.trim() ||
-        `${post.title} ${post.summary}`
-          .toLowerCase()
-          .includes(search.value.trim().toLowerCase())),
-  ),
+const {
+  rows: posts,
+  pagination: postPagination,
+  loading: listLoading,
+  load: loadPosts,
+} = useAdminList<BrandPost>(
+  "/admin/posts",
+  () => ({ q: search.value, status: status.value }),
+  error,
 );
+const filteredPosts = computed(() => posts.value);
+
 const postColumns = [
   { title: "标题", key: "c0", width: 220 },
   { title: "类型", key: "c1", width: 160 },
@@ -191,14 +193,9 @@ const postColumns = [
           :columns="postColumns"
           row-key="id"
           size="middle"
-          :loading="busy"
+          :loading="busy || listLoading"
           :scroll="{ x: 680 }"
-          :pagination="{
-            defaultPageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50'],
-            hideOnSinglePage: true,
-          }"
+          :pagination="postPagination"
           ><template #bodyCell="{ column, record: post }"
             ><template v-if="column.key === 'c0'"
               ><div class="table-cell-content">{{ post.title }}</div></template

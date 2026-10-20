@@ -45,10 +45,22 @@ class BrandContentServiceTest {
                 .list(
                         "SELECT id,type,title,summary,cover,published_at FROM brand_posts WHERE status='published' AND is_deleted=0 AND id<? ORDER BY id DESC LIMIT ?",
                         100L,
-                        12);
+                        13);
         assertThrows(BusinessException.class, () -> service.published(null, 10000));
         assertThrows(BusinessException.class, () -> service.detail(55));
         verify(db).one(contains("status='published' AND is_deleted=0"), eq(55L));
+    }
+
+    @Test
+    void exactlyTwentyPostsEndPaginationAndExtraRowProvidesCursor() {
+        java.util.List<ObjectNode> rows = new java.util.ArrayList<>();
+        for (int i=30;i>10;i--) rows.add(obj("id",i));
+        when(db.list(anyString(), eq(Long.MAX_VALUE), eq(21))).thenReturn(rows);
+        assertTrue(service.published(null,20).path("nextBefore").isNull());
+        rows.add(obj("id",10));
+        ObjectNode result=service.published(null,20);
+        assertEquals(20,result.path("items").size());
+        assertEquals(11,l(result,"nextBefore"));
     }
 
     @Test

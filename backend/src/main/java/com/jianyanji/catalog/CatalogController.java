@@ -81,9 +81,9 @@ public class CatalogController {
     }
 
     @GetMapping("/admin/products")
-    public Object products() {
+    public Object products(@RequestParam java.util.Map<String, String> query) {
         access.staff("catalog:manage");
-        return catalog.adminProducts();
+        return query.containsKey("page") ? catalog.adminPage(query) : catalog.adminProducts();
     }
 
     @PostMapping("/admin/products")

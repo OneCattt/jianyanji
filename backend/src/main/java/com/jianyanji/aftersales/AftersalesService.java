@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
+import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.BusinessException;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
@@ -45,6 +46,13 @@ public class AftersalesService {
     private final WechatPayClient channel;
     /** 更新操作人和毫秒审计时间的 SQL 片段。 */
     private static final String STAMP = "update_user_id=?,update_time=CURRENT_TIMESTAMP(3)";
+
+    /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
+    public ObjectNode adminPage(java.util.Map<String, String> query) {
+        return new PageQuery(query, "FROM refunds WHERE is_deleted=0")
+                .eq("status", "status").keyword("number", "CAST(order_id AS CHAR)", "reason")
+                .select(db, "*", "id DESC", this::view);
+    }
 
     public AftersalesService(
             Db db,

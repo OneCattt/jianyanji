@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "臻选商城"
+  "navigationBarTitleText": "臻选商城",
+  "onReachBottomDistance": 120,
+  "enablePullDownRefresh": true
 }

@@ -1,5 +1,7 @@
 const { request } = require("../../utils/api");
 const { money } = require("../../utils/catalog");
+const { listData, loadPage } = require("../../utils/list");
+const { isFresh, remember } = require("../../utils/state");
 const amount = (cents, method) =>
   method === "points"
     ? (cents / 100).toFixed(2) + " 积分"
@@ -8,7 +10,7 @@ const amount = (cents, method) =>
       : (cents / 100).toFixed(2) + "（退款方式以原订单为准）";
 Page({
   data: {
-    items: [],
+    ...listData(),
     lines: [],
     order: null,
     reason: "",
@@ -23,37 +25,27 @@ Page({
     this.orderId = Number(options.orderId) || 0;
   },
   async onShow() {
-    await this.refresh();
+    if (!isFresh(this)) await this.refresh();
   },
   async refresh() {
+    if (this._refreshing) return;
+    this._refreshing = true;
     this.setData({ loading: true, error: "" });
     try {
       const [r, c, order] = await Promise.all([
-        request("/refunds"),
+        this.load(),
         request("/public/content"),
         this.orderId
           ? request("/orders/" + this.orderId)
           : Promise.resolve(null),
       ]);
-      const names = {
-        requested: "待审核",
-        approved: "已通过，待退货核验或退款",
-        processing: "退款处理中",
-        unknown: "退款结果待核查",
-        failed: "退款失败待处理",
-        rejected: "已驳回",
-        success: "已实际退款",
-      };
       const snapshotLines =
         order && order.snapshot ? order.snapshot.lines || [] : [];
       this.setData({
-        items: r
-          .filter((i) => !this.orderId || i.order_id === this.orderId)
-          .map((i) => ({
-            ...i,
-            statusName: names[i.status] || "待核查",
-            amountText: amount(i.total_cents, order && order.payment_method),
-          })),
+        items: this.data.items.map((i) => ({
+          ...i,
+          amountText: amount(i.total_cents, order && order.payment_method),
+        })),
         service: c.content ? c.content.customerService : "",
         order,
         lines: order
@@ -75,10 +67,45 @@ Page({
           : [],
         amountText: "0.00",
       });
+      if (r) remember(this);
     } catch (e) {
       this.setData({ error: e.message });
     } finally {
+      this._refreshing = false;
       this.setData({ loading: false });
+    }
+  },
+  async load(reset = true) {
+    const names = {
+      requested: "待审核",
+      approved: "已通过，待退货核验或退款",
+      processing: "退款处理中",
+      unknown: "退款结果待核查",
+      failed: "退款失败待处理",
+      rejected: "已驳回",
+      success: "已实际退款",
+    };
+    return loadPage(this, {
+      reset,
+      url: "/mini/refunds" + (this.orderId ? "?orderId=" + this.orderId : ""),
+      map: (i) => ({
+        ...i,
+        statusName: names[i.status] || "待核查",
+        amountText: amount(
+          i.total_cents,
+          this.data.order && this.data.order.payment_method,
+        ),
+      }),
+    });
+  },
+  onReachBottom() {
+    return this.load(false);
+  },
+  async onPullDownRefresh() {
+    try {
+      await this.refresh();
+    } finally {
+      wx.stopPullDownRefresh();
     }
   },
   quantity(e) {

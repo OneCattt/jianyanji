@@ -1,1 +1,5 @@
-{ "navigationBarTitleText": "积分余额退款记录" }
+{
+  "navigationBarTitleText": "积分余额退款记录",
+  "onReachBottomDistance": 120,
+  "enablePullDownRefresh": true
+}

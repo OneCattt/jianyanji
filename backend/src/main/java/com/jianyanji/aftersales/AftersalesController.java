@@ -35,9 +35,9 @@ public class AftersalesController {
     }
 
     @GetMapping("/api/admin/refunds")
-    public Object adminRefunds() {
+    public Object adminRefunds(@RequestParam java.util.Map<String, String> query) {
         access.staffAny("orders:manage", "finance:manage");
-        return aftersales.listRefunds(null);
+        return query.containsKey("page") ? aftersales.adminPage(query) : aftersales.listRefunds(null);
     }
 
     @GetMapping("/api/refunds")

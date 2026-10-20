@@ -1,3 +1,4 @@
+<import src="../../templates/list-footer.wxml" />
 <view class="qx wallet-page">
   <view class="wallet-card">
     <view class="wallet-card-row"
@@ -48,7 +49,7 @@
   >
   <view class="wallet-ledger">
     <view
-      wx:for="{{visible}}"
+      wx:for="{{ledger}}"
       wx:key="id"
       class="wallet-entry"
       data-id="{{item.order_id}}"
@@ -65,10 +66,11 @@
         ><text class="wallet-entry-date">{{item.dateText}}</text></view
       ></view
     >
-    <view wx:if="{{!visible.length}}" class="wallet-empty"
+    <view wx:if="{{!ledger.length && !ledgerLoading && !error}}" class="wallet-empty"
       >{{wallet?'暂无该类型积分流水':'登录后查询本人真实积分流水'}}</view
     >
   </view>
+<template is="list-footer" data="{{loading:ledgerLoading,loaded:ledgerLoaded,hasMore:ledgerHasMore,error:error}}" />
   <view class="wallet-audit"
     ><image src="assets/shield.png" /><text
       >每笔发放、扣减与退回均关联原收款或订单流水，不可随意修改</text
@@ -102,3 +104,4 @@
     ></view
   >
 </view>
+<brand-dialog id="brand-dialog" />

@@ -10,40 +10,58 @@ const states = {
   completed: "已收货",
   refunded: "已退款",
 };
+const { listData, loadPage } = require("../../utils/list");
+const { isFresh, remember } = require("../../utils/state");
 Page({
-  data: { stores: [], principals: [], orders: [], busy: false, error: "" },
-  onShow() {
-    this.load();
+  data: {
+    ...listData("stores"),
+    ...listData("principals"),
+    ...listData("orders"),
+    busy: false,
+    error: "",
   },
-  async load() {
-    if (this.data.busy) return;
-    this.setData({ busy: true, error: "" });
+  onShow() {
+    if (!isFresh(this)) return this.load();
+  },
+  onReachBottom() {
+    return this.load(false);
+  },
+  async onPullDownRefresh() {
     try {
-      const [team, orders] = await Promise.all([
-        request("/team"),
-        request("/team/orders"),
-      ]);
-      this.setData({
-        stores: team.stores,
-        principals: team.principals.map((p) => ({
-          ...p,
-          stateText: states[p.status] || p.status,
-        })),
-        orders: orders.map((o) => ({
-          ...o,
-          amountText: money(o.goods_cents),
-          rewardText: money(o.reward_cents),
-          stateText: states[o.status] || o.status,
-          lines: typeof o.lines === "string" ? JSON.parse(o.lines) : o.lines,
-        })),
-      });
-    } catch (e) {
-      this.setData({
-        stores: [],
-        principals: [],
-        orders: [],
-        error: e.message,
-      });
+      await this.load();
+    } finally {
+      wx.stopPullDownRefresh();
+    }
+  },
+  async load(reset = true) {
+    if (this.data.busy) return;
+    this.setData({ busy: true });
+    try {
+      const results = await Promise.all(
+        ["stores", "principals", "orders"].map((key) =>
+          loadPage(this, {
+            key,
+            reset,
+            url: "/mini/team/" + key,
+            map: (item) =>
+              key === "stores"
+                ? item
+                : key === "principals"
+                  ? { ...item, stateText: states[item.status] || item.status }
+                  : {
+                      ...item,
+                      amountText: money(item.goods_cents),
+                      rewardText: money(item.reward_cents),
+                      stateText: states[item.status] || item.status,
+                      lines:
+                        typeof item.lines === "string"
+                          ? JSON.parse(item.lines)
+                          : item.lines,
+                    },
+          }),
+        ),
+      );
+      if (results.every(Boolean)) remember(this);
     } finally {
       this.setData({ busy: false });
     }

@@ -4,5 +4,9 @@
   "navigationBarBackgroundColor": "#f8f5ee",
   "navigationBarTextStyle": "black",
   "enablePullDownRefresh": true,
-  "backgroundColor": "#f2ece4"
+  "backgroundColor": "#f2ece4",
+  "usingComponents": {
+    "brand-dialog": "/components/brand-dialog/index"
+  },
+  "onReachBottomDistance": 120
 }

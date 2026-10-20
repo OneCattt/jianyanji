@@ -1,5 +1,8 @@
+const { showDialog } = require("../../utils/dialog");
 const { request } = require("../../utils/api");
 const { money } = require("../../utils/catalog");
+const { listData, loadPage } = require("../../utils/list");
+const { isFresh, remember } = require("../../utils/state");
 const key = () =>
   "onboard-" + Date.now() + "-" + Math.random().toString(36).slice(2);
 const states = {
@@ -27,7 +30,7 @@ Page({
     inviterId: "",
     shareCode: "",
     relation: null,
-    qualifications: [],
+    ...listData("qualifications"),
     agreed: false,
     busy: false,
     error: "",
@@ -44,6 +47,8 @@ Page({
     }
   },
   async onShow() {
+    const chosenId = wx.getStorageSync("jyj_address");
+    if (isFresh(this) && chosenId === this._chosenAddress) return;
     this.setData({ error: "" });
     try {
       const config = await request("/membership");
@@ -58,30 +63,23 @@ Page({
       if (wx.getStorageSync("jyj_token")) {
         const [user, addresses, apps, qualifications] = await Promise.all([
           request("/me"),
-          request("/addresses"),
-          request("/onboardings"),
-          request("/qualifications"),
+          request("/mini/address" + (chosenId ? "?id=" + chosenId : "")),
+          this.loadApplications(),
+          this.loadQualifications(),
         ]);
-        const chosenId = wx.getStorageSync("jyj_address");
-        const address =
-          addresses.find((a) => a.id === chosenId) || addresses[0] || null;
-        const applications = apps.map((a) => ({
-          ...a,
-          statusText: states[a.status] || a.status,
-          deliveryText: a.order
-            ? orderStates[a.order.status] || a.order.status
-            : "等待核款后安排交付",
-          amountText: money(a.package_snapshot.amountCents),
-        }));
+        const address = addresses.address;
+        const applications = this.data.applications;
         this.setData({
           user,
-          qualifications,
+          qualifications: this.data.qualifications,
           address,
           applications,
           current: applications[0] || null,
         });
         if (this.data.inviterId || this.data.shareCode)
           await this.resolveInvitation();
+        this._chosenAddress = chosenId;
+        if (apps && qualifications) remember(this);
       } else
         this.setData({
           user: null,
@@ -92,6 +90,30 @@ Page({
     } catch (e) {
       this.setData({ error: e.message });
     }
+  },
+  async loadApplications() {
+    const result = await request("/mini/onboardings?limit=1&page=1");
+    this.setData({
+      applications: result.items.map((a) => ({
+        ...a,
+        statusText: states[a.status] || a.status,
+        deliveryText: a.order
+          ? orderStates[a.order.status] || a.order.status
+          : "等待核款后安排交付",
+        amountText: money(a.package_snapshot.amountCents),
+      })),
+    });
+    return true;
+  },
+  loadQualifications(reset = true) {
+    return loadPage(this, {
+      key: "qualifications",
+      reset,
+      url: "/mini/qualifications",
+    });
+  },
+  onReachBottom() {
+    return this.loadQualifications(false);
   },
   choose(target) {
     const selected =
@@ -176,19 +198,17 @@ Page({
         this.data.current.target_identity,
       );
       if (!relation) return;
-      const accepted = await new Promise((resolve) =>
-        wx.showModal({
-          title: "重新确认邀请归属",
-          content:
-            "邀请人：" +
-            relation.inviterName +
-            "；归属：" +
-            relation.principalName,
-          success: (r) => resolve(r.confirm),
-          fail: () => resolve(false),
-        }),
-      );
-      if (!accepted) return;
+      const accepted = await showDialog(this, {
+        title: "重新确认邀请归属",
+        content:
+          "邀请人：" +
+          relation.inviterName +
+          "；归属：" +
+          relation.principalName,
+        confirmText: "确认归属",
+        cancelText: "返回核对",
+      });
+      if (!accepted.confirm) return;
       await request(
         "/onboardings/" + this.data.current.id + "/confirm",
         "POST",
@@ -233,20 +253,18 @@ Page({
     try {
       const relation = await this.resolveInvitation();
       if (!relation) return;
-      const confirmed = await new Promise((resolve) =>
-        wx.showModal({
-          title: "确认本次入驻资格与归属",
-          content:
-            "直接邀请人：" +
-            relation.inviterName +
-            "；归属主理人：" +
-            relation.principalName +
-            "。请确认符合所示入驻条件。",
-          success: (r) => resolve(r.confirm),
-          fail: () => resolve(false),
-        }),
-      );
-      if (!confirmed) return;
+      const confirmed = await showDialog(this, {
+        title: "确认本次入驻资格与归属",
+        content:
+          "直接邀请人：" +
+          relation.inviterName +
+          "；归属主理人：" +
+          relation.principalName +
+          "。请确认符合所示入驻条件。",
+        confirmText: "确认归属",
+        cancelText: "返回核对",
+      });
+      if (!confirmed.confirm) return;
       await request("/onboardings", "POST", {
         targetIdentity: this.data.target,
         addressId: this.data.address.id,

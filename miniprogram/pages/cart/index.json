@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "购物袋"
+  "navigationBarTitleText": "购物袋",
+  "onReachBottomDistance": 120,
+  "enablePullDownRefresh": true
 }

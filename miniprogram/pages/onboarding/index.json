@@ -1,5 +1,9 @@
 {
   "navigationStyle": "custom",
   "navigationBarTitleText": "代理入驻",
-  "disableScroll": true
+  "disableScroll": true,
+  "usingComponents": {
+    "brand-dialog": "/components/brand-dialog/index"
+  },
+  "onReachBottomDistance": 120
 }

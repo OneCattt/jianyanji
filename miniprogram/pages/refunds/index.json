@@ -1,1 +1,5 @@
-{ "navigationBarTitleText": "售后处理记录" }
+{
+  "navigationBarTitleText": "售后处理记录",
+  "onReachBottomDistance": 120,
+  "enablePullDownRefresh": true
+}

@@ -1,14 +1,15 @@
+<import src="../../templates/list-footer.wxml" />
 <view class="qx jy-orders">
   <view class="jy-tabs"><button wx:for="{{tabs}}" wx:key="*this" data-index="{{index}}" class="{{tab===index?'selected':''}}" bindtap="select">{{item}}</button></view>
   <view class="jy-list">
     <view wx:if="{{error}}" class="jy-error" role="alert">{{error}}<button bindtap="load">重试</button></view>
-    <view wx:if="{{loading}}" class="jy-empty">正在查询订单…</view>
-    <view wx:elif="{{!visible.length && !error}}" class="jy-empty">暂无{{tab?tabs[tab]:''}}订单</view>
-    <view wx:for="{{visible}}" wx:key="id" class="jy-card">
+    <view wx:if="{{ordersLoading && !orders.length}}" class="jy-empty">正在查询订单…</view>
+    <view wx:elif="{{!orders.length && !error && !ordersLoading}}" class="jy-empty">暂无{{tab?tabs[tab]:''}}订单</view>
+    <view wx:for="{{orders}}" wx:key="id" class="jy-card">
       <view class="jy-order-top"><text>订单 {{item.number}}</text><text class="jy-status">{{item.stateText}}</text></view>
-      <view wx:for="{{item.displayLines}}" wx:for-item="line" wx:key="skuId" class="jy-product"><image src="{{line.image}}" mode="aspectFill"/><view class="jy-product-copy"><view>{{line.name}}</view><text>{{line.skuName}} · 品牌仓发货</text></view><view class="jy-line-price">{{line.priceText}}<view>×{{line.quantity}}</view></view></view>
+      <view wx:for="{{item.displayLines}}" wx:for-item="line" wx:key="skuId" class="jy-product"><image src="{{line.image}}" mode="aspectFill" lazy-load/><view class="jy-product-copy"><view>{{line.name}}</view><text>{{line.skuName}} · 品牌仓发货</text></view><view class="jy-line-price">{{line.priceText}}<view>×{{line.quantity}}</view></view></view>
       <view class="jy-order-hint"><image src="/pages/order/assets/list-imgIcon1.png"/><text>{{item.hint}}</text></view>
       <view class="jy-order-bottom"><text>共 {{item.count}} 件 {{item.paid?'实付':'应付'}} <text class="jy-total">{{item.amountText}}</text></text><button bindtap="detail" data-id="{{item.id}}">查看详情</button></view>
     </view>
   </view>
-</view>
+<template is="list-footer" data="{{loading:ordersLoading,loaded:ordersLoaded,hasMore:ordersHasMore,error:error}}" /></view>

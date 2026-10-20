@@ -7,6 +7,7 @@ import static com.jianyanji.wallet.WalletService.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
+import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
 import java.util.Arrays;
@@ -22,6 +23,12 @@ public class CashRefundService {
     private final Access access;
     /** 原积分批次流水服务。 */
     private final WalletService wallet;
+
+    /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
+    public ObjectNode adminPage(java.util.Map<String, String> query) {
+        return new PageQuery(query, "FROM cash_refunds WHERE is_deleted=0")
+                .select(db, "*", "id DESC", row -> row);
+    }
 
     public CashRefundService(Db db, Access access, WalletService wallet) {
         this.db = db;

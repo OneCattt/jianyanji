@@ -48,6 +48,23 @@ class OrderServiceTest {
     }
 
     @Test
+    void historicalOrderPageIsReadFromDatabaseWithTheRequestedOffset() {
+        java.util.Map<String, String> query = new java.util.HashMap<>();
+        query.put("page", "11");
+        query.put("pageSize", "20");
+        query.put("status", "paid");
+        when(db.one("SELECT COUNT(*) AS total FROM orders WHERE is_deleted=0 AND status=?", "paid"))
+                .thenReturn(obj("total", 221));
+        when(db.list("SELECT * FROM orders WHERE is_deleted=0 AND status=? ORDER BY id DESC LIMIT ? OFFSET ?", "paid", 20, 200))
+                .thenReturn(Collections.singletonList(obj("id", 21, "snapshot", "{}")));
+        ObjectNode result = service.adminPage(query);
+        assertEquals(221, result.path("total").asInt());
+        assertEquals(21, result.path("items").get(0).path("id").asInt());
+        assertTrue(result.path("items").get(0).path("snapshot").isObject());
+        verify(db).list("SELECT * FROM orders WHERE is_deleted=0 AND status=? ORDER BY id DESC LIMIT ? OFFSET ?", "paid", 20, 200);
+    }
+
+    @Test
     void unpaidOrdersMustReconfirmIdentityOrPrincipalChangesWhilePaidSnapshotsStayFrozen() {
         ObjectNode order =
                 obj(

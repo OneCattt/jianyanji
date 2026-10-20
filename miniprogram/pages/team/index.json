@@ -1,1 +1,5 @@
-{ "navigationBarTitleText": "我的团队" }
+{
+  "navigationBarTitleText": "我的团队",
+  "onReachBottomDistance": 120,
+  "enablePullDownRefresh": true
+}

@@ -44,9 +44,9 @@ public class RewardController {
     }
 
     @GetMapping("/api/admin/rewards")
-    public Object list() {
+    public Object list(@RequestParam java.util.Map<String, String> query) {
         access.staff("rewards:manage");
-        return rewards.adminRewards();
+        return query.containsKey("page") ? rewards.adminPage(query) : rewards.adminRewards();
     }
 
     @GetMapping("/api/admin/rewards/{id}")
@@ -79,9 +79,9 @@ public class RewardController {
     }
 
     @GetMapping("/api/admin/reward-settlements")
-    public Object settlements() {
+    public Object settlements(@RequestParam java.util.Map<String, String> query) {
         access.staff("rewards:manage");
-        return rewards.settlements();
+        return query.containsKey("page") ? rewards.settlementsPage(query) : rewards.settlements();
     }
 
     @PostMapping("/api/admin/reward-settlements")

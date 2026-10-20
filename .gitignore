@@ -11,3 +11,6 @@ miniprogram/project.private.config.json
 
 backend/target/
 **/.idea/
+# Office 编辑时生成的临时锁文件
+**/.~*.docx
+**/~$*.docx

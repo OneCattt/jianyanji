@@ -1,0 +1,21 @@
+<view wx:if="{{visible}}" class="dialog-layer {{mode==='confirm'?'dialog-centered':'dialog-bottom'}}" catchtouchmove="stop">
+  <view class="dialog-mask" bindtap="cancel" aria-role="button" aria-label="关闭弹层" />
+  <view class="dialog-panel" aria-role="dialog" aria-modal="true" aria-label="{{title}}" catchtap="stop">
+    <view class="dialog-heading">
+      <view class="dialog-title">{{title}}</view>
+      <button class="dialog-close" bindtap="cancel" hover-class="dialog-pressed" aria-label="关闭弹层"><view aria-hidden="true" class="dialog-cross" /></button>
+    </view>
+    <scroll-view class="dialog-body" scroll-y>
+      <text wx:if="{{content}}" class="dialog-content" user-select>{{content}}</text>
+      <view wx:if="{{mode==='select'}}" class="dialog-options">
+        <button wx:for="{{items}}" wx:key="*this" class="dialog-option {{index===selectedIndex?'dialog-selected':''}}" data-index="{{index}}" bindtap="select" hover-class="dialog-pressed" aria-label="{{item}}{{index===selectedIndex?'，已选中':''}}">
+          <text>{{item}}</text><view class="dialog-radio" aria-hidden="true" />
+        </button>
+      </view>
+    </scroll-view>
+    <view wx:if="{{mode!=='select'}}" class="dialog-actions">
+      <button wx:if="{{showCancel}}" class="dialog-secondary" bindtap="cancel" hover-class="dialog-pressed">{{cancelText}}</button>
+      <button class="dialog-primary" bindtap="confirm" hover-class="dialog-pressed">{{confirmText}}</button>
+    </view>
+  </view>
+</view>

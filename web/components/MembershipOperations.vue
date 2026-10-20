@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAdminList } from "../useAdminList";
 import QualificationOperations from "./QualificationOperations.vue";
 import FeedbackToast from "./FeedbackToast.vue";
 import ImageUploader from "./ImageUploader.vue";
@@ -73,7 +74,6 @@ const dialog = ref<"packages" | "receipt" | null>(null);
 const packageDraft = ref<PackageForm[]>([]);
 const packageSkus = ref<PackageSku[]>([]);
 const packages = ref<PackageForm[]>([]),
-  applications = ref<Application[]>([]),
   selected = ref<Application | null>(null),
   busy = ref(false),
   error = ref(""),
@@ -187,7 +187,7 @@ async function run(work: () => Promise<void>) {
 async function load() {
   const [settings, rows] = await Promise.all([
     api<{ packages: Package[] } | null>("/admin/membership-settings"),
-    api<Application[]>("/admin/onboardings"),
+    loadApplications(),
   ]);
   packages.value = settings
     ? settings.packages.map((p) => {
@@ -368,21 +368,21 @@ function statusColor(value: string) {
 const applicationQuery = ref("");
 const applicationStatus = ref("");
 const applicationIdentity = ref("");
-const filteredApplications = computed(() => {
-  const keyword = applicationQuery.value.trim().toLowerCase();
-  return applications.value.filter(
-    (record) =>
-      (!applicationStatus.value || record.status === applicationStatus.value) &&
-      (!applicationIdentity.value ||
-        record.target_identity === applicationIdentity.value) &&
-      (!keyword ||
-        [record.id, record.user_id, record.nickname].some((value) =>
-          String(value ?? "")
-            .toLowerCase()
-            .includes(keyword),
-        )),
-  );
-});
+const {
+  rows: applications,
+  pagination: applicationPagination,
+  loading: listLoading,
+  load: loadApplications,
+} = useAdminList<Application>(
+  "/admin/onboardings",
+  () => ({
+    q: applicationQuery.value,
+    status: applicationStatus.value,
+    identity: applicationIdentity.value,
+  }),
+  error,
+);
+const filteredApplications = computed(() => applications.value);
 
 const packageLineColumns = [
   { title: "实际商品规格", key: "sku", width: 180 },
@@ -448,14 +448,10 @@ const packageLineColumns = [
           :columns="applicationColumns"
           :data-source="filteredApplications"
           row-key="id"
-          :pagination="{
-            pageSize: 20,
-            showSizeChanger: false,
-            hideOnSinglePage: true,
-          }"
+          :pagination="applicationPagination"
           :scroll="{ x: 900 }"
           size="small"
-          :loading="busy"
+          :loading="busy || listLoading"
           :row-class-name="
             (record: Application) =>
               selected?.id === record.id ? 'selected-application' : ''
@@ -802,7 +798,7 @@ const packageLineColumns = [
             html-type="submit"
             type="primary"
             :disabled="busy || uploadingImage"
-            :loading="busy"
+            :loading="busy || listLoading"
           >
             保存两类产品包
           </a-button>
@@ -878,7 +874,7 @@ const packageLineColumns = [
             html-type="submit"
             type="primary"
             :disabled="busy"
-            :loading="busy"
+            :loading="busy || listLoading"
             >确认收款并建立交付单</a-button
           >
         </div>

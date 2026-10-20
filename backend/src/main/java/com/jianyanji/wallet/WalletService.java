@@ -6,6 +6,7 @@ import static com.jianyanji.common.J.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
+import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.BusinessException;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
@@ -33,6 +34,16 @@ public class WalletService {
     /** 订单最终支付结算服务，延迟注入以解除依赖环。 */
     private final PaymentService payments;
 
+    /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
+    public ObjectNode adminPage(java.util.Map<String, String> query) {
+        for (String key : new String[]{"userId", "receiptId"})
+            if (query.containsKey(key) && !query.get(key).isEmpty()) pathId(query.get(key));
+        return new PageQuery(query, "FROM company_receipts WHERE is_deleted=0")
+                .eq("userId", "user_id").eq("receiptId", "id")
+                .eq("externalTransactionId", "external_transaction_id")
+                .select(db, "*", "id DESC", row -> row);
+    }
+
     public WalletService(
             Db db, Access access, @Lazy OrderService orders, @Lazy PaymentService payments) {
         this.db = db;
@@ -49,8 +60,23 @@ public class WalletService {
         return user;
     }
 
+    /** 小程序钱包及个人页汇总，不读取来源批次和明细。金额单位为分或百分之一积分。 */
+    public ObjectNode summary(long userId) {
+        ObjectNode result = db.one(
+                "SELECT COALESCE(SUM(remaining_cents),0) AS balanceCents,COALESCE(SUM(held_cents),0) AS heldCents,COALESCE(SUM(remaining_cents-held_cents),0) AS availableCents FROM wallet_lots WHERE user_id=? AND is_deleted=0", userId);
+        result.setAll(db.one(
+                "SELECT COALESCE(SUM(CASE WHEN kind='credit' THEN delta_cents ELSE 0 END),0) AS creditedCents,COALESCE(SUM(CASE WHEN kind='spend' THEN -delta_cents ELSE 0 END),0) AS spentCents FROM wallet_ledger WHERE user_id=? AND is_deleted=0", userId));
+        result.set("transfer", companyTransfer());
+        return result;
+    }
+
     /** 返回余额、占用、来源批次和最近二百条流水，不要求用户仍为代理。 */
     public ObjectNode walletView(long userId) {
+        return walletView(userId, true);
+    }
+
+    /** 后台可跳过最近流水，改由独立分页接口读取；余额与批次仍完整返回。 */
+    public ObjectNode walletView(long userId, boolean includeLedger) {
         ObjectNode result =
                 db.one(
                         "SELECT COALESCE(SUM(remaining_cents),0) AS balanceCents,COALESCE(SUM(held_cents),0) AS heldCents,COALESCE(SUM(remaining_cents-held_cents),0) AS availableCents FROM wallet_lots WHERE user_id=? AND is_deleted=0",
@@ -67,11 +93,20 @@ public class WalletService {
                                 userId)));
         result.set(
                 "ledger",
-                json(
+                includeLedger ? json(
                         db.list(
                                 "SELECT l.*,o.number AS order_number,r.external_transaction_id FROM wallet_ledger l JOIN company_receipts r ON r.id=l.receipt_id AND r.is_deleted=0 LEFT JOIN orders o ON o.id=l.order_id AND o.is_deleted=0 WHERE l.user_id=? AND l.is_deleted=0 ORDER BY l.id DESC LIMIT 200",
-                                userId)));
+                                userId)) : arr());
         return result;
+    }
+
+    /** 财务查看指定用户全部积分流水，页大小与页码沿用后台分页约束。 */
+    public ObjectNode ledgerPage(long userId, java.util.Map<String, String> query) {
+        java.util.Map<String, String> filters = new java.util.HashMap<>(query);
+        filters.put("userId", String.valueOf(userId));
+        return new PageQuery(filters, "FROM wallet_ledger l JOIN company_receipts r ON r.id=l.receipt_id AND r.is_deleted=0 LEFT JOIN orders o ON o.id=l.order_id AND o.is_deleted=0 WHERE l.is_deleted=0")
+                .eq("userId", "l.user_id")
+                .select(db, "l.*,o.number AS order_number,r.external_transaction_id", "l.id DESC", row -> row);
     }
 
     /** 公司转款说明，仅完整配置公司名称、开户行和账号时标记可用。 */

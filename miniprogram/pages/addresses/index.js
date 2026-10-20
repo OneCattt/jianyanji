@@ -1,4 +1,6 @@
 const { request } = require("../../utils/api");
+const { listData, loadPage } = require("../../utils/list");
+const { isFresh, remember } = require("../../utils/state");
 const empty = () => ({
   recipient: "",
   phone: "",
@@ -10,7 +12,7 @@ const empty = () => ({
 });
 Page({
   data: {
-    items: [],
+    ...listData(),
     form: empty(),
     editing: false,
     editingId: 0,
@@ -21,13 +23,19 @@ Page({
     this.selecting = q.select === "1";
   },
   async onShow() {
-    await this.load();
+    if (!isFresh(this) && !this.data.itemsLoading) await this.load();
   },
-  async load() {
+  async load(reset = true) {
+    if (await loadPage(this, { reset, url: "/mini/addresses" })) remember(this);
+  },
+  onReachBottom() {
+    return this.load(false);
+  },
+  async onPullDownRefresh() {
     try {
-      this.setData({ items: await request("/addresses"), error: "" });
-    } catch (e) {
-      this.setData({ error: e.message });
+      await this.load();
+    } finally {
+      wx.stopPullDownRefresh();
     }
   },
   input(e) {

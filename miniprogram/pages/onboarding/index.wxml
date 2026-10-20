@@ -1,3 +1,4 @@
+<import src="../../templates/list-footer.wxml" />
 <view class="qx ob-page">
   <view class="ob-background"
     ><view class="qx-brand"
@@ -123,7 +124,7 @@
             {{item.active?'有效':'已撤销'}} ·
             {{item.source_kind==='existing'?'首批存量核验':'产品包入驻#'+item.onboarding_id}}</view
           ></view
-        ><view wx:if="{{current}}" class="ob-progress"
+        ><template is="list-footer" data="{{loading:qualificationsLoading,loaded:qualificationsLoaded,hasMore:qualificationsHasMore,error:error}}" /><view wx:if="{{current}}" class="ob-progress"
           ><view class="ob-section-label">最近入驻申请 #{{current.id}}</view
           ><view class="ob-body"
             >{{current.statusText}}<view
@@ -177,3 +178,4 @@
     >
   </view>
 </view>
+<brand-dialog id="brand-dialog" />

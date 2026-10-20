@@ -1,0 +1,178 @@
+:host {
+  --dialog-surface: #fffdfa;
+  --dialog-accent: #8d1724;
+  --dialog-text: #251d1a;
+  --dialog-muted: #706259;
+  --dialog-line: #dfd3c8;
+}
+.dialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  color: var(--dialog-text);
+  font-family: -apple-system, "PingFang SC", sans-serif;
+}
+.dialog-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(37, 22, 18, 0.48);
+}
+.dialog-centered {
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+}
+.dialog-panel {
+  position: relative;
+  width: 100%;
+  max-width: 640rpx;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--dialog-surface);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  box-shadow: 0 20rpx 80rpx rgba(37, 22, 18, 0.16);
+}
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+.dialog-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 34rpx;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.dialog-layer button {
+  box-sizing: border-box;
+  margin: 0;
+  border: 0;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+  min-height: 48px;
+  font-size: 28rpx;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+}
+.dialog-layer button::after {
+  border: 0;
+}
+.dialog-layer .dialog-close {
+  flex-shrink: 0;
+  width: 48px;
+  padding: 0;
+  margin: -12rpx -16rpx -12rpx 0;
+  background: transparent;
+  color: var(--dialog-muted);
+}
+.dialog-cross {
+  position: relative;
+  width: 28rpx;
+  height: 28rpx;
+}
+.dialog-cross::before,
+.dialog-cross::after {
+  content: "";
+  position: absolute;
+  left: 13rpx;
+  top: 0;
+  width: 2rpx;
+  height: 28rpx;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+.dialog-cross::after {
+  transform: rotate(-45deg);
+}
+.dialog-body {
+  max-height: 48vh;
+}
+.dialog-content {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.8;
+  color: var(--dialog-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.dialog-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+.dialog-actions button {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+.dialog-secondary {
+  background: #f5eee6;
+  color: var(--dialog-text);
+}
+.dialog-primary {
+  background: var(--dialog-accent);
+  color: #fff;
+}
+.dialog-bottom {
+  align-items: flex-end;
+  justify-content: center;
+}
+.dialog-bottom .dialog-panel {
+  max-width: 750rpx;
+  border-radius: 24rpx 24rpx 0 0;
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+}
+.dialog-options {
+  border-top: 1rpx solid var(--dialog-line);
+}
+.dialog-layer .dialog-option {
+  width: 100%;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--dialog-line);
+  border-radius: 0;
+  text-align: left;
+  background: transparent;
+  color: var(--dialog-text);
+}
+.dialog-radio {
+  flex-shrink: 0;
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid #9b8d82;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.dialog-layer .dialog-selected {
+  color: var(--dialog-accent);
+}
+.dialog-selected .dialog-radio {
+  border: 10rpx solid var(--dialog-accent);
+}
+.dialog-layer .dialog-pressed {
+  opacity: 0.65;
+}
+@media (orientation: landscape) {
+  .dialog-body {
+    max-height: 36vh;
+  }
+  .dialog-panel {
+    padding-top: 16rpx;
+    padding-bottom: 16rpx;
+  }
+  .dialog-heading {
+    margin-bottom: 12rpx;
+  }
+  .dialog-actions {
+    margin-top: 16rpx;
+  }
+}

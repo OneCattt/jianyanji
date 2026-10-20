@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
+import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
 import com.jianyanji.orders.OrderService;
@@ -35,6 +36,14 @@ public class MembershipService {
     private final QualificationService qualifications;
     /** 邀请及关系校验服务。 */
     private final InvitationService invitations;
+
+    /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
+    public ObjectNode adminPage(java.util.Map<String, String> query) {
+        return new PageQuery(query, "FROM onboardings o JOIN users u ON u.id=o.user_id AND u.is_deleted=0 WHERE o.is_deleted=0")
+                .eq("status", "o.status").eq("identity", "o.target_identity")
+                .keyword("CAST(o.id AS CHAR)", "CAST(o.user_id AS CHAR)", "u.nickname")
+                .select(db, "o.*,u.nickname", "o.id DESC", this::applicationView);
+    }
 
     public MembershipService(
             Db db, Access access, @Lazy WalletService wallet, @Lazy OrderService orders) {

@@ -12,3 +12,4 @@
     </view>
   </block>
 </view>
+<brand-dialog id="brand-dialog" />

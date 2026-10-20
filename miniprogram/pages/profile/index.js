@@ -1,4 +1,5 @@
 const { request } = require("../../utils/api");
+const { isFresh, remember, session } = require("../../utils/state");
 const destinations = {
   orders: "/pages/orders/index",
   team: "/pages/team/index",
@@ -110,7 +111,7 @@ Page({
   onShow() {
     const tabBar = this.getTabBar && this.getTabBar();
     if (tabBar) tabBar.setData({ selected: 3 });
-    return this.refresh();
+    if (!isFresh(this)) return this.refresh();
   },
   async onPullDownRefresh() {
     try {
@@ -120,69 +121,97 @@ Page({
     }
   },
   setUser(user) {
+    const changed = !user || !this.data.user || user.id !== this.data.user.id;
     this.setData({
       user,
-      isAgent: !!user && (user.identity === "B" || user.identity === "C"),
-      availablePoints: "—",
-      walletLoaded: false,
-      transferConfigured: false,
-      walletError: "",
+      isAgent: !!user && ["B", "C"].includes(user.identity),
+      ...(changed
+        ? {
+            availablePoints: "—",
+            walletLoaded: false,
+            transferConfigured: false,
+            walletError: "",
+            shareCode: "",
+          }
+        : {}),
     });
   },
   async refresh() {
-    if (this.data.busy) return;
+    if (this._refreshing) return;
+    this._refreshing = true;
+    const identity = session();
+    if (this._loadedSession !== undefined && this._loadedSession !== identity)
+      this.setUser(null);
     this.setData({ busy: true, error: "" });
     try {
-      if (!wx.getStorageSync("jyj_token")) {
+      if (!identity) {
         this.setUser(null);
+        remember(this);
         return;
       }
-      this.setUser(await request("/me"));
-      if (this.data.isAgent) {
-        try {
-          const invitation = await request("/invitations/mine");
-          this.setData({ shareCode: invitation.shareCode });
-        } catch (error) {
-          this.setData({ shareCode: "", error: error.message });
-        }
-      } else {
+      const user = await request("/me");
+      if (session() !== identity) return;
+      this.setUser(user);
+      // 身份已确认即可操作入口，邀请和积分独立加载。
+      this.setData({ busy: false });
+      if (!this.data.isAgent) {
         this.setData({ shareCode: "" });
+        remember(this);
+        return;
       }
-      if (!this.data.isAgent) return;
-      try {
-        const wallet = await request("/wallet");
-        if (
-          !Number.isSafeInteger(wallet.availableCents) ||
-          wallet.availableCents < 0
-        ) {
-          throw new Error("可用积分暂不可读取，请稍后重试");
-        }
-        this.setData({
-          availablePoints: (wallet.availableCents / 100)
-            .toFixed(2)
-            .replace(/\B(?=(\d{3})+(?!\d))/g, ","),
-          walletLoaded: true,
-          transferConfigured: !!(wallet.transfer && wallet.transfer.configured),
-        });
-      } catch (error) {
-        if (error.status === 401) {
-          this.setUser(null);
-          this.setData({ error: "登录已失效，请重新登录" });
-        } else {
-          this.setData({ walletError: error.message });
-        }
-      }
+      await Promise.all([
+        request("/invitations/mine")
+          .then((invitation) => {
+            if (session() === identity)
+              this.setData({ shareCode: invitation.shareCode });
+          })
+          .catch((error) => {
+            if (session() === identity)
+              this.setData({ shareCode: "", error: error.message });
+          }),
+        request("/mini/wallet")
+          .then((wallet) => {
+            if (session() !== identity) return;
+            if (
+              !Number.isSafeInteger(wallet.availableCents) ||
+              wallet.availableCents < 0
+            )
+              throw new Error("可用积分暂不可读取，请稍后重试");
+            this.setData({
+              availablePoints: (wallet.availableCents / 100)
+                .toFixed(2)
+                .replace(/\B(?=(\d{3})+(?!\d))/g, ","),
+              walletLoaded: true,
+              transferConfigured: !!(
+                wallet.transfer && wallet.transfer.configured
+              ),
+              walletError: "",
+            });
+          })
+          .catch((error) => {
+            if (error.status === 401) {
+              this.setUser(null);
+              this.setData({ error: "登录已失效，请重新登录" });
+            } else if (session() === identity)
+              this.setData({ walletError: error.message });
+          }),
+      ]);
+      if (session() === identity) remember(this);
     } catch (error) {
-      // 身份无法确认时收起代理入口，避免显示上一次账号的资料。
-      this.setUser(null);
-      this.setData({ error: error.message });
+      if (session() === identity || error.status === 401) {
+        this.setUser(null);
+        this.setData({ error: error.message });
+      }
     } finally {
+      this._refreshing = false;
       this.setData({ busy: false });
     }
   },
   onNavigate(event) {
-    if (this.data.busy || this.data.navigating) return;
+    if (this.data.navigating) return;
     const key = event.currentTarget.dataset.key;
+    if (this.data.busy && !["settings", "info", "courses"].includes(key))
+      return;
     let url = destinations[key];
     if (!url) return;
     const tab = Number(event.currentTarget.dataset.tab);

@@ -22,6 +22,13 @@ public class BrandContentService {
     /** 允许播放的媒体主机名，来自CONTENT_VIDEO_HOSTS配置；空配置关闭视频发布。 */
     private final Set<String> videoHosts;
 
+    /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
+    public ObjectNode adminPage(java.util.Map<String, String> query) {
+        return new PageQuery(query, "FROM brand_posts WHERE is_deleted=0")
+                .eq("status", "status").keyword("title", "summary")
+                .select(db, "*", "id DESC", row -> { decode(row); return row; });
+    }
+
     public BrandContentService(Db db, Access access, Environment environment) {
         this.db = db;
         this.access = access;
@@ -38,12 +45,14 @@ public class BrandContentService {
                 db.list(
                         "SELECT id,type,title,summary,cover,published_at FROM brand_posts WHERE status='published' AND is_deleted=0 AND id<? ORDER BY id DESC LIMIT ?",
                         before == null ? Long.MAX_VALUE : before,
-                        limit);
+                        limit + 1);
+        boolean more = rows.size() > limit;
+        rows = rows.subList(0, Math.min(rows.size(), limit));
         return obj(
                 "items",
                 rows,
                 "nextBefore",
-                rows.size() == limit ? l(rows.get(rows.size() - 1), "id") : null);
+                more ? l(rows.get(rows.size() - 1), "id") : null);
     }
 
     /** 后台最多读取最近200篇内容，包含草稿及审核状态。 */

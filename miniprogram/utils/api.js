@@ -1,4 +1,5 @@
 const config = require("../config");
+const { invalidate } = require("./state");
 
 function request(path, method = "GET", data) {
   return new Promise((resolve, reject) => {
@@ -12,8 +13,10 @@ function request(path, method = "GET", data) {
         ...(token ? { Authorization: "Bearer " + token } : {}),
       },
       success(response) {
-        if (response.statusCode >= 200 && response.statusCode < 300)
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          if (method !== "GET") invalidate();
           return resolve(response.data);
+        }
         if (response.statusCode === 401) wx.removeStorageSync("jyj_token");
         const error = new Error(
           response.data.message || "请求失败，请稍后重试",

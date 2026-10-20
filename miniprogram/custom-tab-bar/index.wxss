@@ -9,7 +9,7 @@
   padding-bottom: max(23.936rpx, env(safe-area-inset-bottom));
   background: rgba(255, 253, 250, 0.94);
   border-top: 1.995rpx solid rgba(70, 51, 42, 0.08);
-  backdrop-filter: blur(27.926rpx);
+
   box-sizing: border-box;
 }
 .tab-item {

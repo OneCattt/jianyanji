@@ -10,32 +10,33 @@ const statusNames = {
   settled: "已结算",
   reversed: "已冲回",
 };
+const { listData, loadPage } = require("../../utils/list");
+const { isFresh, remember } = require("../../utils/state");
 Page({
   data: {
     tabs: ["全部", "待结算", "已结算", "已冲回"],
     tab: 0,
-    items: [],
-    visible: [],
+    ...listData(),
     summary: null,
     error: "",
     loading: true,
   },
   onShow() {
-    this.load();
+    if (!isFresh(this) && !this.data.itemsLoading) return this.load();
   },
   async onPullDownRefresh() {
     await this.load();
     wx.stopPullDownRefresh();
   },
-  async load() {
-    this.setData({ loading: true, error: "" });
-    try {
-      const result = await request("/rewards");
-      const items = result.items.map((r) => ({
+  async load(reset = true) {
+    const ok = await loadPage(this, {
+      reset,
+      url: "/mini/rewards?tab=" + this.data.tab,
+      map: (r) => ({
         ...r,
-        eventKey: "reward-" + r.id,
-        title:
-          r.kind === "onboarding"
+        title: r.isReversal
+          ? "订单退款冲回"
+          : r.kind === "onboarding"
             ? r.targetIdentity === "B"
               ? "主理人产品包奖励"
               : "店主产品包奖励"
@@ -43,58 +44,32 @@ Page({
               ? "零售佣金"
               : "店主订货价差",
         amount: amount(r.amountCents),
-        reversedAmount: amount(r.reversedCents),
+        reversedAmount: amount(r.reversedCents || 0),
         date: r.createTime.slice(5, 16).replace("T", " "),
-        statusName: statusNames[r.status] || r.status,
-      }));
-      const reversals = result.reversals.map((r) => ({
-        ...r,
-        id: r.rewardId,
-        eventKey: "reversal-" + r.id,
-        isReversal: true,
-        title: "订单退款冲回",
-        amount: amount(r.amountCents),
-        statusName: "已冲回",
-        date: r.createTime.slice(5, 16).replace("T", " "),
-      }));
-      items.push(...reversals);
-      items.sort((a, b) => b.createTime.localeCompare(a.createTime));
-      this.setData({
-        items,
-        summary: Object.fromEntries(
-          Object.entries(result.summary).map(([k, v]) => [
-            k,
-            k.endsWith("Cents") ? amount(v) : v,
-          ]),
-        ),
-        loading: false,
-      });
-      this.filter();
-    } catch (e) {
-      this.setData({
-        error: e.message,
-        summary: null,
-        items: [],
-        visible: [],
-        loading: false,
-      });
-    }
+        statusName: r.isReversal ? "已冲回" : statusNames[r.status] || r.status,
+      }),
+      extra: (r) =>
+        r.summary
+          ? {
+              summary: Object.fromEntries(
+                Object.entries(r.summary).map(([k, v]) => [
+                  k,
+                  k.endsWith("Cents") ? amount(v) : v,
+                ]),
+              ),
+            }
+          : {},
+    });
+    if (ok) remember(this);
+  },
+  onReachBottom() {
+    return this.load(false);
   },
   select(e) {
-    this.setData({ tab: Number(e.currentTarget.dataset.index) });
-    this.filter();
-  },
-  filter() {
-    const tab = this.data.tab;
-    this.setData({
-      visible: this.data.items.filter(
-        (r) =>
-          !tab ||
-          (tab === 1 && !r.isReversal && r.remainingCents > 0) ||
-          (tab === 2 && !r.isReversal && r.settledCents > 0) ||
-          (tab === 3 && r.isReversal),
-      ),
-    });
+    const tab = Number(e.currentTarget.dataset.index);
+    if (tab === this.data.tab) return;
+    this.setData({ tab, items: [] });
+    return this.load();
   },
   detail(e) {
     wx.navigateTo({

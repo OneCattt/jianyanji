@@ -23,7 +23,7 @@ public class BrandContentController {
     @GetMapping("/public/posts")
     public Object published(
             @RequestParam(required = false) Long before,
-            @RequestParam(defaultValue = "12") int limit) {
+            @RequestParam(defaultValue = "20") int limit) {
         return service.published(before, limit);
     }
 
@@ -33,9 +33,9 @@ public class BrandContentController {
     }
 
     @GetMapping("/admin/posts")
-    public Object list() {
+    public Object list(@RequestParam java.util.Map<String, String> query) {
         access.staff("content:manage");
-        return service.adminList();
+        return query.containsKey("page") ? service.adminPage(query) : service.adminList();
     }
 
     @PostMapping("/admin/posts")

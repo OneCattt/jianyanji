@@ -1,6 +1,7 @@
 <view class="recommendations">
   <view class="heading"><text>品牌种草</text><button bindtap="all" hover-class="entry-pressed">查看全部<view class="entry-arrow" aria-hidden="true"></view></button></view>
   <button wx:for="{{items}}" wx:key="id" class="recommendation" data-id="{{item.id}}" bindtap="open" hover-class="entry-pressed"><image src="{{item.cover}}" mode="aspectFill" lazy-load/><view class="recommendation-copy"><view>{{item.title}}</view><text>{{item.type==='video'?'短视频':'品牌图文'}} · {{item.summary}}</text></view></button>
-  <view wx:if="{{!items.length && !error}}" class="empty">品牌内容尚未发布</view>
+  <view wx:if="{{loading && !items.length}}" class="empty">正在读取推荐…</view>
+  <view wx:if="{{!items.length && !error && !loading}}" class="empty">品牌内容尚未发布</view>
   <view wx:if="{{error}}" class="empty">{{error}}<button bindtap="load">重新读取</button></view>
 </view>

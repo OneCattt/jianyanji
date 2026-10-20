@@ -1,0 +1,7 @@
+<template name="list-footer">
+  <view class="list-footer" aria-live="polite">
+    <text wx:if="{{loading}}">正在加载…</text>
+    <button wx:elif="{{error && hasMore}}" bindtap="onReachBottom">加载失败，点击重试</button>
+    <text wx:elif="{{loaded && !hasMore}}">已全部加载</text>
+  </view>
+</template>

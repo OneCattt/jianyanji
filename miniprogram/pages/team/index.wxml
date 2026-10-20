@@ -1,3 +1,4 @@
+<import src="../../templates/list-footer.wxml" />
 <view class="page"
   ><view class="title">我的团队</view><view wx:if="{{busy}}">加载中…</view
   ><view wx:if="{{error}}" role="alert">{{error}}</view
@@ -5,7 +6,7 @@
     ><view class="heading">归属店主</view
     ><view wx:for="{{stores}}" wx:key="id"
       >{{item.nickname}} · 店主 #{{item.id}}</view
-    ><view wx:if="{{!stores.length}}">暂无可查看的归属店主</view></view
+    ><view wx:if="{{!stores.length && !storesLoading && !error}}">暂无可查看的归属店主</view></view
   ><view class="card"
     ><view class="heading">店主订货</view
     ><view wx:for="{{orders}}" wx:key="id" class="order"
@@ -16,11 +17,11 @@
       ><view wx:for="{{item.lines}}" wx:for-item="line" wx:key="skuId"
         >{{line.name}} · {{line.skuName}} × {{line.quantity}}</view
       ></view
-    ><view wx:if="{{!orders.length}}">暂无可查看的订货订单</view></view
+    ><view wx:if="{{!orders.length && !ordersLoading && !error}}">暂无可查看的订货订单</view></view
   ><view class="card"
     ><view class="heading">直接邀请的主理人</view
     ><view wx:for="{{principals}}" wx:key="application_id"
       >{{item.nickname}} · {{item.stateText}}</view
-    ><view wx:if="{{!principals.length}}">暂无邀请记录</view></view
-  ></view
+    ><view wx:if="{{!principals.length && !principalsLoading && !error}}">暂无邀请记录</view></view
+  ><template is="list-footer" data="{{loading:busy,loaded:storesLoaded && principalsLoaded && ordersLoaded,hasMore:storesHasMore || principalsHasMore || ordersHasMore,error:error}}" /></view
 >

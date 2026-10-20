@@ -683,7 +683,7 @@ async function changePage(value: number) {
             :pagination="{
               pageSize: 10,
               showSizeChanger: false,
-              hideOnSinglePage: true,
+              hideOnSinglePage: false,
             }"
             :locale="{ emptyText: '暂无符合条件的工作人员' }"
           >

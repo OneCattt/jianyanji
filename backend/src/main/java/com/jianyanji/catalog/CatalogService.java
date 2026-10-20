@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
+import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
 import java.util.HashSet;
@@ -21,6 +22,16 @@ public class CatalogService {
     private final Db db;
     /** 当前操作人及审计上下文。 */
     private final Access access;
+
+    /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
+    public ObjectNode adminPage(java.util.Map<String, String> query) {
+        return new PageQuery(query, "FROM products p WHERE p.is_deleted=0")
+                .eq("active", "p.active").eq("categoryId", "p.category_id")
+                .keyword("p.name", "p.subtitle",
+                        "(SELECT c.name FROM categories c WHERE c.id=p.category_id AND c.is_deleted=0)",
+                        "(SELECT GROUP_CONCAT(s.name) FROM skus s WHERE s.product_id=p.id AND s.is_deleted=0)")
+                .select(db, "p.*", "p.id DESC", row -> productView(row, null, true));
+    }
 
     public CatalogService(Db db, Access access) {
         this.db = db;
@@ -59,11 +70,14 @@ public class CatalogService {
 
     /** 输出商品与规格；管理端显示实际库存、占用量及完整档价，客户端只显示可用量。 */
     public ObjectNode productView(ObjectNode product, JsonNode user, boolean admin) {
+        return productView(product, user, admin, db.list(
+                "SELECT * FROM skus WHERE product_id=? AND is_deleted=0 ORDER BY id", l(product, "id")));
+    }
+
+    /** 使用调用方批量读取的规格，避免商品列表为每个商品重复查询。 */
+    public ObjectNode productView(ObjectNode product, JsonNode user, boolean admin, List<ObjectNode> skuRows) {
         ArrayNode skus = arr();
-        for (ObjectNode sku :
-                db.list(
-                        "SELECT * FROM skus WHERE product_id=? AND is_deleted=0 ORDER BY id",
-                        l(product, "id"))) {
+        for (ObjectNode sku : skuRows) {
             Long price = rolePrice(sku, user);
             long availableStock = l(sku, "stock") - l(sku, "reserved");
             ObjectNode view =

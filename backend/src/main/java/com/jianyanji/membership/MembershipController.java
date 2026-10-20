@@ -65,9 +65,9 @@ public class MembershipController {
     }
 
     @GetMapping("/api/admin/onboardings")
-    public Object adminList() {
+    public Object adminList(@RequestParam java.util.Map<String, String> query) {
         access.staff("onboarding:manage");
-        return membership.applications(null);
+        return query.containsKey("page") ? membership.adminPage(query) : membership.applications(null);
     }
 
     @PostMapping("/api/admin/onboardings/{id}/receipt")

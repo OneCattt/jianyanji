@@ -3,5 +3,8 @@
   "backgroundColor": "#f2ece4",
   "navigationBarTitleText": "订单详情",
   "navigationBarBackgroundColor": "#f8f5ee",
-  "navigationBarTextStyle": "black"
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "brand-dialog": "/components/brand-dialog/index"
+  }
 }

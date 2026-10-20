@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
 import { computed, onMounted, ref, useId } from "vue";
 import { api } from "../client";
@@ -59,9 +60,7 @@ const error = ref(""),
   }),
   configured = ref(false);
 let savedSettings = { ...settings.value };
-const rewards = ref<Reward[]>([]),
-  debts = ref<Debt[]>([]),
-  settlements = ref<Settlement[]>([]),
+const debts = ref<Debt[]>([]),
   selected = ref<number[]>([]),
   sourceId = ref<number>(),
   basis = ref<any>(null),
@@ -88,13 +87,19 @@ function cents(value: string) {
   const [a, b = ""] = value.split(".");
   return Number(a) * 100 + Number(b.padEnd(2, "0"));
 }
+const selectionRows = ref(new Map<number, Reward>());
 function toggleReward(id: number, checked: boolean) {
+  const row = rewards.value.find((r) => r.id === id);
+  if (checked && row) selectionRows.value.set(id, row);
+  else selectionRows.value.delete(id);
   selected.value = checked
     ? [...selected.value.filter((value) => value !== id), id]
     : selected.value.filter((value) => value !== id);
 }
 const selectedRewards = computed(() =>
-  rewards.value.filter((r) => selected.value.includes(r.id)),
+  [...selectionRows.value.values()].filter((r) =>
+    selected.value.includes(r.id),
+  ),
 );
 const selectedUser = computed(
   () => new Set(selectedRewards.value.map((r) => r.userId)),
@@ -122,12 +127,26 @@ const statusName = (s: string) =>
     settled: "已结算",
     reversed: "已冲回",
   })[s] || s;
+const {
+  rows: rewards,
+  total: rewardTotal,
+  pagination: rewardPagination,
+  loading: rewardLoading,
+  load: loadRewards,
+} = useAdminList<Reward>("/admin/rewards", () => ({}), error);
+const {
+  rows: settlements,
+  total: settlementTotal,
+  pagination: settlementPagination,
+  loading: settlementLoading,
+  load: loadSettlements,
+} = useAdminList<Settlement>("/admin/reward-settlements", () => ({}), error);
 async function load() {
   const [s, r, d, p] = await Promise.all([
     api<any>("/admin/reward-settings"),
-    api<Reward[]>("/admin/rewards"),
+    loadRewards(),
     api<Debt[]>("/admin/reward-debts"),
-    api<Settlement[]>("/admin/reward-settlements"),
+    loadSettlements(),
   ]);
   configured.value = Boolean(s);
   if (s)
@@ -140,9 +159,13 @@ async function load() {
   rewards.value = r;
   debts.value = d;
   settlements.value = p;
-  selected.value = selected.value.filter((id) =>
-    r.some((x) => x.id === id && x.eligible && x.remainingCents > 0),
-  );
+  for (const row of r) {
+    if (selected.value.includes(row.id)) selectionRows.value.set(row.id, row);
+  }
+  selected.value = selected.value.filter((id) => {
+    const row = selectionRows.value.get(id);
+    return row?.eligible && row.remainingCents > 0;
+  });
 }
 async function act(work: () => Promise<void>, message = "") {
   if (busy.value) return;
@@ -404,8 +427,8 @@ const debtColumns = [
       ></a-collapse
     >
     <a-tabs v-model:active-key="activeArea" class="area-tabs">
-      <a-tab-pane key="rewards" :tab="`奖励登记与月结 (${rewards.length})`" />
-      <a-tab-pane key="settlements" :tab="`付款核实 (${settlements.length})`" />
+      <a-tab-pane key="rewards" :tab="`奖励登记与月结 (${rewardTotal})`" />
+      <a-tab-pane key="settlements" :tab="`付款核实 (${settlementTotal})`" />
       <a-tab-pane key="recovery" :tab="`奖励追回 (${debts.length})`" />
     </a-tabs>
     <div v-show="activeArea === 'rewards'" class="area-content">
@@ -420,14 +443,9 @@ const debtColumns = [
             :columns="rewardColumns"
             row-key="id"
             size="middle"
-            :loading="busy"
+            :loading="busy || rewardLoading || settlementLoading"
             :scroll="{ x: 1040 }"
-            :pagination="{
-              defaultPageSize: 10,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50'],
-              hideOnSinglePage: true,
-            }"
+            :pagination="rewardPagination"
             ><template #bodyCell="{ column, record: r }"
               ><template v-if="column.key === 'c0'"
                 ><div class="table-cell-content">
@@ -540,14 +558,9 @@ const debtColumns = [
           :columns="settlementColumns"
           row-key="id"
           size="middle"
-          :loading="busy"
+          :loading="busy || rewardLoading || settlementLoading"
           :scroll="{ x: 1020 }"
-          :pagination="{
-            defaultPageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50'],
-            hideOnSinglePage: true,
-          }"
+          :pagination="settlementPagination"
           ><template #bodyCell="{ column, record: s }"
             ><template v-if="column.key === 'c0'"
               ><div class="table-cell-content">
@@ -617,13 +630,13 @@ const debtColumns = [
           :columns="debtColumns"
           row-key="id"
           size="middle"
-          :loading="busy"
+          :loading="busy || rewardLoading || settlementLoading"
           :scroll="{ x: 1020 }"
           :pagination="{
             defaultPageSize: 10,
             showSizeChanger: true,
             pageSizeOptions: ['10', '20', '50'],
-            hideOnSinglePage: true,
+            hideOnSinglePage: false,
           }"
           ><template #bodyCell="{ column, record: d }"
             ><template v-if="column.key === 'c0'"

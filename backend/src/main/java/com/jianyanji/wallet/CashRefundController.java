@@ -21,9 +21,9 @@ public class CashRefundController {
     }
 
     @GetMapping("/api/admin/cash-refunds")
-    public Object adminList() {
+    public Object adminList(@RequestParam java.util.Map<String, String> query) {
         access.staff("finance:manage");
-        return refunds.listRefunds(null);
+        return query.containsKey("page") ? refunds.adminPage(query) : refunds.listRefunds(null);
     }
 
     @GetMapping("/api/cash-refunds")

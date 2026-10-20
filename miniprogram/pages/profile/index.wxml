@@ -7,7 +7,7 @@
       class="mine-avatar"
       data-key="settings"
       bindtap="onNavigate"
-      disabled="{{busy || navigating}}"
+      disabled="{{navigating}}"
       aria-label="个人资料与登录设置"
     >
       妍
@@ -18,7 +18,7 @@
         class="mine-name"
         data-key="settings"
         bindtap="onNavigate"
-        disabled="{{busy || navigating}}"
+        disabled="{{navigating}}"
       >
         {{user ? user.nickname : '登录清欣'}}
       </button>
@@ -34,7 +34,7 @@
       class="mine-settings"
       data-key="settings"
       bindtap="onNavigate"
-      disabled="{{busy || navigating}}"
+      disabled="{{navigating}}"
       aria-label="设置"
     >
       •••
@@ -62,14 +62,14 @@
           class="mine-solid"
           data-key="wallet"
           bindtap="onNavigate"
-          disabled="{{busy || navigating}}"
+          disabled="{{navigating}}"
         >
           公司转款</button
         ><button
           class="mine-outline"
           data-key="wallet"
           bindtap="onNavigate"
-          disabled="{{busy || navigating}}"
+          disabled="{{navigating}}"
         >
           积分明细
         </button></view
@@ -93,7 +93,7 @@
           class="mine-outline"
           data-key="{{user ? 'onboarding' : 'settings'}}"
           bindtap="onNavigate"
-          disabled="{{busy || navigating}}"
+          disabled="{{navigating}}"
         >
           {{user ? '代理入驻' : '微信登录'}}
         </button></view
@@ -110,7 +110,7 @@
           class="mine-all-orders"
           data-key="orders"
           bindtap="onNavigate"
-          disabled="{{busy || navigating}}"
+          disabled="{{navigating}}"
         >
           <text>全部订单</text
           ><image
@@ -126,7 +126,7 @@
           data-key="orders"
           data-tab="{{item.tab}}"
           bindtap="onNavigate"
-          disabled="{{busy || navigating}}"
+          disabled="{{navigating}}"
         >
           <image
             src="/assets/figma/profile-order-{{item.icon}}.png"
@@ -144,7 +144,7 @@
             wx:if="{{item.key === 'invite'}}"
             class="mine-menu-item"
             open-type="share"
-            disabled="{{busy || navigating}}"
+            disabled="{{navigating}}"
           >
             <view class="mine-menu-icon"
               ><image
@@ -163,7 +163,7 @@
             class="mine-menu-item"
             data-key="{{item.key}}"
             bindtap="onNavigate"
-            disabled="{{busy || navigating}}"
+            disabled="{{navigating}}"
           >
             <view class="mine-menu-icon"
               ><image

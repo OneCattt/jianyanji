@@ -1,4 +1,6 @@
 const { request } = require("../../utils/api");
+const { isFresh, remember } = require("../../utils/state");
+const { listValues } = require("../../utils/list");
 Page({
   data: {
     items: [],
@@ -10,7 +12,7 @@ Page({
   onShow() {
     const tabBar = this.getTabBar && this.getTabBar();
     if (tabBar) tabBar.setData({ selected: 2 });
-    this.load(true);
+    if (!isFresh(this)) return this.load(true);
   },
   async onPullDownRefresh() {
     try {
@@ -20,27 +22,27 @@ Page({
     }
   },
   onReachBottom() {
-    if (this.data.nextBefore) this.load(false);
+    if (this.data.nextBefore) return this.load(false);
   },
   async load(reset) {
     if (this.data.loading) return;
     this.setData({
       loading: true,
       error: "",
-      ...(reset ? { items: [], nextBefore: null } : {}),
     });
     try {
       const result = await request(
-        "/public/posts?limit=12" +
+        "/public/posts?limit=20" +
           (!reset && this.data.nextBefore
             ? "&before=" + this.data.nextBefore
             : ""),
       );
       this.setData({
-        items: reset ? result.items : this.data.items.concat(result.items),
+        ...listValues(this, "items", result.items, reset),
         nextBefore: result.nextBefore,
         loaded: true,
       });
+      remember(this);
     } catch (e) {
       this.setData({ error: e.message });
     } finally {

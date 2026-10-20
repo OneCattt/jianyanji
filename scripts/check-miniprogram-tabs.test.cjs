@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+const { createRequire } = require("./miniprogram-runtime.cjs");
 
 const root = path.resolve(__dirname, "../miniprogram");
 
@@ -21,6 +22,7 @@ function createRuntime({ requestFails = false, navigationFails = false } = {}) {
       });
     },
     showToast() {},
+    getStorageSync: () => "",
   };
   vm.runInNewContext(
     fs.readFileSync(path.join(root, "custom-tab-bar/index.js"), "utf8"),
@@ -50,16 +52,21 @@ function createRuntime({ requestFails = false, navigationFails = false } = {}) {
       fs.readFileSync(path.join(root, route + ".js"), "utf8"),
       {
         Page: (definition) => (page = definition),
-        require: (module) => {
-          if (module === "../../utils/catalog") return { decorate: (p) => p };
-          return {
-            request: async (url) => {
-              if (requestFails) throw Error("接口不可用");
-              if (url === "/public/categories") return [];
-              return { content: null, items: [], identity: "D" };
-            },
-          };
-        },
+        require: createRequire(
+          path.join(root, route + ".js"),
+          { wx },
+          async (url) => {
+            if (requestFails) throw Error("接口不可用");
+            if (url === "/public/categories") return [];
+            return {
+              content: null,
+              items: [],
+              identity: "D",
+              hasMore: false,
+              nextPage: null,
+            };
+          },
+        ),
         wx,
       },
     );

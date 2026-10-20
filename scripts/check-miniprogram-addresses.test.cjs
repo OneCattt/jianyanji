@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const vm = require("node:vm");
+const { createRequire } = require("./miniprogram-runtime.cjs");
 const { execFileSync } = require("node:child_process");
 const test = require("node:test");
 
@@ -18,9 +19,13 @@ const directory = fs.mkdtempSync(
 let compiled;
 try {
   const output = path.join(directory, "addresses.js");
-  execFileSync(compiler, ["-o", output, "pages/addresses/index.wxml"], {
-    cwd: root,
-  });
+  execFileSync(
+    compiler,
+    ["-o", output, "pages/addresses/index.wxml", "templates/list-footer.wxml"],
+    {
+      cwd: root,
+    },
+  );
   compiled = fs.readFileSync(output, "utf8");
 } finally {
   fs.rmSync(directory, { recursive: true, force: true });
@@ -34,14 +39,17 @@ function runtime({ saveFails = false } = {}) {
     window: {},
     console,
     Page: (value) => (definition = value),
-    require: () => ({
-      request: async (url, method = "GET", data) => {
-        calls.push({ url, method, data });
-        if (method !== "GET" && saveFails) throw Error("地址保存失败");
-        return [];
-      },
-    }),
+    wx: { getStorageSync: () => "" },
   };
+  context.require = createRequire(
+    path.join(root, "pages/addresses/index.js"),
+    context,
+    async (url, method = "GET", data) => {
+      calls.push({ url, method, data });
+      if (method !== "GET" && saveFails) throw Error("地址保存失败");
+      return { items: [], nextPage: null, hasMore: false };
+    },
+  );
   vm.createContext(context);
   vm.runInContext(compiled, context);
   vm.runInContext(

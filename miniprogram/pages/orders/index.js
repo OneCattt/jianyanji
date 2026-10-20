@@ -1,9 +1,10 @@
 const { request } = require("../../utils/api");
 const { decorate } = require("../order/view");
+const { listData, loadPage } = require("../../utils/list");
+const { isFresh, remember } = require("../../utils/state");
 Page({
   data: {
-    orders: [],
-    visible: [],
+    ...listData("orders"),
     tabs: ["全部", "待核款", "待发货", "运输中", "已完成"],
     tab: 0,
     error: "",
@@ -15,41 +16,32 @@ Page({
       this.setData({ tab });
   },
   onShow() {
-    this.load();
+    if (!isFresh(this) && !this.data.ordersLoading) return this.load();
   },
-  async load() {
-    this.setData({ loading: true, error: "" });
-    try {
-      const orders = (await request("/orders")).map(decorate);
-      this.setData({ orders });
-      this.filter();
-    } catch (e) {
-      this.setData({ error: e.message });
-    } finally {
-      this.setData({ loading: false });
-    }
+  async load(reset = true) {
+    const ok = await loadPage(this, {
+      key: "orders",
+      reset,
+      url: "/mini/orders?tab=" + this.data.tab,
+      map: decorate,
+    });
+    if (ok) remember(this);
+  },
+  onReachBottom() {
+    return this.load(false);
   },
   async onPullDownRefresh() {
-    await this.load();
-    wx.stopPullDownRefresh();
+    try {
+      await this.load();
+    } finally {
+      wx.stopPullDownRefresh();
+    }
   },
   select(e) {
-    this.setData({ tab: Number(e.currentTarget.dataset.index) });
-    this.filter();
-  },
-  filter() {
-    const status = [
-      null,
-      ["pending"],
-      ["paid", "awaiting_shipment"],
-      ["shipped"],
-      ["completed"],
-    ][this.data.tab];
-    this.setData({
-      visible: this.data.orders.filter(
-        (o) => !status || status.includes(o.status),
-      ),
-    });
+    const tab = Number(e.currentTarget.dataset.index);
+    if (tab === this.data.tab) return;
+    this.setData({ tab, orders: [] });
+    return this.load();
   },
   detail(e) {
     wx.navigateTo({

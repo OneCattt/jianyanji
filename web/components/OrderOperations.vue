@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAdminList } from "../useAdminList";
 import { computed, ref, watch } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
@@ -76,8 +77,7 @@ const error = ref(""),
   notice = ref(""),
   loading = ref(false),
   saving = ref(false);
-const orders = ref<Order[]>([]),
-  selectedId = ref(0);
+const selectedId = ref(0);
 const search = ref(""),
   status = ref(""),
   paymentState = ref("");
@@ -133,28 +133,27 @@ const paymentMethods: Record<string, string> = {
   company: "线下公司转款",
   transfer: "线下公司转款",
 };
-const states = computed(() => [
-  ...new Set(orders.value.map((order) => order.status)),
-]);
-const paymentOptions = computed(() => [
-  ...new Set(orders.value.map((order) => order.payment_state)),
-]);
-const filtered = computed(() => {
-  const keyword = search.value.trim().toLowerCase();
-  return orders.value.filter(
-    (order) =>
-      (!status.value || order.status === status.value) &&
-      (!paymentState.value || order.payment_state === paymentState.value) &&
-      (!keyword ||
-        [
-          order.number,
-          String(order.id),
-          String(order.user_id),
-          order.snapshot.address?.recipient ?? "",
-          order.snapshot.address?.phone ?? "",
-        ].some((value) => value.toLowerCase().includes(keyword))),
-  );
-});
+const states = computed(() => Object.keys(orderStates));
+
+const paymentOptions = computed(() => Object.keys(paymentStates));
+
+const {
+  rows: orders,
+  total: orderTotal,
+  pagination: orderPagination,
+  loading: listLoading,
+  load: loadOrders,
+} = useAdminList<Order>(
+  "/admin/orders",
+  () => ({
+    q: search.value,
+    status: status.value,
+    paymentState: paymentState.value,
+  }),
+  error,
+);
+const filtered = computed(() => orders.value);
+
 const money = (cents: number) => `¥${(cents / 100).toFixed(2)}`;
 const time = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "—";
@@ -185,7 +184,7 @@ async function load() {
       };
       shippingLoaded.value = true;
     } else {
-      const result = await api<Order[]>("/admin/orders");
+      const result = await loadOrders();
       if (current !== generation) return;
       orders.value = result;
       if (!result.some((order) => order.id === selectedId.value))
@@ -666,22 +665,17 @@ function statusColor(value: string) {
           >
         </AdminForm>
         <p class="list-caption">
-          当前读取最新 {{ orders.length }} 笔（接口最多返回 200 笔），筛选后
-          {{ filtered.length }} 笔。
+          共 {{ orderTotal }} 笔订单，本页 {{ orders.length }} 笔。
         </p>
         <div class="table-wrap order-table">
           <a-table
             :columns="orderColumns"
             :data-source="filtered || []"
             row-key="id"
-            :pagination="{
-              pageSize: 20,
-              showSizeChanger: false,
-              hideOnSinglePage: true,
-            }"
+            :pagination="orderPagination"
             :scroll="{ x: 1000 }"
             size="small"
-            :loading="loading"
+            :loading="loading || listLoading"
             ><template #bodyCell="{ column, record: order }"
               ><template v-if="column.key === 'order'">
                 {{ order.number

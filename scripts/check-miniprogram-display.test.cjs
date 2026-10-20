@@ -7,7 +7,16 @@ const { execFileSync } = require("node:child_process");
 const test = require("node:test");
 
 const root = path.resolve(__dirname, "../miniprogram");
-const pages = ["home", "mall", "cart", "product"];
+const pages = [
+  "home",
+  "mall",
+  "cart",
+  "product",
+  "seeds",
+  "orders",
+  "wallet",
+  "rewards",
+];
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "jianyanji-display-"));
 const context = { window: {}, console };
 vm.createContext(context);
@@ -20,7 +29,12 @@ try {
   const output = path.join(directory, "display.js");
   execFileSync(
     compiler,
-    ["-o", output, ...pages.map((page) => `pages/${page}/index.wxml`)],
+    [
+      "-o",
+      output,
+      "templates/list-footer.wxml",
+      ...pages.map((page) => `pages/${page}/index.wxml`),
+    ],
     { cwd: root },
   );
   vm.runInContext(fs.readFileSync(output, "utf8"), context);
@@ -126,4 +140,57 @@ test("商品详情未读取成功时不显示空详情与购买栏", () => {
   });
   assert.ok(loaded.hasClass("qx-fixed"));
   assert.ok(!loaded.hasClass("error"));
+});
+
+test("列表请求期间不把加载中误显示成空数据，种草分页状态只渲染一次", () => {
+  assert.ok(
+    !render("mall", {
+      products: [],
+      productsLoading: true,
+      error: "",
+    }).text.includes("商品尚未上架"),
+  );
+  assert.ok(
+    !render("cart", { items: [], itemsLoading: true, error: "" }).text.includes(
+      "购物袋暂无商品",
+    ),
+  );
+  assert.ok(
+    !render("orders", {
+      orders: [],
+      ordersLoading: true,
+      error: "",
+      tabs: [],
+      tab: 0,
+    }).text.includes("暂无"),
+  );
+  assert.ok(
+    !render("wallet", {
+      ledger: [],
+      ledgerLoading: true,
+      error: "",
+      wallet: {},
+    }).text.includes("暂无该类型"),
+  );
+  assert.ok(
+    !render("rewards", {
+      items: [],
+      itemsLoading: true,
+      error: "",
+      tabs: [],
+      tab: 0,
+    }).text.includes("暂无"),
+  );
+  const text = render("seeds", {
+    items: Array.from({ length: 20 }, (_, id) => ({
+      id,
+      title: "种草",
+      summary: "摘要",
+    })),
+    loaded: true,
+    loading: false,
+    nextBefore: null,
+    error: "",
+  }).text;
+  assert.equal((text.match(/已全部加载/g) || []).length, 1);
 });

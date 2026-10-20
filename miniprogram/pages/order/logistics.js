@@ -1,3 +1,4 @@
+const { showDialog } = require("../../utils/dialog");
 const { request } = require("../../utils/api");
 const { decorate, dateText } = require("./view");
 Page({
@@ -37,17 +38,15 @@ Page({
   },
   async receive(e) {
     if (this.data.busy) return;
-    const confirm = await new Promise((resolve) =>
-      wx.showModal({
-        title: "确认收货",
-        content: "请确认已收到此包裹的剩余未退商品；已退款商品不重复计入收货。",
-        success: resolve,
-        fail: () => resolve({ confirm: false }),
-      }),
-    );
-    if (!confirm.confirm) return;
     this.setData({ busy: true, error: "" });
     try {
+      const confirm = await showDialog(this, {
+        title: "确认收货",
+        content: "请确认已收到此包裹的剩余未退商品；已退款商品不重复计入收货。",
+        confirmText: "确认收货",
+        cancelText: "暂未收到",
+      });
+      if (!confirm.confirm) return;
       await request(
         "/orders/" +
           this.orderId +

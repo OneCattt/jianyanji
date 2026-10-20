@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.catalog.CatalogService;
 import com.jianyanji.common.Access;
+import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
 import com.jianyanji.payments.PaymentService;
@@ -34,6 +35,18 @@ public class OrderService {
     private final CatalogService catalog;
     /** 支付未决交易检查，延迟注入避免订单支付相互依赖。 */
     private final PaymentService payments;
+
+    /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
+    public ObjectNode adminPage(java.util.Map<String, String> query) {
+        expire();
+        return new PageQuery(query, "FROM orders WHERE is_deleted=0"
+                + ("true".equals(query.get("paidOnly")) ? " AND payment_state IN ('paid','partially_refunded')" : ""))
+                .eq("status", "status").eq("paymentState", "payment_state").eq("kind", "kind")
+                .keyword("number", "CAST(id AS CHAR)", "CAST(user_id AS CHAR)",
+                        "JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.address.recipient'))",
+                        "JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.address.phone'))")
+                .select(db, "*", "id DESC", this::view);
+    }
 
     public OrderService(
             Db db, Access access, CatalogService catalog, @Lazy PaymentService payments) {
@@ -147,6 +160,18 @@ public class OrderService {
                                     "SELECT * FROM orders WHERE status='pending' AND payment_state IN ('unpaid','failed') AND expires_at<? AND is_deleted=0",
                                     now())) release(order);
                 });
+    }
+
+    /** 本人列表仅清理本人的过期订单；无过期项时直接返回，不获取全局业务写锁。 */
+    public void expireForUser(long userId) {
+        String expiredAt = now();
+        String condition = " FROM orders WHERE user_id=? AND status='pending'"
+                + " AND payment_state IN ('unpaid','failed') AND expires_at<? AND is_deleted=0";
+        if (db.one("SELECT id" + condition + " LIMIT 1", userId, expiredAt) == null) return;
+        db.tx(() -> {
+            // 获取写锁后重新查询，沿用 release 的状态复核及库存释放规则。
+            for (ObjectNode order : db.list("SELECT *" + condition, userId, expiredAt)) release(order);
+        });
     }
 
     /** 与 Node 每三十秒清理行为一致，无微信商户配置时仍释放明确未支付的占用。 */

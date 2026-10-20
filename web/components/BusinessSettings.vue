@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
 import ImageUploader from "./ImageUploader.vue";
 import SkuPricingFields from "./SkuPricingFields.vue";
@@ -115,38 +116,39 @@ const query = ref(""),
 const categories = ref<
     { id: number; name: string; sort: number; active: number }[]
   >([]),
-  products = ref<ProductRecord[]>([]),
   editing = ref(false);
 const categoryNames = computed(
   () => new Map(categories.value.map((c) => [c.id, c.name])),
 );
-const activeCount = computed(
-  () => products.value.filter((p) => p.active).length,
-);
 const hasFilters = computed(() =>
   Boolean(query.value || statusFilter.value || categoryFilter.value),
 );
-const filteredProducts = computed(() => {
-  const term = query.value.trim().toLocaleLowerCase();
-  return products.value.filter(
-    (p) =>
-      (!statusFilter.value ||
-        (statusFilter.value === "active" ? p.active : !p.active)) &&
-      (!categoryFilter.value || p.categoryId === categoryFilter.value) &&
-      (!term ||
-        [
-          p.name,
-          p.subtitle,
-          categoryNames.value.get(p.categoryId) || "",
-          ...p.skus.map((s) => s.name),
-        ].some((value) => value.toLocaleLowerCase().includes(term))),
-  );
-});
+const {
+  rows: products,
+  total: productTotal,
+  pagination: productPagination,
+  loading: listLoading,
+  load: loadProducts,
+} = useAdminList<ProductRecord>(
+  "/admin/products",
+  () => ({
+    q: query.value,
+    active: statusFilter.value
+      ? statusFilter.value === "active"
+        ? "1"
+        : "0"
+      : "",
+    categoryId: categoryFilter.value || "",
+  }),
+  error,
+);
+const filteredProducts = computed(() => products.value);
 function resetFilters() {
   query.value = "";
   statusFilter.value = "";
   categoryFilter.value = 0;
 }
+
 const blank = (): Product => ({
   categoryId: "",
   name: "",
@@ -191,7 +193,7 @@ async function load() {
     } else {
       [categories.value, products.value] = await Promise.all([
         api<typeof categories.value>("/admin/categories"),
-        api<ProductRecord[]>("/admin/products"),
+        loadProducts(),
       ]);
     }
     loaded.value = true;
@@ -508,8 +510,7 @@ const productColumns = [
         </a-button>
       </Teleport>
       <p class="catalog-summary">
-        共 {{ products.length }} 件商品 · 已上架 {{ activeCount }} 件 · 已下架
-        {{ products.length - activeCount }} 件
+        共 {{ productTotal }} 件商品 · 本页 {{ products.length }} 件
       </p>
 
       <a-collapse class="surface category-panel"
@@ -778,9 +779,7 @@ const productColumns = [
         <header class="catalog-toolbar">
           <div>
             <h3>商品列表</h3>
-            <p>
-              显示 {{ filteredProducts.length }} / {{ products.length }} 件商品
-            </p>
+            <p>共 {{ productTotal }} 件商品 · 本页 {{ products.length }} 件</p>
           </div>
           <div class="catalog-filters">
             <label class="search-field"
@@ -822,14 +821,9 @@ const productColumns = [
             :columns="productColumns"
             row-key="id"
             size="middle"
-            :loading="busy || loading"
+            :loading="busy || loading || listLoading"
             :scroll="{ x: 680 }"
-            :pagination="{
-              defaultPageSize: 10,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50'],
-              hideOnSinglePage: true,
-            }"
+            :pagination="productPagination"
             ><template #bodyCell="{ column, record: p }"
               ><template v-if="column.key === 'c0'"
                 ><div class="table-cell-content">

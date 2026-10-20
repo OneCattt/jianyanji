@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
 import { onMounted, ref } from "vue";
 import { api } from "../client";
@@ -8,8 +9,7 @@ import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
 const creating = ref(false);
 const userInput = ref<{ focus: () => void } | null>(null);
-const rows = ref<any[]>([]),
-  receipts = ref<any[]>([]),
+const receipts = ref<any[]>([]),
   wallet = ref<any>(null),
   busy = ref(false),
   error = ref(""),
@@ -38,8 +38,14 @@ function cents(v: string) {
   const [a, b = ""] = v.split(".");
   return Number(a) * 100 + Number(b.padEnd(2, "0"));
 }
+const {
+  rows,
+  pagination: refundPagination,
+  loading: listLoading,
+  load: loadRefunds,
+} = useAdminList<any>("/admin/cash-refunds", () => ({}), error);
 async function load() {
-  rows.value = await api<any[]>("/admin/cash-refunds");
+  await loadRefunds();
 }
 async function run(work: () => Promise<any>, refresh = true) {
   if (busy.value) return;
@@ -209,14 +215,9 @@ const cashRefundColumns = [
           :columns="cashRefundColumns"
           row-key="id"
           size="middle"
-          :loading="busy"
+          :loading="busy || listLoading"
           :scroll="{ x: 680 }"
-          :pagination="{
-            defaultPageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50'],
-            hideOnSinglePage: true,
-          }"
+          :pagination="refundPagination"
           ><template #bodyCell="{ column, record: r }"
             ><template v-if="column.key === 'c0'"
               ><div class="table-cell-content">
