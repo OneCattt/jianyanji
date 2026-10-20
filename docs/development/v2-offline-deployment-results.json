@@ -1,0 +1,91 @@
+{
+  "deployedAt": "2026-10-20T16:57:39+08:00",
+  "codeCommit": "e3d5f10bf90bb3a7982d715ff9ace5586b52f30f",
+  "previousCommit": "98ae38589284ad0ad1278769753ed0dd9e0af31c",
+  "deployment": {
+    "commit": "e3d5f10bf90bb3a7982d715ff9ace5586b52f30f",
+    "release": "/opt/jianyanji/releases/offline-e3d5f10",
+    "backup": "/var/backups/jianyanji/20261020T085720Z-offline-e3d5f10",
+    "migration": 11,
+    "previousMigrationsUnchanged": true,
+    "businessRowsPreserved": true,
+    "businessTablesChecked": 37,
+    "financialTotalsPreserved": true,
+    "serviceActive": true,
+    "devAuth": false,
+    "onlinePaymentDisabled": true,
+    "jarSha256": "1ca7eda938970031128480d80add5e0ed67b41e54c8bd6f396e8e882e37e8e49",
+    "timeUtc": "2026-10-20T08:57:39Z"
+  },
+  "releaseTests": {
+    "tests": 191,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "publicVerification": {
+    "commit": "e3d5f10bf90bb3a7982d715ff9ace5586b52f30f",
+    "base": "https://121.199.29.242",
+    "tlsCertificateVerified": true,
+    "checks": [
+      {
+        "path": "/api/public/context",
+        "status": 200
+      },
+      {
+        "path": "/admin",
+        "status": 200
+      },
+      {
+        "path": "/assets/index-BU8SbDWE.js",
+        "status": 200
+      },
+      {
+        "path": "/assets/index-DoRBo_Ta.css",
+        "status": 200
+      },
+      {
+        "path": "/brand/app-icon.png",
+        "status": 200
+      },
+      {
+        "path": "/brand/app-icon.svg",
+        "status": 200
+      },
+      {
+        "path": "/brand/logo-horizontal-red.svg",
+        "status": 200
+      },
+      {
+        "path": "/index.html",
+        "status": 200
+      },
+      {
+        "path": "/api/payments/wechat/notify",
+        "status": 409
+      },
+      {
+        "path": "/api/auth/dev",
+        "status": 404
+      },
+      {
+        "path": "/api/admin/orders/1/receipt",
+        "status": 401
+      }
+    ],
+    "productionDevAuthDisabled": true,
+    "onlinePaymentDisabled": true,
+    "frontendFilesMatchManifest": true,
+    "financialWritesPerformed": false,
+    "status": "passed"
+  },
+  "browserVerification": {
+    "base": "https://121.199.29.242/admin",
+    "loginPageReady": true,
+    "pageErrors": [],
+    "financialWritesPerformed": false,
+    "status": "passed"
+  },
+  "wechatMiniProgramPublished": false,
+  "actualFinancialTransfersTested": false
+}
