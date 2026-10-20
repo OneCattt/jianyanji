@@ -313,29 +313,6 @@ async function saveShipping() {
     </nav>
     <p v-if="error" class="message error" role="alert">{{ error }}</p>
     <p v-if="notice" class="message success" role="status">{{ notice }}</p>
-    <div class="section-heading">
-      <div>
-        <h2>
-          {{
-            active === "shipping"
-              ? "配送与待付款配置"
-              : selected
-                ? "订单成交详情"
-                : "订单记录"
-          }}
-        </h2>
-        <p>
-          {{
-            active === "shipping"
-              ? "按固定配送范围和运费核算结算金额。"
-              : "查看订单状态、收货地址和当时保存的交易依据。"
-          }}
-        </p>
-      </div>
-      <button class="secondary" :disabled="loading || saving" @click="load">
-        {{ loading ? "读取中…" : "刷新" }}
-      </button>
-    </div>
     <p v-if="loading" class="loading" role="status">
       正在读取{{ active === "shipping" ? "配送配置" : "订单记录" }}…
     </p>

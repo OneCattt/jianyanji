@@ -123,11 +123,7 @@ async function resolve() {
 </script>
 <template>
   <section class="cash-refunds">
-    <header class="page-header">
-      <div>
-        <h2>未用积分退现金</h2>
-        <p>核实原公司收款，受理后占用积分，实际退款后登记结果。</p>
-      </div>
+    <Teleport defer to="#admin-page-actions">
       <button
         type="button"
         class="primary"
@@ -137,18 +133,7 @@ async function resolve() {
       >
         人工受理未用积分退现金
       </button>
-      <button
-        type="button"
-        class="secondary"
-        :disabled="busy"
-        @click="run(load, false)"
-      >
-        刷新记录
-      </button>
-    </header>
-    <p v-if="!wallet" id="cash-refund-create-help">
-      请先查询原收款及积分，再受理退现金。
-    </p>
+    </Teleport>
     <p v-if="error" class="message error" role="alert">{{ error }}</p>
     <p v-if="notice" class="message success" role="status">{{ notice }}</p>
     <ol class="process-guide" aria-label="退现金办理流程">
@@ -201,7 +186,7 @@ async function resolve() {
           </div>
           <p>1元 = 1积分</p>
         </div>
-        <p v-else class="empty-hint">
+        <p v-else id="cash-refund-create-help" class="empty-hint">
           查询后可查看积分余额，并选择原公司订货收款办理退现金。
         </p>
       </AdminForm>
@@ -286,7 +271,6 @@ async function resolve() {
       <p v-if="error" class="message error" role="alert">{{ error }}</p>
       <AdminForm class="surface application-form" @submit="create">
         <div class="section-heading">
-          <h3>人工受理未用积分退现金</h3>
           <p>
             产品包款、已消费积分和其他人的收款不能作为退款来源。办理时先占用，实际退款后才扣回积分。
           </p>
@@ -338,7 +322,6 @@ async function resolve() {
       <p v-if="error" class="message error" role="alert">{{ error }}</p>
       <AdminForm v-if="selected" class="surface result-form" @submit="resolve">
         <div class="section-heading">
-          <h3>登记实际处理结果 · {{ selected.number }}</h3>
           <p>
             本次金额
             <strong class="refund-amount">{{
@@ -434,15 +417,11 @@ small {
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
-.page-header,
 .form-actions {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-}
-.page-header {
-  justify-content: space-between;
 }
 .surface {
   min-width: 0;

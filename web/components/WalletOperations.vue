@@ -186,18 +186,15 @@ onMounted(() => run(refresh));
 </script>
 <template>
   <section class="wallet-operations" :aria-busy="busy">
-    <header class="wallet-page-heading">
-      <h2>公司订货收款与积分钱包</h2>
-      <p class="muted">
-        仅登记品牌方已经核实的真实到账。1 元对应 1
-        积分，不赠送、不过期；产品包款请到入驻申请核款。
-      </p>
-      <div>
-        <button class="primary" :disabled="busy" @click="openReceipt">
-          充值核款并发积分
-        </button>
-      </div>
-    </header>
+    <Teleport defer to="#admin-page-actions">
+      <button class="primary" :disabled="busy" @click="openReceipt">
+        充值核款并发积分
+      </button>
+    </Teleport>
+    <p class="admin-business-note">
+      仅登记已核实的真实到账。1 元对应 1
+      积分，不赠送、不过期；产品包款请到入驻申请核款。
+    </p>
     <p v-if="error && !dialog" role="alert" class="feedback error">
       {{ error }}
     </p>
@@ -459,10 +456,6 @@ onMounted(() => run(refresh));
   font-size: 13px;
   line-height: 1.6;
   overflow-wrap: anywhere;
-}
-.wallet-page-heading {
-  display: grid;
-  gap: 6px;
 }
 h2,
 h3,

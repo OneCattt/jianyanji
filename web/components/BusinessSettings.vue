@@ -322,11 +322,7 @@ function saveProduct() {
     </p>
 
     <template v-if="section === 'content'">
-      <header class="catalog-heading">
-        <div>
-          <h3>品牌内容</h3>
-          <p>查看品牌、购买说明与公司收款资料。</p>
-        </div>
+      <Teleport defer to="#admin-page-actions">
         <button
           class="primary"
           type="button"
@@ -335,7 +331,7 @@ function saveProduct() {
         >
           编辑品牌资料
         </button>
-      </header>
+      </Teleport>
       <div class="content-layout content-sections">
         <section
           v-for="group in contentGroups"
@@ -459,37 +455,28 @@ function saveProduct() {
     </template>
 
     <template v-else>
-      <header class="catalog-heading">
-        <div>
-          <h3>
-            商品与规格 <span class="count">{{ products.length }}</span>
-          </h3>
-          <p>
-            已上架 {{ activeCount }} 件<span class="separator">/</span>已下架
-            {{ products.length - activeCount }} 件<span class="separator"
-              >·</span
-            >维护商品信息、身份价格与库存
-          </p>
-        </div>
-        <div class="button-row">
-          <button
-            class="secondary"
-            type="button"
-            :disabled="busy || loading || !loaded"
-            @click="editCategory()"
-          >
-            新增分类
-          </button>
-          <button
-            class="primary"
-            type="button"
-            :disabled="busy || loading || !loaded"
-            @click="edit()"
-          >
-            <span aria-hidden="true">＋</span> 新增商品
-          </button>
-        </div>
-      </header>
+      <Teleport defer to="#admin-page-actions">
+        <button
+          class="secondary"
+          type="button"
+          :disabled="busy || loading || !loaded"
+          @click="editCategory()"
+        >
+          新增分类
+        </button>
+        <button
+          class="primary"
+          type="button"
+          :disabled="busy || loading || !loaded"
+          @click="edit()"
+        >
+          <span aria-hidden="true">＋</span> 新增商品
+        </button>
+      </Teleport>
+      <p class="catalog-summary">
+        共 {{ products.length }} 件商品 · 已上架 {{ activeCount }} 件 · 已下架
+        {{ products.length - activeCount }} 件
+      </p>
 
       <details class="surface category-panel" open>
         <summary>
@@ -967,7 +954,6 @@ function saveProduct() {
   margin: 0;
 }
 .feedback,
-.catalog-heading,
 .panel-heading,
 .catalog-toolbar,
 .save-bar,
@@ -989,7 +975,6 @@ function saveProduct() {
   color: var(--admin-muted);
 }
 .panel-heading p,
-.catalog-heading p,
 .catalog-toolbar p {
   color: var(--admin-muted);
   font-size: 12px;
@@ -1355,7 +1340,6 @@ function saveProduct() {
   }
 }
 @media (max-width: 540px) {
-  .catalog-heading,
   .panel-heading {
     flex-wrap: wrap;
   }

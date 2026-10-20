@@ -296,33 +296,37 @@ function openReconcile(id: number) {
 </script>
 <template>
   <section class="reward-operations">
-    <header class="page-header">
-      <div>
-        <h2>奖励与线下月结</h2>
-        <p>人工核算登记 · 公司线下转账 · 与订货积分分别记账</p>
-      </div>
-      <div class="form-actions">
-        <button type="button" :disabled="busy" @click="openDialog('settings')">
-          奖励参数
-        </button>
-        <button type="button" :disabled="busy" @click="openDialog('source')">
-          登记来源奖励
-        </button>
-        <button
-          type="button"
-          class="primary"
-          :disabled="
-            busy || !configured || !selected.length || selectedUser.size !== 1
-          "
-          @click="openDialog('plan')"
-        >
-          创建月结单
-        </button>
-        <button class="secondary" :disabled="busy" @click="act(load)">
-          刷新
-        </button>
-      </div>
-    </header>
+    <Teleport defer to="#admin-page-actions">
+      <button
+        type="button"
+        class="secondary"
+        :disabled="busy"
+        @click="openDialog('settings')"
+      >
+        奖励参数
+      </button>
+      <button
+        type="button"
+        class="secondary"
+        :disabled="busy"
+        @click="openDialog('source')"
+      >
+        登记来源奖励
+      </button>
+      <button
+        type="button"
+        class="primary"
+        :disabled="
+          busy || !configured || !selected.length || selectedUser.size !== 1
+        "
+        @click="openDialog('plan')"
+      >
+        创建月结单
+      </button>
+    </Teleport>
+    <p class="admin-business-note">
+      奖励由公司线下转账结算，与订货积分分别记账。
+    </p>
     <p v-if="error && !dialog" role="alert" class="message error">
       {{ error }}
     </p>
@@ -907,7 +911,6 @@ function openReconcile(id: number) {
   color: var(--admin-ink);
   font-size: 13px;
 }
-.page-header,
 .reward-operations header,
 .inline,
 .form-actions {

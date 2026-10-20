@@ -486,30 +486,33 @@ const actionNames: Record<string, string> = {
               }}
             </p>
           </div>
-          <button
-            v-if="section === 'staff'"
-            class="primary"
-            @click="open('create')"
-          >
-            <Plus :size="16" aria-hidden="true" /> 新增工作人员</button
-          ><button
-            v-else-if="section !== 'overview'"
-            class="secondary"
-            @click="
-              ['users', 'staff', 'audit'].includes(section)
-                ? load()
-                : refreshKey++
-            "
-            :disabled="busy"
-          >
-            <RefreshCw :size="14" aria-hidden="true" /> 刷新记录</button
-          ><span v-else class="date-label">{{
-            new Date().toLocaleDateString("zh-CN", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })
-          }}</span>
+          <div class="admin-page-actions">
+            <div id="admin-page-actions"></div>
+            <button
+              v-if="section === 'staff'"
+              class="primary"
+              @click="open('create')"
+            >
+              <Plus :size="16" aria-hidden="true" /> 新增工作人员</button
+            ><button
+              v-else-if="section !== 'overview'"
+              class="secondary"
+              @click="
+                ['users', 'staff', 'audit'].includes(section)
+                  ? load()
+                  : refreshKey++
+              "
+              :disabled="busy"
+            >
+              <RefreshCw :size="14" aria-hidden="true" /> 刷新记录</button
+            ><span v-else class="date-label">{{
+              new Date().toLocaleDateString("zh-CN", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            }}</span>
+          </div>
         </div>
         <p v-if="error && !modal" class="message error" role="alert">
           {{ error }}
@@ -642,7 +645,6 @@ const actionNames: Record<string, string> = {
         </template>
         <section v-else-if="section === 'staff'" class="table-panel">
           <div class="panel-title">
-            <h2>工作人员列表</h2>
             <span>{{ staff.length }} 个账号</span>
           </div>
           <div class="table-scroll">
@@ -707,7 +709,6 @@ const actionNames: Record<string, string> = {
         </section>
         <section v-else-if="section === 'users'" class="table-panel">
           <div class="panel-title">
-            <h2>用户资料</h2>
             <span>{{ total }} 位用户</span>
           </div>
           <div class="table-scroll">

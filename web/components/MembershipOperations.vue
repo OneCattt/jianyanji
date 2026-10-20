@@ -275,15 +275,14 @@ onMounted(() => run(load));
 </script>
 <template>
   <section class="membership-operations" :aria-busy="busy">
-    <header class="membership-page-heading">
-      <h2>代理入驻与产品包</h2>
-      <p class="muted">
-        产品包只接受公司转款，用于实际商品交付，不发订货积分。两档入驻奖励从“奖励规则”读取，售后期从统一售后政策读取。
-      </p>
-      <div class="inline">
-        <button :disabled="busy" @click="openPackages">配置入驻产品包</button>
-      </div>
-    </header>
+    <Teleport defer to="#admin-page-actions">
+      <button class="primary" :disabled="busy" @click="openPackages">
+        配置入驻产品包
+      </button>
+    </Teleport>
+    <p class="admin-business-note">
+      产品包货款用于商品交付，不发订货积分；入驻奖励按奖励规则核算，售后期按统一售后政策执行。
+    </p>
     <p v-if="error && !dialog" role="alert" class="feedback error">
       {{ error }}
     </p>
@@ -294,7 +293,6 @@ onMounted(() => run(load));
           <h3>入驻申请</h3>
           <p class="muted">核对公司到账与商品交付，再独立审批代理身份。</p>
         </div>
-        <button :disabled="busy" @click="run(load)">刷新</button>
       </div>
       <div
         class="table-wrap"
@@ -679,7 +677,6 @@ onMounted(() => run(load));
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
-.membership-page-heading,
 .detail-heading {
   display: grid;
   gap: 6px;
