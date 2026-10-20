@@ -167,13 +167,13 @@ async function open(p: any) {
     >
     <template v-else-if="tab === 'home'"
       ><div class="qx-brand">
-        <span class="qx-seal">清</span>
-        <div>
-          <div class="qx-brand-name">
-            {{ content?.brandName || "清欣简妍肌" }}
-          </div>
-          <div class="qx-en">SKIN WELLNESS</div>
-        </div>
+        <img
+          class="qx-brand-logo"
+          src="/brand/logo-horizontal-red.svg"
+          alt="清欣简妍肌"
+          width="680"
+          height="200"
+        />
       </div>
       <div class="qx-hero">
         <img

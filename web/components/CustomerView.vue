@@ -125,13 +125,24 @@ async function logout() {
 <template>
   <div class="customer-stage">
     <header class="preview-rail">
-      <a href="/" class="brand-word">清欣<span>简妍肌</span></a
+      <a href="/" class="brand-logo-link" aria-label="清欣简妍肌首页"
+        ><img
+          class="brand-logo-image"
+          src="/brand/logo-horizontal-red.svg"
+          alt="清欣简妍肌"
+          width="680"
+          height="200" /></a
       ><span>由心开始，从容调肤</span><a href="/admin">品牌方后台 ↗</a>
     </header>
     <main class="phone-page">
       <header v-if="tab === 'mine'" class="mobile-header">
-        <span class="brand-seal">清</span><strong>清欣简妍肌</strong
-        ><span class="caps">SKIN & CARE</span>
+        <img
+          class="brand-logo-image"
+          src="/brand/logo-horizontal-red.svg"
+          alt="清欣简妍肌"
+          width="680"
+          height="200"
+        />
       </header>
       <div class="mobile-content">
         <CommerceView

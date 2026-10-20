@@ -1,0 +1,22 @@
+{
+  "type": "design",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "清欣简妍肌 Logo · 清妍初绽": {
+      "versions": [
+        {
+          "path": "Logo设计提案.html",
+          "createdAt": "2026-10-20T05:36:40.249Z",
+          "status": "needs-review",
+          "viewport": {
+            "width": 1440,
+            "height": 1100
+          }
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-10-20T05:36:40.257Z",
+  "updatedAt": "2026-10-20T05:36:40.257Z"
+}

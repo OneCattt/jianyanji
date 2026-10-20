@@ -121,16 +121,8 @@
   justify-content: space-between;
   padding: 0 12px;
 }
-.admin-shell .sidebar .brand-word {
-  font-size: 21px;
-  letter-spacing: 2px;
-  color: var(--admin-accent);
-  white-space: nowrap;
-}
-.admin-shell .sidebar .brand-word span {
-  margin-left: 5px;
-  font-size: 19px;
-  letter-spacing: 1px;
+.admin-shell .sidebar .brand-logo-image {
+  width: 172px;
 }
 .admin-shell .workspace-label {
   margin: 10px 12px 25px;
@@ -676,8 +668,8 @@
   border-right: 1px solid var(--admin-border);
   overflow: hidden;
 }
-.admin-login .login-story .brand-word {
-  color: var(--admin-accent);
+.admin-login .login-story .brand-logo-image {
+  width: 272px;
 }
 .admin-login .login-story > div:not(.login-orbit) {
   margin: auto 0;

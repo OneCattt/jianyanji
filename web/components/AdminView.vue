@@ -397,7 +397,14 @@ const actionNames: Record<string, string> = {
   <div v-if="loading" class="loading-screen">正在确认登录状态…</div>
   <main v-else-if="!me" class="admin-login">
     <aside class="login-story">
-      <a href="/" class="brand-word">清欣<span>简妍肌</span></a>
+      <a href="/" class="brand-logo-link" aria-label="清欣简妍肌首页"
+        ><img
+          class="brand-logo-image"
+          src="/brand/logo-horizontal-red.svg"
+          alt="清欣简妍肌"
+          width="680"
+          height="200"
+      /></a>
       <div>
         <span class="eyebrow">品牌方管理后台</span>
         <h1>有序经营，<br />让关照更从容。</h1>
@@ -440,7 +447,14 @@ const actionNames: Record<string, string> = {
   <div v-else class="admin-shell">
     <aside class="sidebar" :class="{ 'menu-expanded': menuExpanded }">
       <div class="sidebar-brand">
-        <a href="/" class="brand-word">清欣<span>简妍肌</span></a>
+        <a href="/" class="brand-logo-link" aria-label="清欣简妍肌首页"
+          ><img
+            class="brand-logo-image"
+            src="/brand/logo-horizontal-red.svg"
+            alt="清欣简妍肌"
+            width="680"
+            height="200"
+        /></a>
         <button
           class="mobile-menu icon-button"
           :aria-expanded="menuExpanded"

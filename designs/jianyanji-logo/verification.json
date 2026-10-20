@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "combinations": 9,
+  "downloads": 3,
+  "mobile": {
+    "width": 390,
+    "scrollWidth": 390
+  },
+  "consoleErrors": [],
+  "svgText": "全部字标为矢量轮廓，不依赖系统字体",
+  "screenshots": [
+    "preview-desktop.png",
+    "preview-mobile.png"
+  ]
+}

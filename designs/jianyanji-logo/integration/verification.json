@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "scope": "真实页面与素材加载检查；后台身份使用浏览器展示数据",
+  "viewports": [
+    1440,
+    390
+  ],
+  "sizes": [
+    {
+      "view": "admin-login-desktop",
+      "x": 56,
+      "y": 48,
+      "width": 272,
+      "height": 80
+    },
+    {
+      "view": "admin-sidebar-desktop",
+      "x": 26,
+      "y": 27,
+      "width": 172,
+      "height": 50.578125
+    },
+    {
+      "view": "storefront-mobile",
+      "x": 48,
+      "y": 7.1875,
+      "width": 230,
+      "height": 67.640625
+    }
+  ],
+  "pageErrors": [],
+  "assets": 3
+}

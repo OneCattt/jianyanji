@@ -26,32 +26,11 @@
   align-items: center;
   padding: 14px 22px 10px;
 }
-.qx-seal {
-  width: 36px;
-  height: 36px;
-  border: 1px solid #8d1724;
-  border-radius: 50%;
-  font:
-    20px/34px STSong,
-    "Songti SC",
-    serif;
-  text-align: center;
-  color: #8d1724;
-}
-.qx-brand-name {
-  font:
-    17px/25.5px STSong,
-    "Songti SC",
-    serif;
-  letter-spacing: 4px;
-  color: #8d1724;
-}
-.qx-en {
-  font:
-    7px/10.5px Georgia,
-    serif;
-  letter-spacing: 2.8px;
-  color: #9f7d58;
+.qx-brand-logo {
+  display: block;
+  width: 230px;
+  height: auto;
+  max-width: 100%;
 }
 .qx-hero {
   height: 470px;
