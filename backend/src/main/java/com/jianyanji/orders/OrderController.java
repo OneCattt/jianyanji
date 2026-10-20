@@ -65,13 +65,26 @@ public class OrderController {
     @PutMapping("/cart/{id}")
     public Object saveCart(@PathVariable long id, @RequestBody JsonNode body) {
         ObjectNode user = access.user();
-        return orders.saveCart(Input.id(id), body, user);
+        ObjectNode result = orders.saveCart(Input.id(id), body, user);
+        result.setAll(orders.cartSummary(user));
+        return result;
+    }
+
+    /** 勾选本人单项或整袋商品，响应附带跨分页的种类数、件数和身份价合计。 */
+    @PutMapping("/cart/selection")
+    public Object selectCart(@RequestBody JsonNode body) {
+        ObjectNode user = access.user();
+        ObjectNode result = orders.selectCart(body, l(user, "id"));
+        result.setAll(orders.cartSummary(user));
+        return result;
     }
 
     @PostMapping("/cart/{id}/remove")
     public Object removeCart(@PathVariable long id) {
-        long userId = l(access.user(), "id");
-        return orders.removeCart(Input.id(id), userId);
+        ObjectNode user = access.user();
+        ObjectNode result = orders.removeCart(Input.id(id), l(user, "id"));
+        result.setAll(orders.cartSummary(user));
+        return result;
     }
 
     @PostMapping("/checkout/quote")

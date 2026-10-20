@@ -100,7 +100,7 @@ public class MiniListService {
             case "qualifications": sql="SELECT id,identity,source_kind,onboarding_id,active,valid_until,create_time FROM qualifications WHERE user_id=? AND is_deleted=0 ORDER BY id DESC";break;
             case "cart":
                 ObjectNode cart=page(cartSql()+" ORDER BY c.id",args,page,limit,row->cartItem(row,user));
-                cart.setAll(cartSummary(user));return cart;
+                cart.setAll(orders.cartSummary(user));return cart;
             default: throw new BusinessException(404,"NOT_FOUND","列表不存在");
         }
         return page(sql,args,page,limit,view);
@@ -123,14 +123,6 @@ public class MiniListService {
                 "name",row.get("name"),"image",row.get("image"),"skuName",row.get("skuName"),"unit",row.get("unit"),"stock",row.get("stock"),
                 "productType",catalog.productType(row),"priceCents",price,"available",
                 !b(row,"product_deleted")&&!b(row,"sku_deleted")&&!b(row,"category_deleted")&&b(row,"active")&&b(row,"product_active")&&b(row,"category_active")&&price!=null&&l(row,"stock")>=l(row,"quantity"));
-    }
-
-    /** 购物袋统计覆盖全部已选项，包括尚未滚动加载的商品。 */
-    private ObjectNode cartSummary(JsonNode user) {
-        String identity=effectiveIdentity(user);
-        int percent="B".equals(identity)?35:"C".equals(identity)?70:100;
-        String price="CASE WHEN s.product_type='welfare' THEN s.welfare_cents ELSE FLOOR((s.retail_cents*"+percent+"+50)/100) END";
-        return db.one("SELECT COUNT(*) AS kinds,COALESCE(SUM(c.quantity),0) AS pieces,COALESCE(SUM(("+price+")*c.quantity),0) AS totalCents FROM cart_items c JOIN skus s ON s.id=c.sku_id WHERE c.user_id=? AND c.selected=1 AND c.is_deleted=0",l(user,"id"));
     }
 
     /** 购物袋角标为本人所有未删除项的总件数，包含未勾选项，空购物袋返回 count=0。 */

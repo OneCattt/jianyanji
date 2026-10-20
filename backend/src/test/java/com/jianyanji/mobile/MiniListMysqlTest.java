@@ -144,6 +144,35 @@ class MiniListMysqlTest {
         assertEquals(8,l(lists.cartCount(other),"count"));
         assertEquals(0,l(lists.cartCount(principal),"count"));
 
+        // 整袋勾选覆盖四十个有效购物项，不修改他人或已逻辑删除项，也不改变数量。
+        db.update("UPDATE cart_items SET selected=0,update_user_id=0,update_time=CURRENT_TIMESTAMP(3) WHERE user_id=? AND sku_id=?",uid,skus.get(1));
+        orders.selectCart(obj("selected",true),uid);
+        ObjectNode selectedSummary=orders.cartSummary(user);
+        assertEquals(40,l(selectedSummary,"totalKinds"));
+        assertEquals(40,l(selectedSummary,"kinds"));
+        assertEquals(42,l(selectedSummary,"pieces"));
+        assertEquals(294000,l(selectedSummary,"totalCents"));
+        assertTrue(b(selectedSummary,"allSelected"));
+        assertEquals(40,l(db.one("SELECT COUNT(*) AS n FROM cart_items WHERE user_id=? AND is_deleted=0 AND update_user_id=?",uid,uid),"n"));
+        assertEquals(0,l(db.one("SELECT selected FROM cart_items WHERE user_id=? AND sku_id=? AND is_deleted=1",uid,skus.get(1)),"selected"));
+        orders.selectCart(obj("selected",false),uid);
+        selectedSummary=orders.cartSummary(user);
+        assertEquals(0,l(selectedSummary,"kinds"));
+        assertEquals(0,l(selectedSummary,"totalCents"));
+        assertFalse(b(selectedSummary,"allSelected"));
+        assertEquals(1,l(db.one("SELECT selected FROM cart_items WHERE user_id=? AND sku_id=? AND is_deleted=0",other,skus.get(0)),"selected"));
+        assertFalse(b(orders.cartSummary(owner),"allSelected"),"空购物袋不能显示全选");
+
+        // 下架商品仍可取消勾选；选中数量由单独接口维护，不能借勾选改写其他字段。
+        orders.selectCart(obj("selected",true,"skuId",skus.get(0)),uid);
+        db.update("UPDATE skus SET active=0,update_user_id=0,update_time=CURRENT_TIMESTAMP(3) WHERE id=?",skus.get(0));
+        orders.selectCart(obj("selected",false,"skuId",skus.get(0)),uid);
+        assertEquals(0,l(orders.cartSummary(user),"kinds"));
+        assertEquals(3,l(db.one("SELECT quantity FROM cart_items WHERE user_id=? AND sku_id=? AND is_deleted=0",uid,skus.get(0)),"quantity"));
+        assertThrows(BusinessException.class,()->orders.selectCart(obj("selected","true"),uid));
+        assertThrows(BusinessException.class,()->orders.selectCart(obj("selected",true,"userId",other),uid));
+        assertThrows(BusinessException.class,()->orders.selectCart(obj("selected",true,"skuId",0),uid));
+
         // 订单角标不受第一页二十笔限制，沿用未付过期规则，未知及处理中支付仍保留。
         String[][] cases={
                 {"pending","unpaid","2099-01-01T00:00:00.000Z","0"},

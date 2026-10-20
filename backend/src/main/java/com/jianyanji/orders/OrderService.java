@@ -325,6 +325,39 @@ public class OrderService {
         return obj("items", items);
     }
 
+    /** 整袋汇总包含未展示分页；totalKinds 为全部种类数，allSelected 仅在非空且全部勾选时为 true。 */
+    public ObjectNode cartSummary(JsonNode user) {
+        String identity = effectiveIdentity(user);
+        int percent = "B".equals(identity) ? 35 : "C".equals(identity) ? 70 : 100;
+        String price = "CASE WHEN s.product_type='welfare' THEN s.welfare_cents ELSE FLOOR((s.retail_cents*"
+                + percent + "+50)/100) END";
+        ObjectNode result = db.one(
+                "SELECT COUNT(*) AS totalKinds,COALESCE(SUM(c.selected=1),0) AS kinds,"
+                        + "COALESCE(SUM(CASE WHEN c.selected=1 THEN c.quantity ELSE 0 END),0) AS pieces,"
+                        + "COALESCE(SUM(CASE WHEN c.selected=1 THEN (" + price + ")*c.quantity ELSE 0 END),0) AS totalCents"
+                        + " FROM cart_items c JOIN skus s ON s.id=c.sku_id WHERE c.user_id=? AND c.is_deleted=0",
+                l(user, "id"));
+        result.put("allSelected", l(result, "totalKinds") > 0 && l(result, "totalKinds") == l(result, "kinds"));
+        return result;
+    }
+
+    /** 修改本人购物项勾选；省略 skuId 时一次更新整袋，不受分页限制，失效商品也可取消勾选。 */
+    public ObjectNode selectCart(JsonNode body, long userId) {
+        Input.strict(body, "selected", "skuId");
+        boolean selected = Input.bool(body, "selected");
+        Long skuId = body.has("skuId") ? Input.integer(body, "skuId", 1, 9007199254740991L) : null;
+        return db.tx(() -> {
+            String sql = "UPDATE cart_items SET selected=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3)"
+                    + " WHERE user_id=? AND is_deleted=0";
+            if (skuId == null) {
+                db.update(sql, selected ? 1 : 0, userId, userId);
+            } else {
+                db.update(sql + " AND sku_id=?", selected ? 1 : 0, userId, userId, skuId);
+            }
+            return obj("ok", true);
+        });
+    }
+
     public ObjectNode saveCart(long skuId, JsonNode body, JsonNode user) {
         Input.strict(body, "quantity", "selected");
         long quantity = Input.integer(body, "quantity", 1, 999), userId = l(user, "id");
