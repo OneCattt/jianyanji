@@ -161,6 +161,17 @@ async function save() {
   await run(async () => {
     const payload = packageDraft.value.map((p) => {
       const { amount, value, lines, ...rest } = p;
+      if (
+        lines.some(
+          (line) =>
+            !Number.isInteger(line.skuId) ||
+            line.skuId < 1 ||
+            !Number.isInteger(line.quantity) ||
+            line.quantity < 1 ||
+            line.quantity > 999,
+        )
+      )
+        throw new Error("商品规格编号须为正整数，数量须为 1～999 的整数");
       return {
         ...rest,
         amountCents: cents(amount),
@@ -236,22 +247,94 @@ async function collect() {
   });
 }
 onMounted(() => run(load));
+const applicationColumns = [
+  { title: "申请 / 申请人", key: "applicant", width: 180 },
+  { title: "目标身份", key: "identity", width: 180 },
+  { title: "资格状态", key: "status", width: 180 },
+  { title: "核款 / 商品交付", key: "receipt", width: 180 },
+  { title: "操作", key: "actions", width: 170, fixed: "right" as const },
+];
+
+function statusColor(value: string) {
+  if (
+    [
+      "paid",
+      "completed",
+      "received",
+      "approved",
+      "success",
+      "succeeded",
+    ].includes(value)
+  )
+    return "success";
+  if (["failed", "rejected", "revoked", "review"].includes(value))
+    return "error";
+  if (
+    [
+      "pending",
+      "requested",
+      "unpaid",
+      "unknown",
+      "partially_refunded",
+      "submitted",
+    ].includes(value)
+  )
+    return "warning";
+  if (
+    [
+      "paying",
+      "processing",
+      "shipping",
+      "shipped",
+      "awaiting_shipment",
+    ].includes(value)
+  )
+    return "processing";
+  return "default";
+}
+
+const applicationQuery = ref("");
+const applicationStatus = ref("");
+const applicationIdentity = ref("");
+const filteredApplications = computed(() => {
+  const keyword = applicationQuery.value.trim().toLowerCase();
+  return applications.value.filter(
+    (record) =>
+      (!applicationStatus.value || record.status === applicationStatus.value) &&
+      (!applicationIdentity.value ||
+        record.target_identity === applicationIdentity.value) &&
+      (!keyword ||
+        [record.id, record.user_id, record.nickname].some((value) =>
+          String(value ?? "")
+            .toLowerCase()
+            .includes(keyword),
+        )),
+  );
+});
+
+const packageLineColumns = [
+  { title: "实际商品规格", key: "sku", width: 180 },
+  { title: "数量", key: "quantity", width: 100 },
+  { title: "原分摊单价", key: "unit", width: 180 },
+];
 </script>
 <template>
   <section class="membership-operations" :aria-busy="busy">
-    <QualificationOperations
-      v-if="props.permissions.includes('onboarding:manage')"
-    />
     <Teleport defer to="#admin-page-actions">
-      <button class="primary" :disabled="busy" @click="openPackages">
+      <a-button
+        html-type="button"
+        type="primary"
+        :disabled="busy"
+        @click="openPackages"
+      >
         配置入驻产品包
-      </button>
+      </a-button>
     </Teleport>
     <p class="admin-business-note">
       产品包货款用于商品交付，不发订货积分；入驻奖励按奖励规则核算，售后期按统一售后政策执行。
     </p>
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
-    <section class="surface application-list" aria-label="入驻申请列表">
+    <a-card size="small" class="application-list" aria-label="入驻申请列表">
       <div class="heading">
         <div>
           <h3>入驻申请</h3>
@@ -260,70 +343,92 @@ onMounted(() => run(load));
           </p>
         </div>
       </div>
+      <AdminForm class="filters" @submit="() => {}">
+        <label class="field"
+          >搜索申请 / 申请人<a-input
+            v-model:value="applicationQuery"
+            placeholder="申请 ID、用户 ID 或昵称"
+            :disabled="busy"
+        /></label>
+        <label class="field"
+          >目标身份<AdminSelect v-model="applicationIdentity" :disabled="busy"
+            ><option value="">全部身份</option>
+            <option value="B">调肤主理人</option>
+            <option value="C">调肤店主</option></AdminSelect
+          ></label
+        >
+        <label class="field"
+          >资格状态<AdminSelect v-model="applicationStatus" :disabled="busy"
+            ><option value="">全部状态</option>
+            <option v-for="(label, key) in states" :key="key" :value="key">
+              {{ label }}
+            </option></AdminSelect
+          ></label
+        >
+      </AdminForm>
       <div
         class="table-wrap"
         tabindex="0"
         role="region"
         aria-label="入驻申请，可横向滚动"
       >
-        <table>
-          <thead>
-            <tr>
-              <th>申请 / 申请人</th>
-              <th>目标身份</th>
-              <th>资格状态</th>
-              <th>核款 / 商品交付</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="a in applications"
-              :key="a.id"
-              :class="{ selected: selected?.id === a.id }"
-            >
-              <td>#{{ a.id }} · {{ a.nickname || "用户 #" + a.user_id }}</td>
-              <td>
-                {{ a.target_identity === "B" ? "调肤主理人" : "调肤店主" }}
-              </td>
-              <td>
-                {{ states[a.status]
-                }}<small class="review-summary" :title="a.review_reason">{{
-                  a.review_reason
-                }}</small>
-              </td>
-              <td>
-                {{
-                  a.receipt
-                    ? "到账 ¥" + money(a.receipt.amount_cents)
-                    : "待核实真实到账"
-                }}<small>{{
-                  a.order
-                    ? orderStates[a.order.status] || a.order.status
-                    : "尚未建立交付单"
-                }}</small>
-              </td>
-              <td>
-                <button
-                  class="secondary"
-                  :aria-pressed="selected?.id === a.id"
-                  @click="select(a)"
-                >
-                  核款与交付
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <a-table
+          :columns="applicationColumns"
+          :data-source="filteredApplications"
+          row-key="id"
+          :pagination="{
+            pageSize: 20,
+            showSizeChanger: false,
+            hideOnSinglePage: true,
+          }"
+          :scroll="{ x: 900 }"
+          size="small"
+          :loading="busy"
+          :row-class-name="
+            (record: Application) =>
+              selected?.id === record.id ? 'selected-application' : ''
+          "
+          ><template #bodyCell="{ column, record: a }"
+            ><template v-if="column.key === 'applicant'"
+              >#{{ a.id }} · {{ a.nickname || "用户 #" + a.user_id }}</template
+            ><template v-else-if="column.key === 'identity'">
+              {{
+                a.target_identity === "B" ? "调肤主理人" : "调肤店主"
+              }} </template
+            ><template v-else-if="column.key === 'status'">
+              <a-tag :color="statusColor(a.status)">{{
+                states[a.status] || a.status
+              }}</a-tag
+              ><small
+                class="cell-note review-summary"
+                :title="a.review_reason"
+                >{{ a.review_reason }}</small
+              > </template
+            ><template v-else-if="column.key === 'receipt'">
+              {{
+                a.receipt
+                  ? "到账 ¥" + money(a.receipt.amount_cents)
+                  : "待核实真实到账"
+              }}<small class="cell-note">{{
+                a.order
+                  ? orderStates[a.order.status] || a.order.status
+                  : "尚未建立交付单"
+              }}</small> </template
+            ><template v-else-if="column.key === 'actions'">
+              <a-button
+                html-type="button"
+                :disabled="busy"
+                :aria-pressed="selected?.id === a.id"
+                @click="select(a)"
+              >
+                核款与交付
+              </a-button>
+            </template></template
+          ></a-table
+        >
       </div>
-      <p v-if="busy && !applications.length" class="empty-state" role="status">
-        正在加载入驻申请…
-      </p>
-      <p v-else-if="!error && !applications.length" class="empty-state">
-        暂无入驻申请，收到新的申请后可在此核款与交付。
-      </p>
-    </section>
-    <article v-if="selected" class="surface application-detail">
+    </a-card>
+    <a-card size="small" v-if="selected" class="application-detail">
       <header class="detail-heading">
         <h3>
           入驻申请 #{{ selected.id }} · {{ selected.package_snapshot.name }}
@@ -340,24 +445,45 @@ onMounted(() => run(load));
         <p class="muted">
           当次入驻条件：{{ selected.package_snapshot.conditions }}
         </p>
-        <p>
-          申请直接邀请人：{{
+        <a-descriptions size="small" bordered :column="2">
+          <a-descriptions-item label="申请直接邀请人">{{
             selected.requested_inviter_id
               ? "用户 #" + selected.requested_inviter_id
               : "历史申请缺少确认，请本人重新确认"
-          }}
-        </p>
-        <ul>
-          <li v-for="l in selected.package_snapshot.lines" :key="l.skuId">
-            规格 #{{ l.skuId }} × {{ l.quantity }} · 原分摊单价 ¥{{
-              money(l.unitCents)
-            }}
-          </li>
-        </ul>
+          }}</a-descriptions-item>
+          <a-descriptions-item label="确认直接邀请人">{{
+            selected.inviter_id ? "用户 #" + selected.inviter_id : "尚未确认"
+          }}</a-descriptions-item>
+          <a-descriptions-item label="归属主理人">{{
+            selected.principal_id
+              ? "用户 #" + selected.principal_id
+              : "尚未确认"
+          }}</a-descriptions-item>
+        </a-descriptions>
+        <a-table
+          :columns="packageLineColumns"
+          :data-source="selected.package_snapshot.lines"
+          row-key="skuId"
+          :pagination="false"
+          :scroll="{ x: 460 }"
+          size="small"
+        >
+          <template #bodyCell="{ column, record: line }"
+            ><template v-if="column.key === 'sku'"
+              >规格 #{{ line.skuId }}</template
+            ><template v-else-if="column.key === 'quantity'">{{
+              line.quantity
+            }}</template
+            ><template v-else-if="column.key === 'unit'"
+              >¥{{ money(line.unitCents) }}</template
+            ></template
+          >
+        </a-table>
       </header>
-      <div class="inline">
-        <button
-          class="secondary"
+      <a-space wrap>
+        <a-button
+          html-type="button"
+          type="primary"
           v-if="
             selected.status === 'submitted' &&
             !selected.receipt &&
@@ -367,11 +493,11 @@ onMounted(() => run(load));
           @click="openApplicationDialog('receipt')"
         >
           核实真实到账
-        </button>
-        <button class="secondary" :disabled="busy" @click="selected = null">
+        </a-button>
+        <a-button html-type="button" :disabled="busy" @click="selected = null">
           关闭详情
-        </button>
-      </div>
+        </a-button>
+      </a-space>
       <div class="review-workspace">
         <section
           v-if="selected.receipt || selected.order"
@@ -389,7 +515,15 @@ onMounted(() => run(load));
           </p>
         </section>
       </div>
-    </article>
+    </a-card>
+    <a-collapse
+      v-if="props.permissions.includes('onboarding:manage')"
+      class="qualification-tools"
+    >
+      <a-collapse-panel key="qualifications" header="资格核验与归属调整">
+        <QualificationOperations />
+      </a-collapse-panel>
+    </a-collapse>
     <AdminDialog
       v-if="dialog === 'packages'"
       title="配置入驻产品包"
@@ -398,54 +532,68 @@ onMounted(() => run(load));
       @close="closeDialog"
     >
       <AdminForm class="settings" @submit="save">
-        <fieldset v-for="p in packageDraft" :key="p.targetIdentity">
+        <fieldset
+          class="package-fields"
+          v-for="p in packageDraft"
+          :key="p.targetIdentity"
+        >
           <legend>
             {{ p.targetIdentity === "B" ? "调肤主理人" : "调肤店主" }}
           </legend>
           <div class="grid">
-            <label
-              >产品包名称<input
-                v-model="p.name"
-                maxlength="80"
-                required /></label
-            ><label
-              >入驻货款（元）<input
-                v-model="p.amount"
-                pattern="[0-9]+([.][0-9]{1,2})?"
-                data-error-message="请填写最多两位小数的金额"
-                inputmode="decimal"
-                required /></label
-            ><label
-              >产品包展示价值（元）<input
-                v-model="p.value"
-                pattern="[0-9]+([.][0-9]{1,2})?"
-                data-error-message="请填写最多两位小数的金额"
-                inputmode="decimal"
-                required /></label
-            ><label
-              >自用权益说明<input
-                v-model="p.selfUseLabel"
-                maxlength="40"
+            <label class="field"
+              >产品包名称<a-input
+                v-model:value="p.name"
+                :maxlength="80"
                 required
+                :disabled="busy" /></label
+            ><label class="field"
+              >入驻货款（元）<a-input
+                v-model:value="p.amount"
+                pattern="[0-9]+([.][0-9]{1,2})?"
+                data-error-message="请填写最多两位小数的金额"
+                inputmode="decimal"
+                required
+                :disabled="busy" /></label
+            ><label class="field"
+              >产品包展示价值（元）<a-input
+                v-model:value="p.value"
+                pattern="[0-9]+([.][0-9]{1,2})?"
+                data-error-message="请填写最多两位小数的金额"
+                inputmode="decimal"
+                required
+                :disabled="busy" /></label
+            ><label class="field"
+              >自用权益说明<a-input
+                v-model:value="p.selfUseLabel"
+                :maxlength="40"
+                required
+                :disabled="busy"
             /></label>
-            <label
-              >身份权益<textarea
-                v-model="p.benefits"
-                maxlength="2000"
+            <label class="field wide"
+              >身份权益<a-textarea
+                :rows="3"
+                v-model:value="p.benefits"
+                :maxlength="2000"
                 required
-              ></textarea></label
-            ><label
-              >入驻条件<textarea
-                v-model="p.conditions"
-                maxlength="2000"
+                :disabled="busy"
+              ></a-textarea></label
+            ><label class="field wide"
+              >入驻条件<a-textarea
+                :rows="3"
+                v-model:value="p.conditions"
+                :maxlength="2000"
                 required
-              ></textarea></label
-            ><label
-              >入驻协议<textarea
-                v-model="p.agreement"
-                maxlength="2000"
+                :disabled="busy"
+              ></a-textarea></label
+            ><label class="field wide"
+              >入驻协议<a-textarea
+                :rows="3"
+                v-model:value="p.agreement"
+                :maxlength="2000"
                 required
-              ></textarea>
+                :disabled="busy"
+              ></a-textarea>
             </label>
             <ImageUploader
               v-model="p.rightsImage"
@@ -455,66 +603,79 @@ onMounted(() => run(load));
               @busy-change="imageUploads[p.targetIdentity] = $event"
             />
           </div>
-          <label class="check"
-            ><input v-model="p.active" type="checkbox" />开放该身份申请</label
+          <a-checkbox class="check" v-model:checked="p.active" :disabled="busy"
+            >开放该身份申请</a-checkbox
           >
           <h4>实际商品及原货款分摊</h4>
           <p class="muted">
             各商品分摊货款合计须等于产品包货款，用于交付与后续部分退款。
           </p>
           <div v-for="(line, i) in p.lines" :key="i" class="inline">
-            <label
-              >商品规格编号<input
-                v-model.number="line.skuId"
+            <label class="field"
+              >商品规格编号<a-input-number
                 type="number"
-                min="1"
-                required /></label
-            ><label
-              >数量<input
-                v-model.number="line.quantity"
+                :step="1"
+                v-model:value="line.skuId"
+                :min="1"
+                required
+                :disabled="busy" /></label
+            ><label class="field"
+              >数量<a-input-number
                 type="number"
-                min="1"
-                max="999"
-                required /></label
-            ><label
-              >分摊单价（元）<input
-                v-model="line.unit"
+                :step="1"
+                v-model:value="line.quantity"
+                :min="1"
+                :max="999"
+                required
+                :disabled="busy" /></label
+            ><label class="field"
+              >分摊单价（元）<a-input
+                v-model:value="line.unit"
                 pattern="[0-9]+([.][0-9]{1,2})?"
                 data-error-message="请填写最多两位小数的金额"
                 inputmode="decimal"
-                required /></label
-            ><button
-              class="secondary"
+                required
+                :disabled="busy" /></label
+            ><a-button
+              html-type="button"
+              :disabled="busy || uploadingImage"
               v-if="p.lines.length > 1"
-              type="button"
               @click="p.lines.splice(i, 1)"
             >
               移除规格
-            </button>
+            </a-button>
           </div>
-          <button
-            class="secondary"
-            type="button"
+          <a-button
+            html-type="button"
+            :disabled="busy || uploadingImage"
             @click="p.lines.push({ skuId: 0, quantity: 1, unit: '' })"
           >
             添加商品规格
-          </button>
+          </a-button>
         </fieldset>
-        <label
-          >修改原因<input v-model="reason" maxlength="200" required
+        <label class="field"
+          >修改原因<a-input
+            v-model:value="reason"
+            :maxlength="200"
+            required
+            :disabled="busy"
         /></label>
         <div class="dialog-actions wide">
-          <button
-            class="secondary"
-            type="button"
+          <a-button
+            html-type="button"
             :disabled="busy || uploadingImage"
             @click="closeDialog"
           >
             取消
-          </button>
-          <button class="primary" :disabled="busy || uploadingImage">
+          </a-button>
+          <a-button
+            html-type="submit"
+            type="primary"
+            :disabled="busy || uploadingImage"
+            :loading="busy"
+          >
             保存两类产品包
-          </button>
+          </a-button>
         </div>
       </AdminForm>
     </AdminDialog>
@@ -526,100 +687,90 @@ onMounted(() => run(load));
     >
       <AdminForm class="grid" @submit="collect">
         <h4 class="wide">核实真实到账并安排实物交付</h4>
-        <label
-          >到账货款（元）<input
-            v-model="receipt.amount"
+        <label class="field"
+          >到账货款（元）<a-input
+            v-model:value="receipt.amount"
             pattern="[0-9]+([.][0-9]{1,2})?"
             data-error-message="请填写最多两位小数的金额"
             required
-            inputmode="decimal" /></label
-        ><label
-          >收款渠道<AdminSelect v-model="receipt.sourceChannel">
+            inputmode="decimal"
+            :disabled="busy" /></label
+        ><label class="field"
+          >收款渠道<AdminSelect
+            v-model="receipt.sourceChannel"
+            :disabled="busy"
+          >
             <option value="bank">公司银行账户</option>
             <option value="wechat_company">公司微信收款</option>
           </AdminSelect></label
-        ><label
-          >收款账户标识<input
-            v-model="receipt.accountRef"
+        ><label class="field"
+          >收款账户标识<a-input
+            v-model:value="receipt.accountRef"
             required
-            maxlength="200" /></label
-        ><label
-          >原始流水号<input
-            v-model="receipt.externalTransactionId"
+            :maxlength="200"
+            :disabled="busy" /></label
+        ><label class="field"
+          >原始流水号<a-input
+            v-model:value="receipt.externalTransactionId"
             required
-            maxlength="200" /></label
-        ><label
+            :maxlength="200"
+            :disabled="busy" /></label
+        ><label class="field"
           >实际到账时间<AdminDatePicker
             v-model="receipt.receivedAt"
             required
-            type="datetime-local" /></label
-        ><label
-          >凭证地址 / 归档编号<input
-            v-model="receipt.evidence"
+            type="datetime-local"
+            :disabled="busy" /></label
+        ><label class="field"
+          >凭证地址 / 归档编号<a-input
+            v-model:value="receipt.evidence"
             required
-            maxlength="1000" /></label
-        ><label
-          >核实说明<input
-            v-model="receipt.reason"
+            :maxlength="1000"
+            :disabled="busy" /></label
+        ><label class="field"
+          >核实说明<a-input
+            v-model:value="receipt.reason"
             required
-            maxlength="200" /></label
-        ><label class="check"
-          ><input
-            v-model="receipt.verified"
-            type="checkbox"
-            required
-          />我已核实公司实际到账</label
+            :maxlength="200"
+            :disabled="busy" /></label
+        ><a-checkbox
+          class="check"
+          v-model:checked="receipt.verified"
+          required
+          :disabled="busy"
+          >我已核实公司实际到账</a-checkbox
         >
         <div class="dialog-actions wide">
-          <button
-            class="secondary"
-            type="button"
-            :disabled="busy"
-            @click="closeDialog"
-          >
+          <a-button html-type="button" :disabled="busy" @click="closeDialog">
             取消
-          </button>
-          <button class="primary" :disabled="busy">确认收款并建立交付单</button>
+          </a-button>
+          <a-button
+            html-type="submit"
+            type="primary"
+            :disabled="busy"
+            :loading="busy"
+            >确认收款并建立交付单</a-button
+          >
         </div>
       </AdminForm>
     </AdminDialog>
   </section>
 </template>
 <style scoped>
+.qualification-tools {
+  margin-top: 16px;
+}
+
 .membership-operations {
   display: grid;
   gap: 16px;
   min-width: 0;
-  color: var(--admin-ink);
-  font-size: 13px;
   line-height: 1.6;
-  overflow-wrap: anywhere;
 }
-.detail-heading {
-  display: grid;
-  gap: 6px;
-}
-h2,
-h3,
-h4,
-p {
-  margin: 0;
-}
-h2 {
-  font-size: 18px;
-}
-h3 {
-  font-size: 15px;
-}
-h4 {
-  font-size: 13px;
-}
-.surface {
+.application-list,
+.application-detail,
+.table-wrap {
   min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  background: #fff;
 }
 .heading {
   display: flex;
@@ -627,168 +778,110 @@ h4 {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 .heading > div {
   min-width: 0;
+}
+h3,
+h4 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+h4 {
+  font-size: 14px;
+}
+p {
+  margin: 0;
+}
+.detail-heading {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  display: grid;
+  gap: 10px;
+}
+.application-detail :deep(.ant-card-body) {
+  grid-template-columns: minmax(0, 1fr);
+  display: grid;
+  gap: 16px;
 }
 .settings {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
-  gap: 16px;
-  margin-top: 16px;
+  gap: 20px;
 }
-.settings > label,
-.settings > button {
+.settings > .field,
+.settings > .dialog-actions {
   grid-column: 1 / -1;
 }
-.settings > button {
-  justify-self: start;
-}
-fieldset {
+.package-fields {
   min-width: 0;
   margin: 0;
-  padding: 12px;
+  padding: 16px;
   border: 1px solid var(--admin-border);
-  border-radius: 8px;
+  border-radius: 6px;
 }
-legend {
+.package-fields > legend {
+  width: auto;
   padding: 0 6px;
+  margin-bottom: 0;
+  font-size: 14px;
   font-weight: 600;
 }
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-content: start;
-  gap: 12px;
+  gap: 16px;
 }
 .wide {
   grid-column: 1 / -1;
 }
-label {
+.field {
   display: grid;
+  align-content: start;
   min-width: 0;
-  gap: 5px;
-  font-size: 13px;
+  gap: 6px;
 }
-input,
-select,
-textarea {
-  min-width: 0;
-  max-width: 100%;
+.field :deep(.ant-input-number) {
   width: 100%;
-  box-sizing: border-box;
 }
-textarea {
-  min-height: 80px;
-  resize: vertical;
-}
-.check {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-fieldset > .check {
-  margin: 12px 0;
-}
-.check input {
-  flex: 0 0 16px;
-  width: 16px;
-  height: 16px;
-  margin: 2px 0 0;
-  accent-color: var(--admin-accent);
+.package-fields > .check {
+  margin: 16px 0;
 }
 .inline {
   display: flex;
   align-items: end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
-fieldset > .inline {
+.package-fields > .inline {
   margin: 12px 0;
 }
-.inline > label {
-  flex: 1 1 100px;
-}
-.grid > button {
-  justify-self: start;
+.inline > .field {
+  flex: 1 1 110px;
 }
 .muted,
-small {
+.cell-note {
   color: var(--admin-muted);
 }
-small {
+.cell-note {
   display: block;
   margin-top: 4px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
-.feedback {
-  padding: 10px 12px;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-}
-.error,
-.notice {
-  color: var(--admin-accent);
-  background: var(--admin-accent-soft);
-}
-.error {
-  border-color: var(--admin-accent);
-}
-.application-detail {
+.filters {
   display: grid;
-  gap: 16px;
-}
-.detail-heading ul {
-  margin: 2px 0 0;
-  padding-left: 20px;
-}
-.review-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-  gap: 16px;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 .workflow-panel {
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-}
-.workflow-panel:only-child {
-  grid-column: 1 / -1;
-}
-.workflow-panel > p + p {
-  margin-top: 8px;
-}
-.table-wrap {
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-}
-td {
-  white-space: normal;
-}
-table {
-  min-width: 680px;
-  width: 100%;
-  table-layout: fixed;
-}
-th:nth-child(1) {
-  width: 20%;
-}
-th:nth-child(2) {
-  width: 15%;
-}
-th:nth-child(3) {
-  width: 25%;
-}
-th:nth-child(4) {
-  width: 25%;
-}
-th:nth-child(5) {
-  width: 15%;
+  display: grid;
+  gap: 8px;
 }
 .review-summary {
   display: -webkit-box;
@@ -796,36 +889,28 @@ th:nth-child(5) {
   -webkit-line-clamp: 3;
   overflow: hidden;
 }
-tr.selected {
+.application-list :deep(.selected-application > .ant-table-cell) {
   background: var(--admin-accent-soft);
 }
-.empty-state {
-  padding: 24px 12px;
-  text-align: center;
-  color: var(--admin-muted);
-}
-.table-wrap:focus-visible {
-  outline: 2px solid var(--admin-accent);
-  outline-offset: 3px;
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
+  margin-top: 4px;
 }
 @media (max-width: 1100px) {
-  .settings,
-  .review-workspace {
+  .settings {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 650px) {
-  .grid {
+  .grid,
+  .filters {
     grid-template-columns: minmax(0, 1fr);
   }
-  .surface {
-    padding: 12px;
-  }
-  fieldset,
-  .workflow-panel {
-    padding: 10px;
-  }
-  .inline > label {
+  .inline > .field {
     flex-basis: 100%;
   }
 }

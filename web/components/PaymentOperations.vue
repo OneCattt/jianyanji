@@ -104,6 +104,10 @@ const labels: Record<string, string> = {
   completed: "已完成",
   closed: "已关闭",
   refunded: "已退款",
+  shipping: "配送中",
+  received: "已收货",
+  cancelled: "已取消",
+  partially_refunded: "部分退款",
 };
 const paymentLabels: Record<string, string> = {
   unpaid: "未付款",
@@ -212,6 +216,26 @@ async function refreshPayment(close = false) {
 async function ship() {
   if (!selected.value) return;
   const id = selected.value.id;
+  const lines = Object.entries(shipment.value.quantities)
+    .filter(([, quantity]) => quantity > 0)
+    .map(([lineId, quantity]) => ({
+      lineId: Number(lineId),
+      quantity: Number(quantity),
+    }));
+  if (!lines.length) throw new Error("请填写本次实际发货数量");
+  if (
+    lines.some((item) => {
+      const line = selected.value!.lines.find(
+        (value) => value.id === item.lineId,
+      );
+      return (
+        !line ||
+        !Number.isInteger(item.quantity) ||
+        item.quantity > remaining(line)
+      );
+    })
+  )
+    throw new Error("发货数量须为整数，且不能超过各商品的待发货数量");
   await api("/admin/orders/" + id + "/shipments", {
     method: "POST",
     body: {
@@ -219,12 +243,7 @@ async function ship() {
       tracking: shipment.value.tracking,
       requestKey: shipment.value.requestKey,
       reason: reason.value,
-      lines: Object.entries(shipment.value.quantities)
-        .filter(([, q]) => q > 0)
-        .map(([lineId, quantity]) => ({
-          lineId: Number(lineId),
-          quantity: Number(quantity),
-        })),
+      lines,
     },
   });
   await select(id);
@@ -243,11 +262,76 @@ async function correct() {
   await select(id);
 }
 onMounted(() => act(load));
+const orderColumns = [
+  { title: "订单 / 购买者", key: "order", width: 230 },
+  { title: "履约", key: "fulfillment", width: 180 },
+  { title: "支付", key: "payment", width: 180 },
+  { title: "订单金额", key: "amount", width: 120 },
+  { title: "操作", key: "actions", width: 170, fixed: "right" as const },
+];
+const attemptColumns = [
+  { title: "原商户单号", key: "number", width: 180 },
+  { title: "状态", key: "state", width: 180 },
+  { title: "渠道流水", key: "transaction", width: 180 },
+  { title: "最近异常", key: "error", width: 180 },
+  { title: "追踪编号", key: "request", width: 180 },
+];
+const eventColumns = [
+  { title: "时间", key: "time", width: 180 },
+  { title: "动作 / 结果", key: "result", width: 180 },
+  { title: "说明", key: "detail", width: 180 },
+  { title: "追踪编号", key: "request", width: 180 },
+];
+const shipmentColumns = [
+  { title: "商品", key: "product", width: 180 },
+  { title: "订单数量", key: "quantity", width: 90 },
+  { title: "已出库", key: "shipped", width: 90 },
+  { title: "待发货", key: "remaining", width: 90 },
+  { title: "本次发货", key: "ship", width: 140 },
+];
+
+function statusColor(value: string) {
+  if (
+    [
+      "paid",
+      "completed",
+      "received",
+      "approved",
+      "success",
+      "succeeded",
+    ].includes(value)
+  )
+    return "success";
+  if (["failed", "rejected", "revoked", "review"].includes(value))
+    return "error";
+  if (
+    [
+      "pending",
+      "requested",
+      "unpaid",
+      "unknown",
+      "partially_refunded",
+      "submitted",
+    ].includes(value)
+  )
+    return "warning";
+  if (
+    [
+      "paying",
+      "processing",
+      "shipping",
+      "shipped",
+      "awaiting_shipment",
+    ].includes(value)
+  )
+    return "processing";
+  return "default";
+}
 </script>
 <template>
   <section class="payment-operations" :aria-busy="busy">
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
-    <section class="surface order-list">
+    <a-card size="small" class="order-list">
       <header class="section-heading">
         <div>
           <h3>支付与履约订单</h3>
@@ -256,70 +340,75 @@ onMounted(() => act(load));
         <span class="list-count">{{ visible.length }} 笔订单</span>
       </header>
       <AdminForm class="filters" @submit="act(load)">
-        <label
-          >订单编号 / 用户编号<input
-            v-model="query"
-            placeholder="输入订单号或用户编号" /></label
-        ><label
-          >履约状态<AdminSelect v-model="status">
+        <label class="field"
+          >订单编号 / 用户编号<a-input
+            v-model:value="query"
+            placeholder="输入订单号或用户编号"
+            :disabled="busy" /></label
+        ><label class="field"
+          >履约状态<AdminSelect v-model="status" :disabled="busy">
             <option value="">全部状态</option>
             <option v-for="(label, key) in labels" :key="key" :value="key">
               {{ label }}
             </option>
           </AdminSelect></label
-        ><button class="secondary" :disabled="busy">刷新订单</button>
+        ><a-button html-type="submit" :disabled="busy" :loading="busy"
+          >刷新订单</a-button
+        >
       </AdminForm>
-      <p v-if="busy" class="loading" role="status">正在读取或处理订单…</p>
       <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>订单 / 购买者</th>
-              <th>履约</th>
-              <th>支付</th>
-              <th>订单金额</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="o in visible" :key="o.id">
-              <td>
-                {{ o.number
-                }}<small
-                  >用户 {{ o.user_id }} ·
-                  {{ o.kind === "package" ? "入驻产品包" : "商品订单" }}</small
-                >
-              </td>
-              <td>
-                {{ labels[o.status] || o.status
-                }}<small v-if="o.received_at"
-                  >收货完成 {{ o.received_at }}</small
-                >
-              </td>
-              <td>{{ paymentLabels[o.payment_state] || o.payment_state }}</td>
-              <td>¥{{ money(o.total_cents) }}</td>
-              <td>
-                <button
-                  class="secondary"
-                  :disabled="busy"
-                  @click="act(() => select(o.id))"
-                >
-                  查看与处理
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-if="!busy && !visible.length" class="empty">暂无符合条件的订单</p>
+        <a-table
+          :columns="orderColumns"
+          :data-source="visible || []"
+          row-key="id"
+          :pagination="{
+            pageSize: 20,
+            showSizeChanger: false,
+            hideOnSinglePage: true,
+          }"
+          :scroll="{ x: 880 }"
+          size="small"
+          :loading="busy"
+          ><template #bodyCell="{ column, record: o }"
+            ><template v-if="column.key === 'order'">
+              {{ o.number
+              }}<small class="cell-note"
+                >用户 {{ o.user_id }} ·
+                {{ o.kind === "package" ? "入驻产品包" : "商品订单" }}</small
+              > </template
+            ><template v-else-if="column.key === 'fulfillment'">
+              <a-tag :color="statusColor(o.status)">{{
+                labels[o.status] || o.status
+              }}</a-tag
+              ><small class="cell-note" v-if="o.received_at"
+                >收货完成 {{ o.received_at }}</small
+              > </template
+            ><template v-else-if="column.key === 'payment'"
+              ><a-tag :color="statusColor(o.payment_state)">{{
+                paymentLabels[o.payment_state] || o.payment_state
+              }}</a-tag></template
+            ><template v-else-if="column.key === 'amount'"
+              >¥{{ money(o.total_cents) }}</template
+            ><template v-else-if="column.key === 'actions'">
+              <a-button
+                html-type="button"
+                :disabled="busy"
+                @click="act(() => select(o.id))"
+              >
+                查看与处理
+              </a-button>
+            </template></template
+          ></a-table
+        >
       </div>
-    </section>
-    <section v-if="selected" class="surface order-detail">
+    </a-card>
+    <a-card size="small" v-if="selected" class="order-detail">
       <header class="section-heading">
         <div>
-          <small>当前处理订单</small>
+          <small class="cell-note">当前处理订单</small>
           <h3>{{ selected.number }}</h3>
         </div>
-        <button class="secondary" @click="selected = null">收起</button>
+        <a-button html-type="button" @click="selected = null">收起</a-button>
       </header>
       <p class="delivery-address">
         {{ selected.snapshot.address.recipient }} ·
@@ -342,37 +431,40 @@ onMounted(() => act(load));
             "尚未确认"
           }}
         </p>
-        <p v-if="payment?.attempt?.lastError" class="error">
-          {{ payment.attempt.lastError }}
-        </p>
+        <details v-if="payment?.attempt?.lastError" class="payment-history">
+          <summary>查看最近支付异常</summary>
+          <p>{{ payment.attempt.lastError }}</p>
+        </details>
         <p>
           支付返回确认中时，请查询原交易；需要关闭时，系统核实渠道结果后才释放库存。
         </p>
-        <div class="actions">
-          <button
-            class="secondary"
+        <a-space wrap class="actions">
+          <a-button
+            html-type="button"
             :disabled="busy"
             @click="act(() => refreshPayment())"
           >
-            查询原支付</button
-          ><button
-            class="primary"
+            查询原支付</a-button
+          ><a-button
+            html-type="button"
+            danger
             :disabled="busy || selected.payment_state === 'paid'"
             @click="openClose"
           >
             核查并关闭未付交易
-          </button>
-        </div>
+          </a-button>
+        </a-space>
       </section>
       <section class="detail-section">
-        <button
+        <a-button
+          html-type="button"
+          type="primary"
           v-if="canShip"
-          class="primary"
           :disabled="busy"
           @click="openShipment"
         >
           登记品牌仓发货
-        </button>
+        </a-button>
         <p v-else>当前订单不允许新增发货。</p>
       </section>
       <section class="detail-section">
@@ -380,16 +472,20 @@ onMounted(() => act(load));
         <div v-for="s in selected.shipments" :key="s.id" class="parcel">
           <div>
             {{ s.carrier }} · {{ s.tracking
-            }}<small
+            }}<small class="cell-note"
               >出库 {{ s.shipped_at }} ·
               {{
                 s.received_at ? "收货 " + s.received_at : "尚未确认收货"
               }}</small
             >
           </div>
-          <button class="secondary" :disabled="busy" @click="openCorrection(s)">
+          <a-button
+            html-type="button"
+            :disabled="busy"
+            @click="openCorrection(s)"
+          >
             纠正物流信息
-          </button>
+          </a-button>
         </div>
         <p v-if="!selected.shipments.length">尚未登记发货</p>
       </section>
@@ -397,52 +493,57 @@ onMounted(() => act(load));
         <summary>查看支付尝试、异常到账与补偿证据</summary>
         <h4>支付尝试与异常到账依据</h4>
         <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>原商户单号</th>
-                <th>状态</th>
-                <th>渠道流水</th>
-                <th>最近异常</th>
-                <th>追踪编号</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="a in payment?.attempts || []" :key="a.id">
-                <td>{{ a.number }}</td>
-                <td>{{ a.state }}</td>
-                <td>{{ a.transaction_id || "尚未核验到账" }}</td>
-                <td>{{ a.last_error || "无" }}</td>
-                <td>{{ a.last_request_id }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-if="!payment?.attempts.length" class="empty">暂无支付尝试记录</p>
+          <a-table
+            :columns="attemptColumns"
+            :data-source="payment?.attempts || []"
+            row-key="id"
+            :pagination="false"
+            :scroll="{ x: 900 }"
+            size="small"
+            ><template #bodyCell="{ column, record: a }"
+              ><template v-if="column.key === 'number'">{{ a.number }}</template
+              ><template v-else-if="column.key === 'state'"
+                ><a-tag :color="statusColor(a.state)">{{
+                  paymentLabels[a.state] || a.state
+                }}</a-tag></template
+              ><template v-else-if="column.key === 'transaction'">{{
+                a.transaction_id || "尚未核验到账"
+              }}</template
+              ><template v-else-if="column.key === 'error'">{{
+                a.last_error || "无"
+              }}</template
+              ><template v-else-if="column.key === 'request'">{{
+                a.last_request_id
+              }}</template></template
+            ></a-table
+          >
         </div>
         <h4>支付事件与补偿证据</h4>
         <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>动作 / 结果</th>
-                <th>说明</th>
-                <th>追踪编号</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="e in payment?.events || []" :key="e.id">
-                <td>{{ e.create_time }}</td>
-                <td>{{ e.action }} / {{ e.result }}</td>
-                <td>{{ e.detail }}</td>
-                <td>{{ e.request_id }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-if="!payment?.events.length" class="empty">暂无支付事件记录</p>
+          <a-table
+            :columns="eventColumns"
+            :data-source="payment?.events || []"
+            row-key="id"
+            :pagination="false"
+            :scroll="{ x: 800 }"
+            size="small"
+            ><template #bodyCell="{ column, record: e }"
+              ><template v-if="column.key === 'time'">{{
+                e.create_time
+              }}</template
+              ><template v-else-if="column.key === 'result'"
+                >{{ e.action }} / {{ e.result }}</template
+              ><template v-else-if="column.key === 'detail'">{{
+                e.detail
+              }}</template
+              ><template v-else-if="column.key === 'request'">{{
+                e.request_id
+              }}</template></template
+            ></a-table
+          >
         </div>
       </details>
-    </section>
+    </a-card>
     <AdminDialog
       v-if="selected && dialog"
       :title="dialog === 'ship' ? '登记品牌仓发货' : '核查并关闭未付交易'"
@@ -452,6 +553,7 @@ onMounted(() => act(load));
     >
       <p>当前订单：{{ selected.number }}</p>
       <AdminForm
+        class="dialog-fields"
         v-if="dialog === 'close'"
         @submit="
           act(
@@ -461,81 +563,97 @@ onMounted(() => act(load));
         "
       >
         <p>系统核实渠道结果后才释放库存。</p>
-        <label
-          >操作原因<input v-model="reason" required maxlength="200"
+        <label class="field"
+          >操作原因<a-input
+            v-model:value="reason"
+            required
+            :maxlength="200"
+            :disabled="busy"
         /></label>
         <div class="dialog-actions">
-          <button
-            class="secondary"
-            type="button"
-            :disabled="busy"
-            @click="dialog = ''"
-          >
+          <a-button html-type="button" :disabled="busy" @click="dialog = ''">
             取消
-          </button>
-          <button class="primary" :disabled="busy">核查并关闭未付交易</button>
+          </a-button>
+          <a-button
+            html-type="submit"
+            type="primary"
+            danger
+            :loading="busy"
+            :disabled="busy"
+            >核查并关闭未付交易</a-button
+          >
         </div>
       </AdminForm>
       <template v-else>
-        <AdminForm @submit="act(ship, '发货记录已保存')">
+        <AdminForm class="dialog-fields" @submit="act(ship, '发货记录已保存')">
           <h4>登记品牌仓发货</h4>
           <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>商品</th>
-                  <th>订单数量</th>
-                  <th>已出库</th>
-                  <th>待发货</th>
-                  <th>本次发货</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="l in selected.lines" :key="l.id">
-                  <td>{{ name(l) }}</td>
-                  <td>{{ l.quantity }}</td>
-                  <td>{{ l.shipped_qty }}</td>
-                  <td>{{ remaining(l) }}</td>
-                  <td>
-                    <input
-                      v-model.number="shipment.quantities[l.id]"
-                      type="number"
-                      min="0"
-                      :max="remaining(l)"
-                      :disabled="remaining(l) <= 0"
-                      aria-label="本次发货数量"
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <a-table
+              :columns="shipmentColumns"
+              :data-source="selected.lines || []"
+              row-key="id"
+              :pagination="false"
+              :scroll="{ x: 660 }"
+              size="small"
+              ><template #bodyCell="{ column, record: l }"
+                ><template v-if="column.key === 'product'">{{
+                  name(l)
+                }}</template
+                ><template v-else-if="column.key === 'quantity'">{{
+                  l.quantity
+                }}</template
+                ><template v-else-if="column.key === 'shipped'">{{
+                  l.shipped_qty
+                }}</template
+                ><template v-else-if="column.key === 'remaining'">{{
+                  remaining(l)
+                }}</template
+                ><template v-else-if="column.key === 'ship'">
+                  <a-input-number
+                    type="number"
+                    :step="1"
+                    class="shipment-quantity"
+                    v-model:value="shipment.quantities[l.id]"
+                    :min="0"
+                    :max="remaining(l)"
+                    :disabled="busy || remaining(l) <= 0"
+                    aria-label="本次发货数量"
+                  /> </template></template
+            ></a-table>
           </div>
           <div class="filters">
-            <label
-              >物流公司<input
-                v-model="shipment.carrier"
+            <label class="field"
+              >物流公司<a-input
+                v-model:value="shipment.carrier"
                 required
-                maxlength="60" /></label
-            ><label
-              >运单号<input
-                v-model="shipment.tracking"
+                :maxlength="60"
+                :disabled="busy" /></label
+            ><label class="field"
+              >运单号<a-input
+                v-model:value="shipment.tracking"
                 required
-                pattern="[a-zA-Z0-9-]{4,80}"
+                pattern="[a-zA-Z0-9\-]{4,80}"
+                :disabled="busy"
             /></label>
           </div>
-          <label
-            >操作原因<input v-model="reason" required maxlength="200"
+          <label class="field"
+            >操作原因<a-input
+              v-model:value="reason"
+              required
+              :maxlength="200"
+              :disabled="busy"
           /></label>
           <div class="dialog-actions">
-            <button
-              class="secondary"
-              type="button"
-              :disabled="busy"
-              @click="dialog = ''"
-            >
+            <a-button html-type="button" :disabled="busy" @click="dialog = ''">
               取消
-            </button>
-            <button class="primary" :disabled="busy">确认发货</button>
+            </a-button>
+            <a-button
+              html-type="submit"
+              type="primary"
+              :disabled="busy"
+              :loading="busy"
+              >确认发货</a-button
+            >
           </div>
         </AdminForm>
       </template>
@@ -546,27 +664,45 @@ onMounted(() => act(load));
       :busy="busy"
       @close="!busy && (correcting = null)"
     >
-      <AdminForm v-if="correcting" @submit="act(correct, '物流纠正记录已保存')">
-        <label>物流公司<input v-model="correcting.carrier" required /></label
-        ><label
-          >运单号<input
-            v-model="correcting.tracking"
+      <AdminForm
+        class="dialog-fields"
+        v-if="correcting"
+        @submit="act(correct, '物流纠正记录已保存')"
+      >
+        <label class="field"
+          >物流公司<a-input
+            v-model:value="correcting.carrier"
             required
-            pattern="[a-zA-Z0-9-]{4,80}"
+            :disabled="busy" /></label
+        ><label class="field"
+          >运单号<a-input
+            v-model:value="correcting.tracking"
+            required
+            pattern="[a-zA-Z0-9\-]{4,80}"
+            :disabled="busy"
         /></label>
-        <label
-          >操作原因<input v-model="reason" required maxlength="200"
+        <label class="field"
+          >操作原因<a-input
+            v-model:value="reason"
+            required
+            :maxlength="200"
+            :disabled="busy"
         /></label>
         <div class="dialog-actions">
-          <button
-            class="secondary"
-            type="button"
+          <a-button
+            html-type="button"
             :disabled="busy"
             @click="correcting = null"
           >
             取消
-          </button>
-          <button class="primary" :disabled="busy">保留记录并纠正</button>
+          </a-button>
+          <a-button
+            html-type="submit"
+            type="primary"
+            :disabled="busy"
+            :loading="busy"
+            >保留记录并纠正</a-button
+          >
         </div>
       </AdminForm>
     </AdminDialog>
@@ -577,21 +713,11 @@ onMounted(() => act(load));
   display: grid;
   gap: 16px;
   min-width: 0;
-  max-width: 100%;
-  color: var(--admin-ink);
-  font-size: 13px;
 }
-.payment-operations *,
-.payment-operations *::before,
-.payment-operations *::after {
-  box-sizing: border-box;
-}
-.surface {
+.order-list,
+.order-detail,
+.table-wrap {
   min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  background: #fff;
 }
 .section-heading,
 .parcel {
@@ -602,7 +728,7 @@ onMounted(() => act(load));
   gap: 12px;
 }
 .section-heading {
-  margin-bottom: 16px;
+  margin: 0 0 16px;
 }
 .section-heading > div,
 .parcel > div {
@@ -612,11 +738,8 @@ onMounted(() => act(load));
 h3,
 h4 {
   margin: 0;
-  color: var(--admin-ink);
-  line-height: 1.5;
-}
-h3 {
   font-size: 15px;
+  line-height: 1.5;
 }
 h4 {
   margin-bottom: 12px;
@@ -630,66 +753,44 @@ h4 {
   color: var(--admin-muted);
   font-size: 12px;
 }
-.filters,
-.actions {
+.filters {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
   gap: 12px;
+  margin: 0 0 16px;
 }
-.filters {
-  margin: 12px 0;
+.filters > .field {
+  flex: 1 1 200px;
 }
-.filters label {
-  flex: 1 1 180px;
-}
-.filters label,
-.reason {
+.field {
   display: grid;
+  align-content: start;
   gap: 6px;
   min-width: 0;
+  line-height: 1.5;
 }
-.reason {
-  max-width: 640px;
-  margin: 12px 0;
-}
-.filters input,
-.filters select,
-.reason input {
+.field :deep(.ant-input-number) {
   width: 100%;
-  min-width: 0;
-  max-width: 100%;
 }
 .actions {
   margin-top: 12px;
 }
-.actions button,
-.filters button,
-.parcel button {
-  max-width: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
 .detail-section {
   min-width: 0;
-  margin-top: 16px;
+  margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--admin-border);
 }
 .order-detail p {
   margin: 8px 0;
-  line-height: 1.6;
+  line-height: 1.7;
   overflow-wrap: anywhere;
 }
-.order-detail p:not(.error):not(.message) {
+.delivery-address {
   color: var(--admin-muted);
 }
-.order-detail .delivery-address {
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--admin-bg);
-}
-small {
+.cell-note {
   display: block;
   margin-top: 4px;
   color: var(--admin-muted);
@@ -700,52 +801,36 @@ small {
   padding: 12px;
   margin-top: 8px;
   border: 1px solid var(--admin-border);
-  border-radius: 8px;
+  border-radius: 6px;
 }
-.table-wrap {
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.table-wrap table {
-  min-width: 640px;
-}
-td {
-  overflow-wrap: anywhere;
-}
-td input {
-  width: 88px;
-}
-.payment-evidence summary {
+.payment-evidence summary,
+.payment-history summary {
   color: var(--admin-accent);
   cursor: pointer;
-  overflow-wrap: anywhere;
 }
 .payment-evidence[open] summary {
   margin-bottom: 16px;
 }
-.payment-evidence .table-wrap + h4 {
-  margin-top: 16px;
+.payment-evidence h4:not(:first-of-type) {
+  margin-top: 20px;
 }
-.order-detail .error {
-  color: var(--admin-accent);
+.shipment-quantity {
+  width: 100%;
 }
-.payment-operations .message {
-  margin: 0;
-  overflow-wrap: anywhere;
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
+  margin-top: 20px;
 }
-.loading,
-.empty {
-  padding: 16px 12px;
-  color: var(--admin-muted);
-  text-align: center;
+.dialog-fields {
+  display: grid;
+  gap: 16px;
 }
 @media (max-width: 650px) {
-  .surface {
-    padding: 12px;
-  }
-  .filters label {
+  .filters > .field {
     flex-basis: 100%;
   }
   .parcel {

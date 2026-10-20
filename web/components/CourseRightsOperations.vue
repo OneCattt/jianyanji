@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import FeedbackToast from "./FeedbackToast.vue";
-import "../content-operations.css";
 import { onMounted, ref } from "vue";
 import {
   contentApi,
@@ -67,50 +66,143 @@ async function save() {
 </script>
 <template>
   <FeedbackToast v-model:error="error" v-model:notice="notice" />
-  <section class="table-panel content-operations">
-    <div class="panel-heading"><h2>课程与成长权益</h2></div>
+  <section class="content-operations">
     <p class="muted">
       维护各身份实际权益、课程介绍和联系指引。公开展示权益对比，本人权益按当前有效身份显示。
     </p>
-    <AdminForm class="content-editor" v-if="loaded" @submit="save"
-      ><fieldset v-for="role in roles" :key="role.id" :disabled="busy">
-        <legend>{{ role.name }}</legend>
+    <AdminForm
+      class="module-editor course-editor"
+      :disabled="busy"
+      v-if="loaded"
+      @submit="save"
+      ><a-card
+        v-for="role in roles"
+        :key="role.id"
+        :title="role.name"
+        size="small"
+        class="course-card"
+      >
+        <div class="confirmation-field">
+          <a-checkbox v-model:checked="rights[role.id].enabled"
+            >启用展示</a-checkbox
+          >
+        </div>
         <label
-          ><input v-model="rights[role.id].enabled" type="checkbox" />
-          启用展示</label
-        ><label
-          >标题<input
-            v-model="rights[role.id].title"
+          >标题<a-input
+            v-model:value="rights[role.id].title"
             :required="rights[role.id].enabled"
-            maxlength="100" /></label
+            :maxlength="100" /></label
         ><label
-          >课程介绍<textarea
-            v-model="rights[role.id].introduction"
+          >课程介绍<a-textarea
+            v-model:value="rights[role.id].introduction"
             :required="rights[role.id].enabled"
-            maxlength="2000"
-          /></label
+            :maxlength="2000" /></label
         ><label
-          >成长权益（每行一项，最多20项）<textarea
-            v-model="benefits[role.id]"
-            :required="rights[role.id].enabled"
-          /></label
+          >成长权益（每行一项，最多20项）<a-textarea
+            v-model:value="benefits[role.id]"
+            :required="rights[role.id].enabled" /></label
         ><label
-          >联系 / 报名联系方式<input
-            v-model="rights[role.id].contact"
+          >联系 / 报名联系方式<a-input
+            v-model:value="rights[role.id].contact"
             :required="rights[role.id].enabled"
-            maxlength="300" /></label
+            :maxlength="300" /></label
         ><label
-          >联系与报名指引<textarea
-            v-model="rights[role.id].enrollmentGuide"
+          >联系与报名指引<a-textarea
+            v-model:value="rights[role.id].enrollmentGuide"
             :required="rights[role.id].enabled"
-            maxlength="2000"
+            :maxlength="2000"
           />
         </label>
-      </fieldset>
-      <label>修改原因<input v-model="reason" required maxlength="200" /></label
-      ><button class="primary" type="submit" :disabled="busy">
+      </a-card>
+      <label
+        >修改原因<a-input
+          v-model:value="reason"
+          required
+          :maxlength="200" /></label
+      ><a-button html-type="submit" type="primary" :disabled="busy">
         {{ busy ? "保存中…" : "保存权益" }}
-      </button></AdminForm
+      </a-button></AdminForm
     >
   </section>
 </template>
+
+<style scoped>
+.content-operations {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.panel-heading h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.module-editor {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.module-editor > label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.muted {
+  margin: 0;
+  color: var(--admin-muted);
+  line-height: 1.6;
+}
+.table-cell-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.course-card :deep(.ant-card-body) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.course-card :deep(.ant-card-body) > label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+@media (max-width: 650px) {
+  .course-card :deep(.ant-card-body) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.number-field {
+  width: 100%;
+  min-width: 0;
+}
+.table-cell-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.table-cell-content > .ant-btn + .ant-btn {
+  margin-left: 8px;
+}
+.section-heading {
+  margin: 0 0 16px;
+}
+.confirmation-field {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.admin-form > label,
+.fields > label,
+.result-fields > label,
+.field-grid > label,
+.sku-form > label {
+  align-content: start;
+}
+</style>

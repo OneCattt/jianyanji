@@ -139,6 +139,10 @@ function openCorrection(lotId: number) {
 }
 async function confirmReceipt() {
   await run(async () => {
+    if (!form.value.verified)
+      throw new Error("请先确认公司真实到账、收款人和原流水");
+    if (!/^[1-9]\d*$/.test(form.value.userId))
+      throw new Error("请输入有效的代理用户编号");
     await api("/admin/receipts", {
       method: "POST",
       body: {
@@ -184,13 +188,32 @@ async function correct() {
   });
 }
 onMounted(() => run(refresh));
+
+const pointLotColumns = [
+  { title: "批次 / 原收款", key: "c0", width: 220 },
+  { title: "原始积分", key: "c1", width: 160 },
+  { title: "剩余 / 占用", key: "c2", width: 160 },
+  { title: "操作", key: "c3", width: 200 },
+];
+const receiptColumns = [
+  { title: "原收款 / 代理", key: "c0", width: 220 },
+  { title: "用途", key: "c1", width: 160 },
+  { title: "到账 / 已退现金", key: "c2", width: 160 },
+  { title: "原流水 / 账户", key: "c3", width: 160 },
+  { title: "到账时间", key: "c4", width: 200 },
+];
 </script>
 <template>
   <section class="wallet-operations" :aria-busy="busy">
     <Teleport defer to="#admin-page-actions">
-      <button class="primary" :disabled="busy" @click="openReceipt">
+      <a-button
+        html-type="button"
+        type="primary"
+        :disabled="busy"
+        @click="openReceipt"
+      >
         充值核款并发积分
-      </button>
+      </a-button>
     </Teleport>
     <p class="admin-business-note">
       仅登记已核实的真实到账。1 元对应 1
@@ -199,30 +222,38 @@ onMounted(() => run(refresh));
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <div class="wallet-workspace">
       <div class="account-workspace">
-        <section class="surface account-query" aria-label="钱包与收款查询">
+        <a-card size="small" class="account-query" aria-label="钱包与收款查询">
           <h3>查账与收款追溯</h3>
           <p class="muted">
             填写代理编号可查看积分钱包，也可按原收款编号或流水追查。
           </p>
           <AdminForm class="query-fields" @submit="run(refresh)">
             <label
-              >按代理编号追查<input
-                v-model="userId"
-                type="number"
-                min="1" /></label
+              >按代理编号追查<a-input-number
+                class="number-field"
+                string-mode
+                :precision="0"
+                pattern="[0-9]+"
+                v-model:value="userId"
+                :min="1" /></label
             ><label
-              >原收款编号<input
-                v-model="receiptId"
-                type="number"
-                min="1" /></label
+              >原收款编号<a-input-number
+                class="number-field"
+                string-mode
+                :precision="0"
+                pattern="[0-9]+"
+                v-model:value="receiptId"
+                :min="1" /></label
             ><label
-              >原银行 / 公司微信流水<input
-                v-model="externalTransactionId"
-                maxlength="200" /></label
-            ><button class="secondary" :disabled="busy">查询钱包和收款</button>
+              >原银行 / 公司微信流水<a-input
+                v-model:value="externalTransactionId"
+                :maxlength="200" /></label
+            ><a-button html-type="submit" :disabled="busy"
+              >查询钱包和收款</a-button
+            >
           </AdminForm>
-        </section>
-        <div v-if="wallet" class="surface wallet-detail">
+        </a-card>
+        <a-card size="small" v-if="wallet" class="wallet-detail">
           <div class="balances">
             <p>
               积分余额<strong>{{ money(wallet.balanceCents) }}</strong>
@@ -241,38 +272,50 @@ onMounted(() => run(refresh));
             role="region"
             aria-label="原收款积分批次，可横向滚动"
           >
-            <table>
-              <thead>
-                <tr>
-                  <th>批次 / 原收款</th>
-                  <th>原始积分</th>
-                  <th>剩余 / 占用</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="lot in wallet.lots" :key="lot.id">
-                  <td>
+            <a-table
+              :data-source="wallet.lots"
+              :columns="pointLotColumns"
+              row-key="id"
+              size="middle"
+              :loading="busy"
+              :scroll="{ x: 680 }"
+              :pagination="{
+                defaultPageSize: 10,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50'],
+                hideOnSinglePage: true,
+              }"
+              ><template #bodyCell="{ column, record: lot }"
+                ><template v-if="column.key === 'c0'"
+                  ><div class="table-cell-content">
                     #{{ lot.id }} / #{{ lot.receipt_id
                     }}<small>{{ lot.external_transaction_id }}</small>
-                  </td>
-                  <td>{{ money(lot.issued_cents) }}</td>
-                  <td>
+                  </div></template
+                >
+                <template v-else-if="column.key === 'c1'"
+                  ><div class="table-cell-content">
+                    {{ money(lot.issued_cents) }}
+                  </div></template
+                >
+                <template v-else-if="column.key === 'c2'"
+                  ><div class="table-cell-content">
                     {{ money(lot.remaining_cents) }} /
                     {{ money(lot.held_cents) }}
-                  </td>
-                  <td>
-                    <button
-                      class="secondary"
+                  </div></template
+                >
+                <template v-else-if="column.key === 'c3'"
+                  ><div class="table-cell-content">
+                    <a-button
+                      html-type="button"
                       :disabled="busy"
                       @click="openCorrection(lot.id)"
                     >
                       来源差额纠正
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </a-button>
+                  </div></template
+                ></template
+              ></a-table
+            >
           </div>
           <p v-if="!wallet.lots.length" class="empty-state">
             暂无原收款积分批次。
@@ -293,8 +336,8 @@ onMounted(() => run(refresh));
             >
           </div>
           <p v-if="!wallet.ledger.length" class="empty-state">暂无积分流水。</p>
-        </div>
-        <section class="surface receipts-panel" aria-label="真实收款记录">
+        </a-card>
+        <a-card size="small" class="receipts-panel" aria-label="真实收款记录">
           <h3>真实收款记录</h3>
           <div
             class="table-wrap"
@@ -302,35 +345,50 @@ onMounted(() => run(refresh));
             role="region"
             aria-label="真实收款记录，可横向滚动"
           >
-            <table>
-              <thead>
-                <tr>
-                  <th>原收款 / 代理</th>
-                  <th>用途</th>
-                  <th>到账 / 已退现金</th>
-                  <th>原流水 / 账户</th>
-                  <th>到账时间</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="r in receipts" :key="r.id">
-                  <td>#{{ r.id }} / #{{ r.user_id }}</td>
-                  <td>
+            <a-table
+              :data-source="receipts"
+              :columns="receiptColumns"
+              row-key="id"
+              size="middle"
+              :loading="busy"
+              :scroll="{ x: 850 }"
+              :pagination="{
+                defaultPageSize: 10,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50'],
+                hideOnSinglePage: true,
+              }"
+              ><template #bodyCell="{ column, record: r }"
+                ><template v-if="column.key === 'c0'"
+                  ><div class="table-cell-content">
+                    #{{ r.id }} / #{{ r.user_id }}
+                  </div></template
+                >
+                <template v-else-if="column.key === 'c1'"
+                  ><div class="table-cell-content">
                     {{ r.purpose === "points" ? "订货积分" : "入驻产品包" }}
-                  </td>
-                  <td>
+                  </div></template
+                >
+                <template v-else-if="column.key === 'c2'"
+                  ><div class="table-cell-content">
                     ¥{{ money(r.amount_cents) }} / ¥{{
                       money(r.cash_refunded_cents)
                     }}
-                  </td>
-                  <td>
+                  </div></template
+                >
+                <template v-else-if="column.key === 'c3'"
+                  ><div class="table-cell-content">
                     {{ r.external_transaction_id
                     }}<small>{{ r.account_ref }}</small>
-                  </td>
-                  <td>{{ r.received_at }}</td>
-                </tr>
-              </tbody>
-            </table>
+                  </div></template
+                >
+                <template v-else-if="column.key === 'c4'"
+                  ><div class="table-cell-content">
+                    {{ r.received_at }}
+                  </div></template
+                ></template
+              ></a-table
+            >
           </div>
           <p v-if="busy && !receipts.length" class="empty-state" role="status">
             正在加载收款记录…
@@ -338,7 +396,7 @@ onMounted(() => run(refresh));
           <p v-else-if="!error && !receipts.length" class="empty-state">
             暂无匹配的真实收款，请核对查询条件。
           </p>
-        </section>
+        </a-card>
       </div>
     </div>
     <AdminDialog
@@ -350,15 +408,18 @@ onMounted(() => run(refresh));
       <AdminForm class="fields receipt-form" @submit="confirmReceipt">
         <h3>核实订货到账并发积分</h3>
         <label
-          >代理用户编号<input
-            v-model="form.userId"
-            type="number"
-            min="1"
+          >代理用户编号<a-input-number
+            class="number-field"
+            string-mode
+            :precision="0"
+            pattern="[0-9]+"
+            v-model:value="form.userId"
+            :min="1"
             required
         /></label>
         <label
-          >实际到账（元）<input
-            v-model="form.amount"
+          >实际到账（元）<a-input
+            v-model:value="form.amount"
             pattern="[0-9]+([.][0-9]{1,2})?"
             data-error-message="请填写最多两位小数的金额"
             inputmode="decimal"
@@ -372,15 +433,15 @@ onMounted(() => run(refresh));
           </AdminSelect></label
         >
         <label
-          >收款账户标识<input
-            v-model="form.accountRef"
-            maxlength="200"
+          >收款账户标识<a-input
+            v-model:value="form.accountRef"
+            :maxlength="200"
             required
         /></label>
         <label
-          >原银行 / 公司微信流水<input
-            v-model="form.externalTransactionId"
-            maxlength="200"
+          >原银行 / 公司微信流水<a-input
+            v-model:value="form.externalTransactionId"
+            :maxlength="200"
             required
         /></label>
         <label
@@ -390,31 +451,29 @@ onMounted(() => run(refresh));
             required
         /></label>
         <label
-          >原始凭证地址或归档编号<input
-            v-model="form.evidence"
-            maxlength="1000"
+          >原始凭证地址或归档编号<a-input
+            v-model:value="form.evidence"
+            :maxlength="1000"
             required
         /></label>
         <label
-          >核实说明<input v-model="form.reason" maxlength="200" required
-        /></label>
-        <label class="check"
-          ><input
-            v-model="form.verified"
-            type="checkbox"
+          >核实说明<a-input
+            v-model:value="form.reason"
+            :maxlength="200"
             required
-          />我已核实公司真实到账、收款人和原流水，非仅核对转款截图</label
-        >
-        <div class="dialog-actions">
-          <button
-            class="secondary"
-            type="button"
-            :disabled="busy"
-            @click="closeDialog"
+        /></label>
+        <div class="confirmation-field check">
+          <a-checkbox v-model:checked="form.verified" required
+            >我已核实公司真实到账、收款人和原流水，非仅核对转款截图</a-checkbox
           >
+        </div>
+        <div class="dialog-actions">
+          <a-button html-type="button" :disabled="busy" @click="closeDialog">
             取消
-          </button>
-          <button class="primary" :disabled="busy">确认到账并发积分</button>
+          </a-button>
+          <a-button html-type="submit" type="primary" :disabled="busy"
+            >确认到账并发积分</a-button
+          >
         </div>
       </AdminForm>
     </AdminDialog>
@@ -427,31 +486,28 @@ onMounted(() => run(refresh));
       <AdminForm class="correction-form" @submit="correct">
         <h4>纠正原批次 #{{ correction.lotId }}</h4>
         <label
-          >冲减积分<input
-            v-model="correction.amount"
+          >冲减积分<a-input
+            v-model:value="correction.amount"
             pattern="[0-9]+([.][0-9]{1,2})?"
             data-error-message="请填写最多两位小数的金额"
             required
             inputmode="decimal" /></label
         ><label
-          >原来源及纠错原因<input
-            v-model="correction.reason"
-            maxlength="200"
+          >原来源及纠错原因<a-input
+            v-model:value="correction.reason"
+            :maxlength="200"
             required
         /></label>
         <p class="wide muted">
           仅能纠正该原批次未消费且未占用的积分，已消费差额须人工核实处理。
         </p>
         <div class="dialog-actions">
-          <button
-            class="secondary"
-            type="button"
-            :disabled="busy"
-            @click="closeDialog"
-          >
+          <a-button html-type="button" :disabled="busy" @click="closeDialog">
             取消
-          </button>
-          <button class="primary" :disabled="busy">保存纠正流水</button>
+          </a-button>
+          <a-button html-type="submit" type="primary" :disabled="busy"
+            >保存纠正流水</a-button
+          >
         </div>
       </AdminForm>
     </AdminDialog>
@@ -519,11 +575,6 @@ h4 {
 .wide {
   grid-column: 1 / -1;
 }
-.fields > button,
-.query-fields > button,
-.correction-form > button {
-  justify-self: start;
-}
 .account-query {
   display: grid;
   gap: 8px;
@@ -537,24 +588,10 @@ label {
   gap: 5px;
   font-size: 13px;
 }
-input,
-select {
-  min-width: 0;
-  max-width: 100%;
-  width: 100%;
-  box-sizing: border-box;
-}
 .check {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-}
-.check input {
-  flex: 0 0 16px;
-  width: 16px;
-  height: 16px;
-  margin: 2px 0 0;
-  accent-color: var(--admin-accent);
 }
 .wallet-detail {
   display: grid;
@@ -623,30 +660,6 @@ small {
   display: grid;
   gap: 12px;
 }
-.table-wrap {
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-}
-.table-wrap:focus-visible {
-  outline: 2px solid var(--admin-accent);
-  outline-offset: 3px;
-}
-td {
-  white-space: normal;
-}
-.wallet-detail td:not(:first-child),
-.receipts-panel td:nth-child(1),
-.receipts-panel td:nth-child(2),
-.receipts-panel td:nth-child(3) {
-  white-space: nowrap;
-}
-table {
-  min-width: 540px;
-}
-.receipts-panel table {
-  min-width: 680px;
-}
 .empty-state {
   padding: 20px 12px;
   text-align: center;
@@ -672,5 +685,38 @@ table {
   .balances strong {
     font-size: 18px;
   }
+}
+
+.number-field {
+  width: 100%;
+  min-width: 0;
+}
+.table-cell-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.table-cell-content > .ant-btn + .ant-btn {
+  margin-left: 8px;
+}
+.section-heading {
+  margin: 0 0 16px;
+}
+.wallet-detail :deep(.ant-card-body),
+.account-query :deep(.ant-card-body),
+.receipts-panel :deep(.ant-card-body) {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.confirmation-field {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.admin-form > label,
+.fields > label,
+.result-fields > label,
+.field-grid > label,
+.sku-form > label {
+  align-content: start;
 }
 </style>

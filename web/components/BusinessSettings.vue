@@ -19,7 +19,9 @@ const imageUploads = ref<Record<string, boolean>>({});
 const uploadingImage = computed(() =>
   Object.values(imageUploads.value).some(Boolean),
 );
-const productNameInput = ref<HTMLInputElement | null>(null);
+const productNameInput = ref<{
+  focus: (options?: FocusOptions) => void;
+} | null>(null);
 const content = ref({
   brandName: "清欣简妍肌",
   introduction: "",
@@ -246,6 +248,12 @@ function editCategory(c?: (typeof categories.value)[number]) {
 }
 function saveCategory() {
   return act(async () => {
+    if (
+      !Number.isInteger(category.value.sort) ||
+      category.value.sort < 0 ||
+      category.value.sort > 9999
+    )
+      throw new Error("分类排序须为 0 至 9999 的整数");
     await api(
       "/admin/categories" + (category.value.id ? "/" + category.value.id : ""),
       {
@@ -282,6 +290,13 @@ function saveProduct() {
   if (uploadingImage.value) return;
   return act(async () => {
     const p = form.value;
+    if (
+      p.skus.some(
+        (sku) =>
+          !Number.isSafeInteger(sku.stock) || sku.stock < (sku.reserved || 0),
+      )
+    )
+      throw new Error("总库存须为不低于已占用库存的整数");
     await api("/admin/products" + (p.id ? "/" + p.id : ""), {
       method: p.id ? "PUT" : "POST",
       body: {
@@ -309,18 +324,25 @@ function saveProduct() {
     editing.value = false;
   });
 }
+
+const productColumns = [
+  { title: "商品", key: "c0", width: 220 },
+  { title: "状态", key: "c1", width: 160 },
+  { title: "规格 / 可用库存", key: "c2", width: 160 },
+  { title: "操作", key: "c3", width: 200 },
+];
 </script>
 <template>
   <section class="business-settings" :aria-busy="loading || busy">
     <FeedbackToast v-model:notice="notice" v-model:error="error">
-      <button
+      <a-button
+        html-type="button"
         v-if="loadFailed"
-        type="button"
         :disabled="loading || busy"
         @click="load"
       >
         重新加载
-      </button>
+      </a-button>
     </FeedbackToast>
     <p v-if="loading" class="loading-note" role="status">
       正在加载{{ section === "content" ? "品牌资料" : "商品与分类" }}…
@@ -328,20 +350,21 @@ function saveProduct() {
 
     <template v-if="section === 'content'">
       <Teleport defer to="#admin-page-actions">
-        <button
-          class="primary"
-          type="button"
+        <a-button
+          html-type="button"
+          type="primary"
           :disabled="busy || loading || !loaded"
           @click="editContent"
         >
           编辑品牌资料
-        </button>
+        </a-button>
       </Teleport>
       <div class="content-layout content-sections">
-        <section
+        <a-card
+          size="small"
           v-for="group in contentGroups"
           :key="group.title"
-          class="surface content-group"
+          class="content-group"
         >
           <header class="panel-heading">
             <div>
@@ -361,7 +384,7 @@ function saveProduct() {
               />
             </div>
           </div>
-        </section>
+        </a-card>
       </div>
       <AdminDialog
         v-if="editingContent"
@@ -375,10 +398,11 @@ function saveProduct() {
             class="form-controls content-sections"
             :disabled="busy || loading || !loaded"
           >
-            <section
+            <a-card
+              size="small"
               v-for="group in contentGroups"
               :key="group.title"
-              class="surface content-group"
+              class="content-group"
             >
               <header class="panel-heading">
                 <div>
@@ -402,7 +426,7 @@ function saveProduct() {
                   }"
                 >
                   {{ key === "heroImage" ? "" : contentLabels[key] }}
-                  <textarea
+                  <a-textarea
                     v-if="
                       [
                         'introduction',
@@ -411,7 +435,7 @@ function saveProduct() {
                         'transferNotes',
                       ].includes(key)
                     "
-                    v-model="contentForm[key]"
+                    v-model:value="contentForm[key]"
                     :rows="key === 'heroTitle' ? 2 : 3"
                     :required="['introduction', 'heroTitle'].includes(key)"
                   />
@@ -424,37 +448,41 @@ function saveProduct() {
                     :disabled="busy || loading"
                     @busy-change="imageUploads.hero = $event"
                   />
-                  <input
+                  <a-input
                     v-else
-                    v-model="contentForm[key]"
+                    v-model:value="contentForm[key]"
                     :required="
                       ['brandName', 'heroSubtitle', 'heroImage'].includes(key)
                     "
                   />
                 </label>
               </div>
-            </section>
+            </a-card>
           </fieldset>
           <footer class="surface save-bar">
             <label
-              >修改原因<input
-                v-model="reason"
+              >修改原因<a-input
+                v-model:value="reason"
                 :disabled="busy || loading"
                 required
-                maxlength="200"
+                :maxlength="200"
                 placeholder="说明本次调整的内容"
             /></label>
             <div class="dialog-actions">
-              <button
-                type="button"
+              <a-button
+                html-type="button"
                 :disabled="busy || uploadingImage"
                 @click="editingContent = false"
               >
                 取消
-              </button>
-              <button class="primary" :disabled="busy || uploadingImage">
+              </a-button>
+              <a-button
+                html-type="submit"
+                type="primary"
+                :disabled="busy || uploadingImage"
+              >
                 {{ busy ? "保存中…" : "保存品牌资料" }}
-              </button>
+              </a-button>
             </div>
           </footer>
         </AdminForm>
@@ -463,54 +491,55 @@ function saveProduct() {
 
     <template v-else>
       <Teleport defer to="#admin-page-actions">
-        <button
-          class="secondary"
-          type="button"
+        <a-button
+          html-type="button"
           :disabled="busy || loading || !loaded"
           @click="editCategory()"
         >
           新增分类
-        </button>
-        <button
-          class="primary"
-          type="button"
+        </a-button>
+        <a-button
+          html-type="button"
+          type="primary"
           :disabled="busy || loading || !loaded"
           @click="edit()"
         >
           <span aria-hidden="true">＋</span> 新增商品
-        </button>
+        </a-button>
       </Teleport>
       <p class="catalog-summary">
         共 {{ products.length }} 件商品 · 已上架 {{ activeCount }} 件 · 已下架
         {{ products.length - activeCount }} 件
       </p>
 
-      <details class="surface category-panel" open>
-        <summary>
-          <span
-            >商品分类 <span class="count">{{ categories.length }}</span></span
-          ><span class="summary-hint">点击分类编辑名称、排序与启停</span>
-        </summary>
-        <div class="category-content">
-          <div class="category-list" aria-label="选择分类进行编辑">
-            <button
-              v-for="c in categories"
-              :key="c.id"
-              class="category-chip"
-              type="button"
-              :aria-pressed="editingCategory && category.id === c.id"
-              :disabled="busy || loading"
-              @click="editCategory(c)"
-              :aria-label="'编辑分类：' + c.name"
-            >
-              {{ c.name }} <span>{{ c.active ? "启用" : "停用" }}</span>
-            </button>
-            <p v-if="!categories.length && loaded" class="muted-note">
-              尚未配置分类，请先新增分类，再配置商品。
-            </p>
-          </div>
-        </div>
-      </details>
+      <a-collapse class="surface category-panel"
+        ><a-collapse-panel key="details"
+          ><template #header>
+            <span
+              >商品分类 <span class="count">{{ categories.length }}</span></span
+            ><span class="summary-hint">点击分类编辑名称、排序与启停</span>
+          </template>
+          <div class="category-content">
+            <div class="category-list" aria-label="选择分类进行编辑">
+              <a-button
+                html-type="button"
+                v-for="c in categories"
+                :key="c.id"
+                class="category-chip"
+                :aria-pressed="editingCategory && category.id === c.id"
+                :disabled="busy || loading"
+                @click="editCategory(c)"
+                :aria-label="'编辑分类：' + c.name"
+              >
+                {{ c.name }} <span>{{ c.active ? "启用" : "停用" }}</span>
+              </a-button>
+              <p v-if="!categories.length && loaded" class="muted-note">
+                尚未配置分类，请先新增分类，再配置商品。
+              </p>
+            </div>
+          </div></a-collapse-panel
+        ></a-collapse
+      >
 
       <AdminDialog
         v-if="editingCategory"
@@ -524,33 +553,41 @@ function saveProduct() {
             :disabled="busy || loading || !loaded"
           >
             <label
-              >分类名称<input v-model="category.name" required maxlength="40"
+              >分类名称<a-input
+                v-model:value="category.name"
+                required
+                :maxlength="40"
             /></label>
             <label
-              >排序<input
-                v-model.number="category.sort"
-                type="number"
-                min="0"
-                max="9999"
+              >排序<a-input-number
+                class="number-field"
+                :precision="0"
+                pattern="[0-9]+"
+                v-model:value="category.sort"
+                :min="0"
+                :max="9999"
                 required
             /></label>
-            <label class="check-label"
-              ><input v-model="category.active" type="checkbox" />启用</label
-            >
+            <div class="confirmation-field check-label">
+              <a-checkbox v-model:checked="category.active">启用</a-checkbox>
+            </div>
             <label class="full-field"
-              >修改原因<input v-model="reason" required maxlength="200"
+              >修改原因<a-input
+                v-model:value="reason"
+                required
+                :maxlength="200"
             /></label>
             <div class="dialog-actions full-field">
-              <button
-                type="button"
+              <a-button
+                html-type="button"
                 :disabled="busy"
                 @click="editingCategory = false"
               >
                 取消
-              </button>
-              <button class="primary" :disabled="busy">
+              </a-button>
+              <a-button html-type="submit" type="primary" :disabled="busy">
                 {{ busy ? "保存中…" : "保存分类" }}
-              </button>
+              </a-button>
             </div>
           </fieldset>
         </AdminForm>
@@ -569,11 +606,11 @@ function saveProduct() {
               <h4>基本信息</h4>
               <div class="field-grid">
                 <label
-                  >商品名<input
+                  >商品名<a-input
                     ref="productNameInput"
-                    v-model="form.name"
+                    v-model:value="form.name"
                     required
-                    maxlength="80"
+                    :maxlength="80"
                 /></label>
                 <label
                   >分类<AdminSelect v-model.number="form.categoryId" required>
@@ -587,26 +624,27 @@ function saveProduct() {
                   请取消当前编辑，在「商品分类」中新增分类后再添加商品。
                 </p>
                 <label class="full-field"
-                  >副标题<input v-model="form.subtitle" maxlength="160"
+                  >副标题<a-input
+                    v-model:value="form.subtitle"
+                    :maxlength="160"
                 /></label>
                 <label class="full-field"
-                  >商品说明<textarea
-                    v-model="form.description"
+                  >商品说明<a-textarea
+                    v-model:value="form.description"
                     required
-                    rows="3"
+                    :rows="3"
                   />
                 </label>
               </div>
               <div class="publishing-options">
-                <label class="check-label"
-                  ><input v-model="form.active" type="checkbox" />上架</label
-                >
-                <label class="check-label"
-                  ><input
-                    v-model="form.featured"
-                    type="checkbox"
-                  />首页臻选</label
-                >
+                <div class="confirmation-field check-label">
+                  <a-checkbox v-model:checked="form.active">上架</a-checkbox>
+                </div>
+                <div class="confirmation-field check-label">
+                  <a-checkbox v-model:checked="form.featured"
+                    >首页臻选</a-checkbox
+                  >
+                </div>
                 <span>{{
                   form.active
                     ? "保存后商品为已上架状态"
@@ -646,9 +684,8 @@ function saveProduct() {
                     折；福利品统一价。必需价格留空时不可购买。
                   </p>
                 </div>
-                <button
-                  class="secondary"
-                  type="button"
+                <a-button
+                  html-type="button"
                   @click="
                     form.skus.push({
                       name: '',
@@ -662,40 +699,48 @@ function saveProduct() {
                   "
                 >
                   添加规格
-                </button>
+                </a-button>
               </div>
               <div class="sku-list">
                 <fieldset v-for="(s, i) in form.skus" :key="i" class="sku-card">
                   <legend>规格 {{ i + 1 }}</legend>
                   <div class="sku-form">
-                    <label>名称<input v-model="s.name" required /></label>
-                    <label>单位<input v-model="s.unit" required /></label>
+                    <label
+                      >名称<a-input v-model:value="s.name" required
+                    /></label>
+                    <label
+                      >单位<a-input v-model:value="s.unit" required
+                    /></label>
                     <SkuPricingFields
                       v-model:product-type="s.productType"
                       v-model:retail="s.retail"
                       v-model:welfare="s.welfare"
                     />
                     <label
-                      >总库存<input
-                        v-model.number="s.stock"
-                        type="number"
+                      >总库存<a-input-number
+                        class="number-field"
+                        :precision="0"
+                        pattern="[0-9]+"
+                        v-model:value="s.stock"
                         :min="s.reserved || 0"
                         required
                     /></label>
                   </div>
                   <div class="sku-footer">
-                    <label class="check-label"
-                      ><input v-model="s.active" type="checkbox" />可售</label
-                    ><span v-if="s.reserved" class="field-help"
+                    <div class="confirmation-field check-label">
+                      <a-checkbox v-model:checked="s.active">可售</a-checkbox>
+                    </div>
+                    <span v-if="s.reserved" class="field-help"
                       >已占用 {{ s.reserved
                       }}{{ s.unit }}，总库存不得低于已占用库存。</span
-                    ><button
+                    ><a-button
+                      html-type="button"
                       v-if="form.skus.length > 1"
                       type="button"
                       @click="form.skus.splice(i, 1)"
                     >
                       移除规格
-                    </button>
+                    </a-button>
                   </div>
                 </fieldset>
               </div>
@@ -703,29 +748,33 @@ function saveProduct() {
           </fieldset>
           <footer class="save-bar editor-save">
             <label
-              >修改原因<input
-                v-model="reason"
+              >修改原因<a-input
+                v-model:value="reason"
                 :disabled="busy || loading"
                 required
-                maxlength="200"
+                :maxlength="200"
                 placeholder="说明本次商品、价格或库存调整"
             /></label>
             <div class="dialog-actions">
-              <button
-                type="button"
+              <a-button
+                html-type="button"
                 :disabled="busy || uploadingImage"
                 @click="editing = false"
               >
-                取消</button
-              ><button class="primary" :disabled="busy || uploadingImage">
+                取消</a-button
+              ><a-button
+                html-type="submit"
+                type="primary"
+                :disabled="busy || uploadingImage"
+              >
                 {{ busy ? "保存中…" : "保存商品" }}
-              </button>
+              </a-button>
             </div>
           </footer>
         </AdminForm>
       </AdminDialog>
 
-      <section class="surface catalog-panel">
+      <a-card size="small" class="catalog-panel">
         <header class="catalog-toolbar">
           <div>
             <h3>商品列表</h3>
@@ -736,8 +785,8 @@ function saveProduct() {
           <div class="catalog-filters">
             <label class="search-field"
               ><span class="sr-only">搜索商品</span
-              ><input
-                v-model="query"
+              ><a-input
+                v-model:value="query"
                 type="search"
                 placeholder="搜索商品、规格或分类"
             /></label>
@@ -758,28 +807,32 @@ function saveProduct() {
                 <option value="inactive">已下架</option>
               </AdminSelect></label
             >
-            <button v-if="hasFilters" type="button" @click="resetFilters">
+            <a-button
+              html-type="button"
+              v-if="hasFilters"
+              @click="resetFilters"
+            >
               重置筛选
-            </button>
+            </a-button>
           </div>
         </header>
         <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">商品</th>
-                <th scope="col">状态</th>
-                <th scope="col">规格 / 可用库存</th>
-                <th scope="col">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="p in filteredProducts"
-                :key="p.id"
-                :class="{ 'editing-row': editing && form.id === p.id }"
-              >
-                <td>
+          <a-table
+            :data-source="filteredProducts"
+            :columns="productColumns"
+            row-key="id"
+            size="middle"
+            :loading="busy || loading"
+            :scroll="{ x: 680 }"
+            :pagination="{
+              defaultPageSize: 10,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50'],
+              hideOnSinglePage: true,
+            }"
+            ><template #bodyCell="{ column, record: p }"
+              ><template v-if="column.key === 'c0'"
+                ><div class="table-cell-content">
                   <div class="product-cell">
                     <div class="product-thumbnail image-placeholder">
                       <img
@@ -798,15 +851,17 @@ function saveProduct() {
                       >
                     </div>
                   </div>
-                </td>
-                <td>
-                  <span
-                    class="status-pill"
-                    :class="{ 'is-active': p.active }"
-                    >{{ p.active ? "已上架" : "已下架" }}</span
-                  >
-                </td>
-                <td>
+                </div></template
+              >
+              <template v-else-if="column.key === 'c1'"
+                ><div class="table-cell-content">
+                  <a-tag :color="p.active ? 'green' : 'default'">{{
+                    p.active ? "已上架" : "已下架"
+                  }}</a-tag>
+                </div></template
+              >
+              <template v-else-if="column.key === 'c2'"
+                ><div class="table-cell-content">
                   <div v-for="s in p.skus" :key="s.id" class="stock-line">
                     <span>{{ s.name }}</span
                     ><strong
@@ -814,21 +869,23 @@ function saveProduct() {
                       }}<small>{{ s.unit }}</small></strong
                     >
                   </div>
-                </td>
-                <td>
-                  <button
-                    class="secondary edit-button"
-                    type="button"
+                </div></template
+              >
+              <template v-else-if="column.key === 'c3'"
+                ><div class="table-cell-content">
+                  <a-button
+                    html-type="button"
+                    class="edit-button"
                     :disabled="busy || loading"
                     :aria-label="'编辑商品：' + p.name"
                     @click="edit(p)"
                   >
                     {{ editing && form.id === p.id ? "正在编辑" : "编辑商品" }}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  </a-button>
+                </div></template
+              ></template
+            ></a-table
+          >
         </div>
         <div
           v-if="!filteredProducts.length && !loading && loaded && !loadFailed"
@@ -845,25 +902,24 @@ function saveProduct() {
                 : "先配置商品分类，再添加图片、规格、价格与库存。"
             }}
           </p>
-          <button
+          <a-button
+            html-type="button"
             v-if="products.length"
-            class="secondary"
-            type="button"
             @click="resetFilters"
           >
             重置筛选
-          </button>
-          <button
+          </a-button>
+          <a-button
+            html-type="button"
+            type="primary"
             v-else
-            class="primary"
-            type="button"
             :disabled="busy"
             @click="edit()"
           >
             新增商品
-          </button>
+          </a-button>
         </div>
-      </section>
+      </a-card>
     </template>
   </section>
 </template>
@@ -909,25 +965,11 @@ function saveProduct() {
   min-width: 0;
   gap: 6px;
 }
-.business-settings :is(input, select, textarea) {
-  min-width: 0;
-  width: 100%;
-}
-.business-settings textarea {
-  resize: vertical;
-}
 .business-settings .check-label {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   white-space: nowrap;
-}
-.business-settings .check-label input {
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  padding: 0;
-  accent-color: var(--admin-accent);
 }
 .business-settings .message {
   margin: 0;
@@ -972,12 +1014,6 @@ function saveProduct() {
   margin: 0 8px;
   color: var(--admin-border);
 }
-.button-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
 .content-layout {
   max-width: 1000px;
 }
@@ -986,7 +1022,6 @@ function saveProduct() {
   display: grid;
   gap: 16px;
 }
-.business-settings .content-group,
 .editor-section {
   padding: 20px;
 }
@@ -1014,9 +1049,6 @@ function saveProduct() {
 }
 .save-bar > label {
   flex: 1;
-}
-.save-bar button {
-  flex-shrink: 0;
 }
 .category-panel summary {
   display: flex;
@@ -1090,8 +1122,7 @@ function saveProduct() {
   background: var(--admin-accent-soft);
   border-bottom: 1px solid var(--admin-border);
 }
-.editor-heading h3,
-.edit-button {
+.editor-heading h3 {
   color: var(--admin-accent);
 }
 .editor-heading > div {
@@ -1164,10 +1195,6 @@ function saveProduct() {
   margin-top: 12px;
   font-size: 12px;
 }
-.sku-footer button {
-  margin-left: auto;
-  color: var(--admin-accent);
-}
 .business-settings .admin-dialog .product-editor {
   border: 0;
   overflow: visible;
@@ -1204,13 +1231,6 @@ function saveProduct() {
 }
 .search-field {
   width: 225px;
-}
-.table-wrap {
-  max-width: 100%;
-  overflow: auto;
-}
-.table-wrap table {
-  min-width: 660px;
 }
 .product-cell {
   min-width: 220px;
@@ -1260,8 +1280,7 @@ function saveProduct() {
   min-width: 130px;
   padding: 3px 0;
 }
-.stock-line strong,
-.edit-button {
+.stock-line strong {
   white-space: nowrap;
 }
 .stock-line small {
@@ -1333,12 +1352,35 @@ function saveProduct() {
     align-items: stretch;
     flex-direction: column;
   }
-  .save-bar .button-row {
-    justify-content: flex-end;
-  }
   .business-settings .content-group,
   .editor-section {
     padding: 16px;
   }
+}
+
+.number-field {
+  width: 100%;
+  min-width: 0;
+}
+.table-cell-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.table-cell-content > .ant-btn + .ant-btn {
+  margin-left: 8px;
+}
+.section-heading {
+  margin: 0 0 16px;
+}
+.confirmation-field {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.admin-form > label,
+.fields > label,
+.result-fields > label,
+.field-grid > label,
+.sku-form > label {
+  align-content: start;
 }
 </style>

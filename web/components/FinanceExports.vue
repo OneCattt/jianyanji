@@ -2,6 +2,7 @@
 import FeedbackToast from "./FeedbackToast.vue";
 import { computed, ref } from "vue";
 import AdminSelect from "./AdminSelect.vue";
+import AdminForm from "./AdminForm.vue";
 const props = defineProps<{ permissions: readonly string[] }>();
 const kinds = [
   ["receipts", "公司收款", "finance:manage"],
@@ -24,12 +25,19 @@ const kind = ref(""),
   beforeId = ref(""),
   error = ref(""),
   busy = ref(false);
+const selectedKind = computed(() => kind.value || options.value[0]?.[0]);
 async function download() {
+  if (busy.value) return;
   busy.value = true;
   error.value = "";
   try {
     const selection = kind.value || options.value[0]?.[0];
-    if (!selection) throw new Error("没有可导出的业务权限");
+    if (!selection || !options.value.some((option) => option[0] === selection))
+      throw new Error("没有可导出的业务权限");
+    if (selection === "points" && !userId.value)
+      throw new Error("请填写需要导出积分流水的用户 ID");
+    if (selection === "payments" && !orderId.value)
+      throw new Error("请填写需要导出支付记录的订单 ID");
     const params = new URLSearchParams();
     for (const [key, value] of [
       ["userId", userId.value],
@@ -58,33 +66,76 @@ async function download() {
 </script>
 <template>
   <FeedbackToast v-model:error="error" />
-  <details v-if="options.length" class="surface">
-    <summary>财务业务导出</summary>
-    <p>
-      沿用当前账号的查询权限；金额单位为分，积分流水为百分之一积分。每次最多 200
-      条，可填上次最后一行 ID 继续。凭证和完整账户资料不导出。
-    </p>
-    <label
-      >业务<AdminSelect v-model="kind"
-        ><option value="">请选择（默认首项）</option>
-        <option v-for="option in options" :key="option[0]" :value="option[0]">
-          {{ option[1] }}
-        </option></AdminSelect
-      ></label
-    >
-    <label
-      >用户 ID（积分流水必填）<input v-model="userId" inputmode="numeric"
-    /></label>
-    <label
-      >订单 ID（支付必填；仅支付、退款、积分、奖励支持）<input
-        v-model="orderId"
-        inputmode="numeric"
-    /></label>
-    <label
-      >继续导出的最后一行 ID<input v-model="beforeId" inputmode="numeric"
-    /></label>
-    <button class="secondary" type="button" :disabled="busy" @click="download">
-      {{ busy ? "正在导出…" : "下载 CSV" }}
-    </button>
-  </details>
+  <a-collapse v-if="options.length"
+    ><a-collapse-panel key="finance" header="财务业务导出"
+      ><AdminForm class="export-form" @submit="download">
+        <p>
+          沿用当前账号的查询权限；金额单位为分，积分流水为百分之一积分。每次最多
+          200 条，可填上次最后一行 ID 继续。凭证和完整账户资料不导出。
+        </p>
+        <label
+          >业务<AdminSelect v-model="kind"
+            ><option value="">请选择（默认首项）</option>
+            <option
+              v-for="option in options"
+              :key="option[0]"
+              :value="option[0]"
+            >
+              {{ option[1] }}
+            </option></AdminSelect
+          ></label
+        >
+        <label
+          >用户 ID（积分流水必填）<a-input
+            v-model:value="userId"
+            :required="selectedKind === 'points'"
+            pattern="[1-9][0-9]*"
+            inputmode="numeric"
+        /></label>
+        <label
+          >订单 ID（支付必填；仅支付、退款、积分、奖励支持）<a-input
+            v-model:value="orderId"
+            :required="selectedKind === 'payments'"
+            pattern="[1-9][0-9]*"
+            inputmode="numeric"
+        /></label>
+        <label
+          >继续导出的最后一行 ID<a-input
+            v-model:value="beforeId"
+            pattern="[1-9][0-9]*"
+            inputmode="numeric"
+        /></label>
+        <a-button html-type="submit" :loading="busy">
+          {{ busy ? "正在导出…" : "下载 CSV" }}
+        </a-button>
+      </AdminForm></a-collapse-panel
+    ></a-collapse
+  >
 </template>
+
+<style scoped>
+.export-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.export-form > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--admin-muted);
+  line-height: 1.6;
+}
+.export-form > label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.export-form > .ant-btn {
+  justify-self: start;
+}
+@media (max-width: 650px) {
+  .export-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

@@ -34,6 +34,12 @@ function openSetup(key: "policy" | "create") {
 }
 async function savePolicy() {
   await run(async () => {
+    if (
+      !Number.isInteger(policyDraft.value.days) ||
+      policyDraft.value.days < 0 ||
+      policyDraft.value.days > 365
+    )
+      throw new Error("售后天数须为 0～365 的整数");
     await api("/admin/aftersales-settings", {
       method: "PUT",
       body: { ...policyDraft.value, reason: reason.value },
@@ -105,6 +111,19 @@ async function create() {
         lineId: Number(lineId),
         quantity: Number(quantity),
       }));
+    if (
+      items.some((item) => {
+        const line = current.value?.lines.find(
+          (value: any) => value.id === item.lineId,
+        );
+        return (
+          !line ||
+          !Number.isInteger(item.quantity) ||
+          item.quantity > line.quantity - line.refunded_qty - line.refund_held
+        );
+      })
+    )
+      throw new Error("退货数量须为整数，且不能超过各商品的可退数量");
     if (!items.length && cents(shipping.value) === 0)
       throw new Error("请选择实际退款商品数量或需退运费");
     await api("/admin/refunds", {
@@ -176,113 +195,263 @@ async function submit() {
     querying ? "" : "售后处理记录已保存，请查看当前退款状态",
   );
 }
+
+function statusColor(value: string) {
+  if (
+    [
+      "paid",
+      "completed",
+      "received",
+      "approved",
+      "success",
+      "succeeded",
+    ].includes(value)
+  )
+    return "success";
+  if (["failed", "rejected", "revoked", "review"].includes(value))
+    return "error";
+  if (
+    [
+      "pending",
+      "requested",
+      "unpaid",
+      "unknown",
+      "partially_refunded",
+      "submitted",
+    ].includes(value)
+  )
+    return "warning";
+  if (
+    [
+      "paying",
+      "processing",
+      "shipping",
+      "shipped",
+      "awaiting_shipment",
+    ].includes(value)
+  )
+    return "processing";
+  return "default";
+}
+
+const refundQuery = ref("");
+const refundStatus = ref("");
+const filteredRefunds = computed(() => {
+  const keyword = refundQuery.value.trim().toLowerCase();
+  return refunds.value.filter(
+    (record) =>
+      (!refundStatus.value || record.status === refundStatus.value) &&
+      (!keyword ||
+        [record.number, record.order_id, record.reason].some((value) =>
+          String(value ?? "")
+            .toLowerCase()
+            .includes(keyword),
+        )),
+  );
+});
+const refundColumns = [
+  { title: "售后编号", key: "number", width: 140 },
+  { title: "原订单", key: "order", width: 110 },
+  { title: "申请退款金额", key: "amount", width: 120 },
+  { title: "处理状态", key: "status", width: 150 },
+  { title: "受理原因", key: "reason", width: 170 },
+  { title: "操作", key: "actions", width: 300 },
+];
+const actionNames: Record<string, string> = {
+  approve: "审核同意售后",
+  reject: "驳回售后申请",
+  inspect: "登记实际退货验收",
+  offline: "登记产品包实际线下退款",
+  wechat: "原微信退款",
+  points: "退回原积分",
+  query: "查询原微信退款",
+};
 </script>
 <template>
   <section class="aftersales" :aria-busy="busy">
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <div class="setup-panels">
-      <section class="surface setup-panel">
+      <a-card size="small" class="setup-panel">
         <div class="section-heading">
           <h3>售后政策</h3>
-          <button
-            class="secondary"
+          <a-button
+            html-type="button"
             :disabled="busy"
             @click="openSetup('policy')"
           >
             编辑售后政策
-          </button>
+          </a-button>
         </div>
         <p>收货后 {{ policy.days }} 天可申请售后。</p>
         <p>{{ policy.policy || "暂未配置售后政策" }}</p>
         <p>新政策只用于新交易；历史订单保留购买时的政策。</p>
-      </section>
-      <section class="surface setup-panel">
+      </a-card>
+      <a-card size="small" class="setup-panel">
         <div class="section-heading">
           <h3>客服受理商品售后</h3>
-          <button class="primary" :disabled="busy" @click="openSetup('create')">
+          <a-button
+            html-type="button"
+            type="primary"
+            :disabled="busy"
+            @click="openSetup('create')"
+          >
             新增售后受理
-          </button>
+          </a-button>
         </div>
         <p>选择原订单，登记退款商品与受理原因。</p>
-      </section>
+      </a-card>
     </div>
-    <section class="surface refund-list">
+    <a-card size="small" class="refund-list">
       <header class="section-heading">
         <h3>售后处理记录</h3>
-        <span class="list-count">{{ refunds.length }} 笔记录</span>
+        <span class="list-count">{{ filteredRefunds.length }} 笔记录</span>
       </header>
-      <p v-if="busy" class="loading" role="status">正在读取或处理售后…</p>
-      <article v-for="r in refunds" :key="r.id" class="refund-record">
-        <div class="line record-heading">
-          <strong>{{ r.number }}</strong
-          ><span class="state"
-            >{{ names[r.status] }} · {{ money(r.total_cents) }}</span
+
+      <AdminForm class="filters" @submit="() => {}">
+        <label class="field"
+          >搜索售后 / 原订单<a-input
+            v-model:value="refundQuery"
+            placeholder="售后编号、原订单 ID 或受理原因"
+            :disabled="busy"
+        /></label>
+        <label class="field"
+          >处理状态<AdminSelect v-model="refundStatus" :disabled="busy"
+            ><option value="">全部状态</option>
+            <option v-for="(label, key) in names" :key="key" :value="key">
+              {{ label }}
+            </option></AdminSelect
+          ></label
+        >
+      </AdminForm>
+      <a-table
+        :columns="refundColumns"
+        :data-source="filteredRefunds"
+        row-key="id"
+        :loading="busy"
+        :pagination="{
+          pageSize: 10,
+          showSizeChanger: false,
+          hideOnSinglePage: true,
+        }"
+        :scroll="{ x: 1040 }"
+        size="small"
+        :locale="{ emptyText: '暂无符合条件的售后记录' }"
+      >
+        <template #bodyCell="{ column, record: r }">
+          <template v-if="column.key === 'number'">{{ r.number }}</template>
+          <template v-else-if="column.key === 'order'"
+            >#{{ r.order_id
+            }}<small class="cell-note">{{
+              r.kind === "package" ? "入驻产品包" : "商品订单"
+            }}</small></template
           >
-        </div>
-        <p>原订单 #{{ r.order_id }} · {{ r.reason }}</p>
-        <p v-if="r.policy.exceptionReason">
-          品牌方特批：{{ r.policy.exceptionReason }}
-        </p>
-        <details v-if="r.last_error" class="refund-error-detail">
-          <summary>查看退款异常</summary>
-          <p>{{ r.last_error }}</p>
-        </details>
-        <p v-for="l in r.lines" :key="l.lineId">
-          商品行 #{{ l.lineId }}：退{{ l.quantity }}件，需收回{{
-            l.returnQuantity
-          }}件
-        </p>
-        <div class="actions">
-          <button
-            class="secondary"
-            v-if="r.status === 'requested'"
-            @click="open(r, 'approve')"
+          <template v-else-if="column.key === 'amount'">{{
+            money(r.total_cents)
+          }}</template>
+          <template v-else-if="column.key === 'status'"
+            ><a-tag :color="statusColor(r.status)">{{
+              names[r.status] || r.status
+            }}</a-tag
+            ><small v-if="r.last_error" class="cell-note"
+              >展开查看退款异常</small
+            ></template
           >
-            审核同意</button
-          ><button
-            class="secondary"
-            v-if="r.status === 'requested'"
-            @click="open(r, 'reject')"
+          <template v-else-if="column.key === 'reason'">{{
+            r.reason
+          }}</template>
+          <template v-else-if="column.key === 'actions'">
+            <a-space wrap class="actions">
+              <a-button
+                html-type="button"
+                size="small"
+                :disabled="busy"
+                v-if="r.status === 'requested'"
+                type="primary"
+                @click="open(r, 'approve')"
+              >
+                审核同意</a-button
+              ><a-button
+                html-type="button"
+                size="small"
+                :disabled="busy"
+                v-if="r.status === 'requested'"
+                danger
+                @click="open(r, 'reject')"
+              >
+                驳回</a-button
+              ><a-button
+                html-type="button"
+                size="small"
+                :disabled="busy"
+                v-if="
+                  r.status !== 'requested' &&
+                  r.status !== 'rejected' &&
+                  !r.returned_at &&
+                  r.lines.some((l: any) => l.returnQuantity > 0)
+                "
+                @click="open(r, 'inspect')"
+              >
+                登记实际退货验收</a-button
+              ><template
+                v-if="
+                  props.canFinance && ['approved', 'failed'].includes(r.status)
+                "
+                ><a-button
+                  html-type="button"
+                  size="small"
+                  :disabled="busy"
+                  @click="open(r, 'wechat')"
+                >
+                  原微信退款</a-button
+                ><a-button
+                  html-type="button"
+                  size="small"
+                  :disabled="busy"
+                  @click="open(r, 'points')"
+                >
+                  退回原积分</a-button
+                ><a-button
+                  html-type="button"
+                  size="small"
+                  :disabled="busy"
+                  v-if="r.kind === 'package'"
+                  @click="open(r, 'offline')"
+                >
+                  登记产品包实际线下退款
+                </a-button></template
+              ><a-button
+                html-type="button"
+                size="small"
+                :disabled="busy"
+                v-if="
+                  props.canFinance &&
+                  ['processing', 'unknown', 'failed'].includes(r.status)
+                "
+                @click="open(r, 'query')"
+              >
+                查询原微信退款
+              </a-button>
+            </a-space></template
           >
-            驳回</button
-          ><button
-            class="secondary"
-            v-if="
-              r.status !== 'requested' &&
-              r.status !== 'rejected' &&
-              !r.returned_at &&
-              r.lines.some((l: any) => l.returnQuantity > 0)
-            "
-            @click="open(r, 'inspect')"
-          >
-            登记实际退货验收</button
-          ><template
-            v-if="props.canFinance && ['approved', 'failed'].includes(r.status)"
-            ><button class="secondary" @click="open(r, 'wechat')">
-              原微信退款</button
-            ><button class="secondary" @click="open(r, 'points')">
-              退回原积分</button
-            ><button
-              class="secondary"
-              v-if="r.kind === 'package'"
-              @click="open(r, 'offline')"
-            >
-              登记产品包实际线下退款
-            </button></template
-          ><button
-            class="secondary"
-            v-if="
-              props.canFinance &&
-              ['processing', 'unknown', 'failed'].includes(r.status)
-            "
-            @click="open(r, 'query')"
-          >
-            查询原微信退款
-          </button>
-        </div>
-      </article>
-      <p v-if="!busy && !refunds.length" class="empty">暂无售后记录</p>
-    </section>
+        </template>
+        <template #expandedRowRender="{ record: r }">
+          <div class="refund-details">
+            <p v-if="r.policy?.exceptionReason">
+              品牌方特批：{{ r.policy.exceptionReason }}
+            </p>
+            <p v-for="l in r.lines" :key="l.lineId">
+              商品行 #{{ l.lineId }}：退 {{ l.quantity }} 件，需收回
+              {{ l.returnQuantity }} 件
+            </p>
+            <p>退货验收：{{ r.returned_at || "尚未登记实际退货验收" }}</p>
+            <details v-if="r.last_error">
+              <summary>查看退款异常</summary>
+              <p>{{ r.last_error }}</p>
+            </details>
+          </div>
+        </template>
+      </a-table>
+    </a-card>
     <AdminDialog
       v-if="setupDialog"
       :title="setupDialog === 'policy' ? '编辑售后政策' : '客服受理商品售后'"
@@ -292,45 +461,50 @@ async function submit() {
     >
       <template v-if="setupDialog === 'policy'">
         <AdminForm class="form-grid setup-form" @submit="savePolicy">
-          <label
-            >收货后售后天数<input
-              v-model.number="policyDraft.days"
+          <label class="field"
+            >收货后售后天数<a-input-number
               type="number"
-              min="0"
-              max="365"
-              required /></label
-          ><label class="wide-field"
-            >实际售后政策<textarea
-              v-model="policyDraft.policy"
-              rows="4"
+              :step="1"
+              v-model:value="policyDraft.days"
+              :min="0"
+              :max="365"
               required
-            /></label
-          ><label class="wide-field"
-            >修改原因<input v-model="reason" required
+              :disabled="busy" /></label
+          ><label class="field wide-field"
+            >实际售后政策<a-textarea
+              v-model:value="policyDraft.policy"
+              :rows="4"
+              required
+              :disabled="busy" /></label
+          ><label class="field wide-field"
+            >修改原因<a-input v-model:value="reason" required :disabled="busy"
           /></label>
           <div class="dialog-actions wide-field">
-            <button
-              class="secondary"
-              type="button"
+            <a-button
+              html-type="button"
               :disabled="busy"
               @click="setupDialog = ''"
             >
               取消
-            </button>
-            <button class="primary" :disabled="busy">保存政策</button>
+            </a-button>
+            <a-button
+              html-type="submit"
+              type="primary"
+              :disabled="busy"
+              :loading="busy"
+              >保存政策</a-button
+            >
           </div>
-          <p class="wide-field">
-            新政策只用于新交易；历史订单保留购买时的政策。
-          </p>
         </AdminForm>
       </template>
       <template v-else>
         <AdminForm class="form-grid setup-form" @submit="create">
-          <label class="wide-field"
+          <label class="field wide-field"
             >原订单<AdminSelect
               v-model.number="selectedOrderId"
               required
               @change="quantities = {}"
+              :disabled="busy"
             >
               <option :value="0" disabled>选择已付款订单</option>
               <option
@@ -356,108 +530,152 @@ async function submit() {
                 · 已发{{ l.shipped_qty }} 已退{{ l.refunded_qty }} 办理中{{
                   l.refund_held
                 }}</span
-              ><label
-                >本次退货数量<input
-                  v-model.number="quantities[l.id]"
+              ><label class="field"
+                >本次退货数量<a-input-number
                   type="number"
-                  min="0"
+                  :step="1"
+                  v-model:value="quantities[l.id]"
+                  :min="0"
                   :max="l.quantity - l.refunded_qty - l.refund_held"
                   placeholder="0"
+                  :disabled="busy"
               /></label></div></template
-          ><label
-            >退运费（元）<input
-              v-model="shipping"
+          ><label class="field"
+            >退运费（元）<a-input
+              v-model:value="shipping"
+              pattern="[0-9]+([.][0-9]{1,2})?"
               inputmode="decimal"
-              required /></label
-          ><label
-            >受理原因<input v-model="reason" required maxlength="200" /></label
+              required
+              :disabled="busy" /></label
+          ><label class="field"
+            >受理原因<a-input
+              v-model:value="reason"
+              required
+              :maxlength="200"
+              :disabled="busy" /></label
           ><template v-if="props.canFinance"
-            ><label class="check-field wide-field"
-              ><input
-                v-model="exceptionApproved"
-                type="checkbox"
-              />品牌方确认按特殊原因受理超期售后</label
-            ><label v-if="exceptionApproved" class="wide-field"
-              >特批依据及原因<input
-                v-model="exceptionReason"
+            ><a-checkbox
+              class="check-field wide-field"
+              v-model:checked="exceptionApproved"
+              :disabled="busy"
+              >品牌方确认按特殊原因受理超期售后</a-checkbox
+            ><label v-if="exceptionApproved" class="field wide-field"
+              >特批依据及原因<a-input
+                v-model:value="exceptionReason"
                 required
-                maxlength="200" /></label
+                :maxlength="200"
+                :disabled="busy" /></label
           ></template>
           <div class="dialog-actions wide-field">
-            <button
-              class="secondary"
-              type="button"
+            <a-button
+              html-type="button"
               :disabled="busy"
               @click="setupDialog = ''"
             >
               取消
-            </button>
-            <button class="primary" :disabled="busy || !current">
+            </a-button>
+            <a-button
+              html-type="submit"
+              type="primary"
+              :disabled="busy || !current"
+              :loading="busy"
+            >
               登记售后并占用可退数量
-            </button>
+            </a-button>
           </div>
         </AdminForm>
       </template>
     </AdminDialog>
     <AdminDialog
       v-if="selected && action"
-      :title="'处理售后 ' + selected.number"
+      :title="actionNames[action] + ' · ' + selected.number"
       :busy="busy"
       @close="!busy && (action = '')"
     >
       <AdminForm class="form-grid" @submit="submit">
+        <a-descriptions class="wide-field" size="small" :column="2" bordered>
+          <a-descriptions-item label="原订单"
+            >#{{ selected.order_id }}</a-descriptions-item
+          >
+          <a-descriptions-item label="申请退款金额">{{
+            money(selected.total_cents)
+          }}</a-descriptions-item>
+        </a-descriptions>
         <template
           v-if="
             ['approve', 'reject'].includes(action) &&
             selected.kind === 'package'
           "
-          ><label
-            >产品包部分退款后身份<AdminSelect v-model="decision">
+          ><label class="field"
+            >产品包部分退款后身份<AdminSelect
+              v-model="decision"
+              :disabled="busy"
+            >
               <option value="retain">仍满足入驻条件，保留</option>
               <option value="revoke">不再满足条件，撤销该次身份</option>
             </AdminSelect></label
           ></template
         ><template v-if="action === 'inspect'"
-          ><label
+          ><label class="field"
             >实际退货收到时间<AdminDatePicker
               v-model="paidAt"
               type="datetime-local"
-              required /></label
-          ><label>验货依据<textarea v-model="inspection" required /></label
-          ><label class="check-field wide-field"
-            ><input
-              v-model="restock"
-              type="checkbox"
-            />实际验货确认可重新销售并回库存</label
+              required
+              :disabled="busy" /></label
+          ><label class="field"
+            >验货依据<a-textarea
+              v-model:value="inspection"
+              required
+              :disabled="busy" /></label
+          ><a-checkbox
+            class="check-field wide-field"
+            v-model:checked="restock"
+            :disabled="busy"
+            >实际验货确认可重新销售并回库存</a-checkbox
           ></template
         ><template v-if="action === 'offline'"
-          ><label>实际收款人<input v-model="recipient" required /></label
-          ><label
+          ><label class="field"
+            >实际收款人<a-input
+              v-model:value="recipient"
+              required
+              :disabled="busy" /></label
+          ><label class="field"
             >实际付款时间<AdminDatePicker
               v-model="paidAt"
               type="datetime-local"
-              required /></label
-          ><label>实际转账凭证<input v-model="proof" required /></label
-          ><label class="check-field wide-field"
-            ><input
-              v-model="confirmed"
-              type="checkbox"
               required
-            />公司已实际退款，资料核实无误</label
+              :disabled="busy" /></label
+          ><label class="field"
+            >实际转账凭证<a-input
+              v-model:value="proof"
+              required
+              :disabled="busy" /></label
+          ><a-checkbox
+            class="check-field wide-field"
+            v-model:checked="confirmed"
+            required
+            :disabled="busy"
+            >公司已实际退款，资料核实无误</a-checkbox
           ></template
-        ><label class="wide-field"
-          >处理原因<input v-model="reason" required maxlength="200"
+        ><label class="field wide-field"
+          >处理原因<a-input
+            v-model:value="reason"
+            required
+            :maxlength="200"
+            :disabled="busy"
         /></label>
         <div class="dialog-actions wide-field">
-          <button
-            class="secondary"
-            type="button"
-            :disabled="busy"
-            @click="action = ''"
-          >
+          <a-button html-type="button" :disabled="busy" @click="action = ''">
             取消
-          </button>
-          <button class="primary" :disabled="busy">确认处理</button>
+          </a-button>
+          <a-button
+            html-type="submit"
+            type="primary"
+            :disabled="busy"
+            :loading="busy"
+            :danger="action === 'reject'"
+            >{{ actionNames[action] }}</a-button
+          >
         </div>
       </AdminForm>
     </AdminDialog>
@@ -468,101 +686,20 @@ async function submit() {
   display: grid;
   gap: 16px;
   min-width: 0;
-  max-width: 100%;
-  color: var(--admin-ink);
-  font-size: 13px;
-}
-.aftersales *,
-.aftersales *::before,
-.aftersales *::after {
-  box-sizing: border-box;
-}
-.surface {
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  background: #fff;
 }
 .setup-panels {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
+  align-items: stretch;
   gap: 16px;
   min-width: 0;
 }
-.setup-panel summary {
-  color: var(--admin-accent);
-  cursor: pointer;
-}
-.summary-copy {
-  display: inline-grid;
-  gap: 4px;
-  max-width: calc(100% - 24px);
-  vertical-align: top;
-  overflow-wrap: anywhere;
-}
-.summary-copy strong {
-  color: var(--admin-ink);
-  font-size: 14px;
-}
-.summary-copy small,
-.list-count {
-  color: var(--admin-muted);
-  font-size: 12px;
-}
-.setup-form {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--admin-border);
-}
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: 12px;
-}
-label {
-  display: grid;
-  gap: 6px;
+.setup-panel,
+.refund-list {
   min-width: 0;
-  line-height: 1.5;
 }
-input,
-textarea,
-select {
-  min-width: 0;
-  max-width: 100%;
-}
-label > input:not([type="checkbox"]),
-label > textarea,
-label > select {
-  width: 100%;
-}
-textarea {
-  resize: vertical;
-}
-.wide-field,
-.form-submit {
-  grid-column: 1 / -1;
-}
-.form-submit {
-  justify-self: start;
-}
-.check-field {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-.check-field input[type="checkbox"] {
-  flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  margin: 2px 0 0;
-}
-.line,
-.section-heading {
+.section-heading,
+.line {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -571,96 +708,79 @@ textarea {
   min-width: 0;
 }
 .section-heading {
-  margin-bottom: 16px;
+  margin: 0 0 16px;
 }
 h3 {
-  min-width: 0;
   margin: 0;
-  color: var(--admin-ink);
   font-size: 15px;
   line-height: 1.5;
+}
+.setup-panel p,
+.refund-details p {
+  margin: 8px 0;
+  line-height: 1.7;
   overflow-wrap: anywhere;
 }
-.return-line {
-  padding: 12px;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  background: var(--admin-bg);
-}
-.return-line > span {
-  flex: 1 1 160px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.return-line label {
-  flex: 0 1 140px;
-}
-.handling-panel {
-  border-color: var(--admin-accent);
-}
-.refund-list > .section-heading {
-  margin-bottom: 0;
-}
-.refund-record {
-  min-width: 0;
-  padding: 16px 0;
-  border-top: 1px solid var(--admin-border);
-  overflow-wrap: anywhere;
-}
-.refund-record:first-of-type {
-  margin-top: 12px;
-}
-.refund-record:last-of-type {
-  padding-bottom: 0;
-}
-.record-heading strong {
-  color: var(--admin-ink);
-}
-.state {
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: var(--admin-accent-soft);
-  color: var(--admin-accent);
+.list-count,
+.cell-note {
+  color: var(--admin-muted);
   font-size: 12px;
 }
-.actions {
-  display: flex;
-  flex-wrap: wrap;
+.cell-note {
+  display: block;
+  margin-top: 4px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+.field {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  line-height: 1.5;
+}
+.field :deep(.ant-input-number) {
+  width: 100%;
+}
+.wide-field {
+  grid-column: 1 / -1;
+}
+.return-line {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--admin-border);
+}
+.return-line > span {
+  flex: 1 1 240px;
+}
+.return-line .field {
+  width: 140px;
+}
+.filters {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.refund-details {
+  display: grid;
   gap: 8px;
+  padding: 0 8px;
 }
-.refund-record .actions {
-  margin-top: 12px;
-}
-.refund-error-detail {
-  margin-top: 8px;
+.refund-details summary {
   color: var(--admin-accent);
-}
-.refund-error-detail summary {
   cursor: pointer;
 }
-button {
-  max-width: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-p {
-  margin: 8px 0;
-  line-height: 1.6;
-}
-p:not(.message) {
-  color: var(--admin-muted);
-}
-.setup-form p {
-  margin: 0;
-}
-.aftersales > .message {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.loading,
-.empty {
-  padding: 16px 12px;
-  text-align: center;
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
+  margin-top: 4px;
 }
 @media (max-width: 900px) {
   .setup-panels {
@@ -668,9 +788,7 @@ p:not(.message) {
   }
 }
 @media (max-width: 650px) {
-  .surface {
-    padding: 12px;
-  }
+  .filters,
   .form-grid {
     grid-template-columns: 1fr;
   }

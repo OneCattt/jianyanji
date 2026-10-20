@@ -88,6 +88,11 @@ function cents(value: string) {
   const [a, b = ""] = value.split(".");
   return Number(a) * 100 + Number(b.padEnd(2, "0"));
 }
+function toggleReward(id: number, checked: boolean) {
+  selected.value = checked
+    ? [...selected.value.filter((value) => value !== id), id]
+    : selected.value.filter((value) => value !== id);
+}
 const selectedRewards = computed(() =>
   rewards.value.filter((r) => selected.value.includes(r.id)),
 );
@@ -160,6 +165,12 @@ async function act(work: () => Promise<void>, message = "") {
 onMounted(() => act(load));
 function saveSettings() {
   return act(async () => {
+    if (
+      !Number.isInteger(settings.value.settlementDay) ||
+      Number(settings.value.settlementDay) < 1 ||
+      Number(settings.value.settlementDay) > 28
+    )
+      throw new Error("集中结算日须为 1 至 28 的整数");
     await api("/admin/reward-settings", {
       method: "PUT",
       body: {
@@ -173,6 +184,8 @@ function saveSettings() {
 }
 function readSource() {
   return act(async () => {
+    if (!Number.isSafeInteger(sourceId.value) || Number(sourceId.value) < 1)
+      throw new Error("请输入有效的来源订单 ID");
     basis.value = null;
     basis.value = await api("/admin/rewards/source/" + sourceId.value);
     sourceCandidates.value = basis.value.candidates || [basis.value];
@@ -187,6 +200,7 @@ function readSource() {
 function register() {
   return act(async () => {
     if (!basis.value) throw new Error("请先核对来源");
+    if (!reason.value.trim()) throw new Error("请填写本次操作原因");
     await api("/admin/rewards", {
       method: "POST",
       body: {
@@ -306,152 +320,188 @@ function openReconcile(id: number) {
   reconcileId.value = id;
   openDialog("reconcile");
 }
+
+const sourceLineColumns = [
+  { title: "原订单行", dataIndex: "lineId", key: "lineId" },
+  { title: "商品类型", key: "type" },
+  { title: "数量", dataIndex: "quantity", key: "quantity" },
+  { title: "原成交单价", key: "unit" },
+  { title: "原主理人价", key: "principal" },
+];
+const rewardColumns = [
+  { title: "月结选择", key: "c0", width: 76 },
+  { title: "来源 / 对象", key: "c1", width: 180 },
+  { title: "原奖励", key: "c2", width: 110 },
+  { title: "已冲回", key: "c3", width: 110 },
+  { title: "已结算", key: "c4", width: 110 },
+  { title: "剩余应付", key: "c5", width: 110 },
+  { title: "资格", key: "c6", width: 140 },
+  { title: "操作", key: "c7", width: 170 },
+];
+const settlementColumns = [
+  { title: "月份 / 收款人", key: "c0", width: 220 },
+  { title: "应付", key: "c1", width: 160 },
+  { title: "抵扣", key: "c2", width: 160 },
+  { title: "净付", key: "c3", width: 160 },
+  { title: "状态 / 依据", key: "c4", width: 160 },
+  { title: "操作", key: "c5", width: 200 },
+];
+const debtColumns = [
+  { title: "原代理 / 冲回", key: "c0", width: 220 },
+  { title: "形成欠款", key: "c1", width: 160 },
+  { title: "已抵扣", key: "c2", width: 160 },
+  { title: "人工实收", key: "c3", width: 160 },
+  { title: "尚待收回", key: "c4", width: 160 },
+  { title: "操作", key: "c5", width: 200 },
+];
 </script>
 <template>
   <section class="reward-operations">
     <Teleport defer to="#admin-page-actions">
-      <button
-        type="button"
-        class="secondary"
+      <a-button
+        html-type="button"
         :disabled="busy"
         @click="openDialog('settings')"
       >
         奖励参数
-      </button>
-      <button
-        type="button"
-        class="secondary"
+      </a-button>
+      <a-button
+        html-type="button"
         :disabled="busy"
         @click="openDialog('source')"
       >
         登记来源奖励
-      </button>
-      <button
-        type="button"
-        class="primary"
+      </a-button>
+      <a-button
+        html-type="button"
+        type="primary"
         :disabled="
           busy || !configured || !selected.length || selectedUser.size !== 1
         "
         @click="openDialog('plan')"
       >
         创建月结单
-      </button>
+      </a-button>
     </Teleport>
     <p class="admin-business-note">
       奖励由公司线下转账结算，与订货积分分别记账。
     </p>
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
 
-    <details>
-      <summary>
-        真实奖励档位与结算参数 ·
-        {{ configured ? "已配置" : "尚未配置，不能月结" }}
-      </summary>
-      <p>
-        店主邀请店主：邀请店主及其归属主理人各 500 元；主理人邀请店主：1,000
-        元；主理人包奖励关闭。· 每月结算日：{{
-          settings.settlementDay || "未配置"
-        }}
-      </p>
-      <p>参数仅作用于后续业务；历史来源沿用原快照。</p>
-    </details>
-    <nav class="area-nav" aria-label="奖励业务区域">
-      <button
-        type="button"
-        :aria-pressed="activeArea === 'rewards'"
-        @click="activeArea = 'rewards'"
-      >
-        奖励登记与月结 <span>{{ rewards.length }}</span>
-      </button>
-      <button
-        type="button"
-        :aria-pressed="activeArea === 'settlements'"
-        @click="activeArea = 'settlements'"
-      >
-        付款核实 <span>{{ settlements.length }}</span>
-      </button>
-      <button
-        type="button"
-        :aria-pressed="activeArea === 'recovery'"
-        @click="activeArea = 'recovery'"
-      >
-        奖励追回 <span>{{ debts.length }}</span>
-      </button>
-    </nav>
+    <a-collapse
+      ><a-collapse-panel key="details"
+        ><template #header>
+          真实奖励档位与结算参数 ·
+          {{ configured ? "已配置" : "尚未配置，不能月结" }}
+        </template>
+        <p>
+          店主邀请店主：邀请店主及其归属主理人各 500 元；主理人邀请店主：1,000
+          元；主理人包奖励关闭。· 每月结算日：{{
+            settings.settlementDay || "未配置"
+          }}
+        </p>
+        <p>参数仅作用于后续业务；历史来源沿用原快照。</p></a-collapse-panel
+      ></a-collapse
+    >
+    <a-tabs v-model:active-key="activeArea" class="area-tabs">
+      <a-tab-pane key="rewards" :tab="`奖励登记与月结 (${rewards.length})`" />
+      <a-tab-pane key="settlements" :tab="`付款核实 (${settlements.length})`" />
+      <a-tab-pane key="recovery" :tab="`奖励追回 (${debts.length})`" />
+    </a-tabs>
     <div v-show="activeArea === 'rewards'" class="area-content">
-      <section class="surface">
+      <a-card size="small" class="">
         <div class="section-heading">
           <h3>奖励来源与到期检查</h3>
           <p>勾选同一对象的可结算奖励，点击顶部按钮创建月结单。</p>
         </div>
         <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>月结选择</th>
-                <th>来源 / 对象</th>
-                <th>原奖励</th>
-                <th>已冲回</th>
-                <th>已结算</th>
-                <th>剩余应付</th>
-                <th>资格</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in rewards" :key="r.id">
-                <td>
-                  <input
-                    v-model="selected"
-                    type="checkbox"
+          <a-table
+            :data-source="rewards"
+            :columns="rewardColumns"
+            row-key="id"
+            size="middle"
+            :loading="busy"
+            :scroll="{ x: 1040 }"
+            :pagination="{
+              defaultPageSize: 10,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50'],
+              hideOnSinglePage: true,
+            }"
+            ><template #bodyCell="{ column, record: r }"
+              ><template v-if="column.key === 'c0'"
+                ><div class="table-cell-content">
+                  <a-checkbox
+                    :checked="selected.includes(r.id)"
+                    @change="toggleReward(r.id, $event.target.checked)"
                     :value="r.id"
                     :disabled="!r.eligible || !r.remainingCents || busy"
                     :aria-label="'选择奖励' + r.id"
-                  />
-                </td>
-                <td>
+                  /></div
+              ></template>
+              <template v-else-if="column.key === 'c1'"
+                ><div class="table-cell-content">
                   {{ r.orderNumber
                   }}<small>奖励 #{{ r.id }} · 代理 #{{ r.userId }}</small>
-                </td>
-                <td>¥{{ amount(r.amountCents) }}</td>
-                <td>¥{{ amount(r.reversedCents) }}</td>
-                <td>¥{{ amount(r.settledCents) }}</td>
-                <td>¥{{ amount(r.remainingCents) }}</td>
-                <td>
-                  {{ statusName(r.status) }}<small>{{ r.reason }}</small>
-                </td>
-                <td>
-                  <button
-                    class="secondary"
+                </div></template
+              >
+              <template v-else-if="column.key === 'c2'"
+                ><div class="table-cell-content">
+                  ¥{{ amount(r.amountCents) }}
+                </div></template
+              >
+              <template v-else-if="column.key === 'c3'"
+                ><div class="table-cell-content">
+                  ¥{{ amount(r.reversedCents) }}
+                </div></template
+              >
+              <template v-else-if="column.key === 'c4'"
+                ><div class="table-cell-content">
+                  ¥{{ amount(r.settledCents) }}
+                </div></template
+              >
+              <template v-else-if="column.key === 'c5'"
+                ><div class="table-cell-content">
+                  ¥{{ amount(r.remainingCents) }}
+                </div></template
+              >
+              <template v-else-if="column.key === 'c6'"
+                ><div class="table-cell-content">
+                  <a-tag :color="r.eligible ? 'green' : 'default'">{{
+                    statusName(r.status)
+                  }}</a-tag
+                  ><small>{{ r.reason }}</small>
+                </div></template
+              >
+              <template v-else-if="column.key === 'c7'"
+                ><div class="table-cell-content">
+                  <a-button
+                    html-type="button"
                     :disabled="busy"
                     @click="showDetail(r.id)"
                   >
-                    明细</button
-                  ><button
-                    class="secondary"
+                    明细</a-button
+                  ><a-button
+                    html-type="button"
                     :disabled="busy"
                     @click="openReconcile(r.id)"
                   >
                     核对退款冲回
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="!rewards.length">
-                <td colspan="8" class="empty-state">
-                  <strong>尚无人工登记奖励</strong>
-                  <p>先核对来源订单并登记奖励，再进行月结。</p>
-                  <button
-                    type="button"
-                    class="secondary"
-                    :disabled="busy"
-                    @click="openDialog('source')"
-                  >
-                    填写来源订单
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  </a-button>
+                </div></template
+              ></template
+            ><template #emptyText>
+              <strong>尚无人工登记奖励</strong>
+              <p>先核对来源订单并登记奖励，再进行月结。</p>
+              <a-button
+                html-type="button"
+                :disabled="busy"
+                @click="openDialog('source')"
+              >
+                填写来源订单
+              </a-button>
+            </template></a-table
+          >
         </div>
         <div class="settlement-plan">
           <div class="form-heading">
@@ -477,133 +527,192 @@ function openReconcile(id: number) {
             </div>
           </div>
         </div>
-      </section>
+      </a-card>
     </div>
-    <section v-show="activeArea === 'settlements'" class="surface">
+    <a-card size="small" v-show="activeArea === 'settlements'" class="">
       <div class="section-heading">
         <h3>月结与真实付款</h3>
         <p>公司线下转账后，在此登记付款或全额抵扣的实际结果。</p>
       </div>
       <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>月份 / 收款人</th>
-              <th>应付</th>
-              <th>抵扣</th>
-              <th>净付</th>
-              <th>状态 / 依据</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="s in settlements" :key="s.id">
-              <td>
+        <a-table
+          :data-source="settlements"
+          :columns="settlementColumns"
+          row-key="id"
+          size="middle"
+          :loading="busy"
+          :scroll="{ x: 1020 }"
+          :pagination="{
+            defaultPageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50'],
+            hideOnSinglePage: true,
+          }"
+          ><template #bodyCell="{ column, record: s }"
+            ><template v-if="column.key === 'c0'"
+              ><div class="table-cell-content">
                 {{ s.month }} · {{ s.payee
                 }}<small>代理 #{{ s.user_id }} / 结算 #{{ s.id }}</small>
-              </td>
-              <td>¥{{ amount(s.gross_cents) }}</td>
-              <td>¥{{ amount(s.offset_cents) }}</td>
-              <td>¥{{ amount(s.net_cents) }}</td>
-              <td>
-                <span
-                  class="status"
-                  :class="{
-                    'needs-attention': ['failed', 'unknown'].includes(s.status),
-                  }"
-                  >{{ statusName(s.status) }}</span
+              </div></template
+            >
+            <template v-else-if="column.key === 'c1'"
+              ><div class="table-cell-content">
+                ¥{{ amount(s.gross_cents) }}
+              </div></template
+            >
+            <template v-else-if="column.key === 'c2'"
+              ><div class="table-cell-content">
+                ¥{{ amount(s.offset_cents) }}
+              </div></template
+            >
+            <template v-else-if="column.key === 'c3'"
+              ><div class="table-cell-content">
+                ¥{{ amount(s.net_cents) }}
+              </div></template
+            >
+            <template v-else-if="column.key === 'c4'"
+              ><div class="table-cell-content">
+                <a-tag
+                  :color="
+                    s.status === 'paid'
+                      ? 'green'
+                      : ['failed', 'unknown'].includes(s.status)
+                        ? 'orange'
+                        : 'default'
+                  "
+                  >{{ statusName(s.status) }}</a-tag
                 ><small>{{ s.paid_at }} {{ s.proof }}</small>
-              </td>
-              <td>
-                <button
-                  class="secondary"
+              </div></template
+            >
+            <template v-else-if="column.key === 'c5'"
+              ><div class="table-cell-content">
+                <a-button
+                  html-type="button"
                   v-if="!['paid', 'cancelled'].includes(s.status)"
                   :disabled="busy"
                   @click="openResult(s)"
                 >
                   登记实际结果
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!settlements.length">
-              <td colspan="6" class="empty-state">
-                <strong>暂无月结单</strong>
-                <p>先选择同一对象的奖励，创建待付款月结单。</p>
-                <button
-                  type="button"
-                  class="secondary"
-                  @click="activeArea = 'rewards'"
-                >
-                  前往奖励登记与月结
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </a-button>
+              </div></template
+            ></template
+          ><template #emptyText>
+            <strong>暂无月结单</strong>
+            <p>先选择同一对象的奖励，创建待付款月结单。</p>
+            <a-button html-type="button" @click="activeArea = 'rewards'">
+              前往奖励登记与月结
+            </a-button>
+          </template></a-table
+        >
       </div>
-    </section>
-    <section v-show="activeArea === 'recovery'" class="surface">
+    </a-card>
+    <a-card size="small" v-show="activeArea === 'recovery'" class="">
       <div class="section-heading">
         <h3>持续待收回款</h3>
         <p>优先抵扣同一人后续可结算奖励；实际到账后才能登记人工追回。</p>
       </div>
       <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>原代理 / 冲回</th>
-              <th>形成欠款</th>
-              <th>已抵扣</th>
-              <th>人工实收</th>
-              <th>尚待收回</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="d in debts" :key="d.id">
-              <td>
+        <a-table
+          :data-source="debts"
+          :columns="debtColumns"
+          row-key="id"
+          size="middle"
+          :loading="busy"
+          :scroll="{ x: 1020 }"
+          :pagination="{
+            defaultPageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50'],
+            hideOnSinglePage: true,
+          }"
+          ><template #bodyCell="{ column, record: d }"
+            ><template v-if="column.key === 'c0'"
+              ><div class="table-cell-content">
                 代理 #{{ d.user_id }} · 冲回 #{{ d.id
                 }}<small>原奖励 #{{ d.reward_id }}</small>
-              </td>
-              <td>¥{{ amount(d.debt_cents) }}</td>
-              <td>¥{{ amount(d.offset_cents) }}</td>
-              <td>¥{{ amount(d.recovered_cents) }}</td>
-              <td>¥{{ amount(d.remainingCents) }}</td>
-              <td>
-                <button
-                  class="secondary"
+              </div></template
+            >
+            <template v-else-if="column.key === 'c1'"
+              ><div class="table-cell-content">
+                ¥{{ amount(d.debt_cents) }}
+              </div></template
+            >
+            <template v-else-if="column.key === 'c2'"
+              ><div class="table-cell-content">
+                ¥{{ amount(d.offset_cents) }}
+              </div></template
+            >
+            <template v-else-if="column.key === 'c3'"
+              ><div class="table-cell-content">
+                ¥{{ amount(d.recovered_cents) }}
+              </div></template
+            >
+            <template v-else-if="column.key === 'c4'"
+              ><div class="table-cell-content">
+                ¥{{ amount(d.remainingCents) }}
+              </div></template
+            >
+            <template v-else-if="column.key === 'c5'"
+              ><div class="table-cell-content">
+                <a-button
+                  html-type="button"
                   :disabled="busy"
                   @click="openRecovery(d)"
                 >
                   登记实际收回
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!debts.length">
-              <td colspan="6" class="empty-state">
-                <strong>当前无未收回奖励款</strong>
-                <p>如已完成退款冲回核对，可刷新查看最新待收回记录。</p>
-                <button
-                  type="button"
-                  class="secondary"
-                  :disabled="busy"
-                  @click="act(load)"
-                >
-                  刷新记录
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </a-button>
+              </div></template
+            ></template
+          ><template #emptyText>
+            <strong>当前无未收回奖励款</strong>
+            <p>如已完成退款冲回核对，可刷新查看最新待收回记录。</p>
+            <a-button html-type="button" :disabled="busy" @click="act(load)">
+              刷新记录
+            </a-button>
+          </template></a-table
+        >
       </div>
-    </section>
-    <section v-if="detail" class="surface">
+    </a-card>
+    <a-card size="small" v-if="detail" class="">
       <header>
         <h3>奖励 #{{ detail.id }} 追溯明细</h3>
-        <button class="secondary" @click="detail = null">收起</button>
+        <a-button html-type="button" @click="detail = null">收起</a-button>
       </header>
-      <pre>{{ JSON.stringify(detail, null, 2) }}</pre>
-    </section>
+      <a-descriptions
+        bordered
+        size="small"
+        :column="{ xs: 1, sm: 2 }"
+        class="detail-summary"
+      >
+        <a-descriptions-item label="来源订单">{{
+          detail.orderNumber
+        }}</a-descriptions-item>
+        <a-descriptions-item label="收益人"
+          >#{{ detail.userId }}</a-descriptions-item
+        >
+        <a-descriptions-item label="原奖励"
+          >¥{{ amount(detail.amountCents) }}</a-descriptions-item
+        >
+        <a-descriptions-item label="剩余应付"
+          >¥{{ amount(detail.remainingCents) }}</a-descriptions-item
+        >
+        <a-descriptions-item label="已冲回"
+          >¥{{ amount(detail.reversedCents) }}</a-descriptions-item
+        >
+        <a-descriptions-item label="已结算"
+          >¥{{ amount(detail.settledCents) }}</a-descriptions-item
+        >
+        <a-descriptions-item label="结算资格" :span="2"
+          >{{ statusName(detail.status) }} ·
+          {{ detail.reason }}</a-descriptions-item
+        >
+      </a-descriptions>
+      <a-collapse ghost>
+        <a-collapse-panel key="history" header="核算、冲回与结算原始记录">
+          <pre>{{ JSON.stringify(detail, null, 2) }}</pre>
+        </a-collapse-panel>
+      </a-collapse>
+    </a-card>
     <AdminDialog
       v-if="dialog === 'settings'"
       title="奖励参数"
@@ -623,33 +732,32 @@ function openReconcile(id: number) {
           }}。请在订单售后设置维护，历史奖励按原订单期限核对。
         </p>
         <label
-          >每月集中结算日<input
-            v-model.number="settings.settlementDay"
-            type="number"
-            min="1"
-            max="28"
+          >每月集中结算日<a-input-number
+            class="number-field"
+            :precision="0"
+            pattern="[0-9]+"
+            v-model:value="settings.settlementDay"
+            :min="1"
+            :max="28"
             required
         /></label>
         <p>
           仅作用于后续业务；历史来源沿用原快照。具体金额和日期须由品牌方确认。
         </p>
         <label class="reason"
-          >本次操作原因<input
-            v-model="reason"
+          >本次操作原因<a-input
+            v-model:value="reason"
             required
-            maxlength="1000"
+            :maxlength="1000"
             placeholder="填写核对依据，写入操作记录"
         /></label>
         <div class="dialog-actions">
-          <button
-            type="button"
-            class="secondary"
-            :disabled="busy"
-            @click="closeDialog"
-          >
+          <a-button html-type="button" :disabled="busy" @click="closeDialog">
             取消
-          </button>
-          <button class="primary" :disabled="busy">保存参数</button>
+          </a-button>
+          <a-button html-type="submit" type="primary" :disabled="busy"
+            >保存参数</a-button
+          >
         </div>
       </AdminForm>
     </AdminDialog>
@@ -662,24 +770,29 @@ function openReconcile(id: number) {
       <p class="source-intro">先核对来源订单，再登记对应收益人的奖励。</p>
       <AdminForm @submit="readSource" class="source-lookup">
         <label :for="sourceOrderInputId" class="source-order-label">
-          <span aria-hidden="true" class="required-mark">*</span>来源订单 ID
+          <span
+            ><span aria-hidden="true" class="required-mark">*</span>来源订单
+            ID</span
+          >
         </label>
         <div class="source-query-row">
           <div class="source-query-input">
-            <input
+            <a-input-number
+              class="number-field"
+              :precision="0"
+              pattern="[0-9]+"
               :id="sourceOrderInputId"
-              v-model.number="sourceId"
-              @input="basis = null"
+              v-model:value="sourceId"
+              @change="basis = null"
               :disabled="busy"
-              type="number"
-              min="1"
+              :min="1"
               placeholder="请输入来源订单 ID"
               required
             />
           </div>
-          <button type="submit" class="primary" :disabled="busy">
+          <a-button html-type="submit" type="primary" :disabled="busy">
             {{ busy ? "正在读取…" : "读取原始核算依据" }}
-          </button>
+          </a-button>
         </div>
       </AdminForm>
       <AdminForm v-if="basis" @submit="register" class="source-basis">
@@ -726,13 +839,79 @@ function openReconcile(id: number) {
             </option>
           </AdminSelect></label
         >
-        <details class="source-evidence">
-          <summary>查看原始核算依据</summary>
-          <pre>{{ JSON.stringify(basis.snapshot, null, 2) }}</pre>
-        </details>
+        <a-descriptions bordered size="small" :column="{ xs: 1, sm: 2 }">
+          <a-descriptions-item label="原商品货款"
+            >¥{{ amount(basis.snapshot.goodsCents) }}</a-descriptions-item
+          >
+          <a-descriptions-item label="原售后期"
+            >{{ basis.snapshot.afterSalesDays }} 天</a-descriptions-item
+          >
+          <a-descriptions-item
+            v-if="basis.snapshot.percent"
+            label="零售佣金比例"
+            >{{ basis.snapshot.percent }}%</a-descriptions-item
+          >
+          <a-descriptions-item
+            v-if="basis.snapshot.commissionGoodsCents != null"
+            label="普通商品佣金基数"
+            >¥{{
+              amount(basis.snapshot.commissionGoodsCents)
+            }}</a-descriptions-item
+          >
+          <a-descriptions-item
+            v-if="basis.snapshot.beneficiaryRole"
+            label="奖励归属"
+            >{{
+              basis.snapshot.beneficiaryRole === "principal"
+                ? "归属主理人"
+                : "直接邀请人"
+            }}</a-descriptions-item
+          >
+          <a-descriptions-item
+            v-if="basis.snapshot.paymentMethod"
+            label="原支付方式"
+            >{{
+              basis.snapshot.paymentMethod === "points"
+                ? "积分"
+                : basis.snapshot.paymentMethod === "wechat"
+                  ? "微信"
+                  : "公司转款"
+            }}</a-descriptions-item
+          >
+        </a-descriptions>
+        <a-collapse ghost class="source-evidence">
+          <a-collapse-panel key="evidence" header="商品核算明细与原始记录">
+            <a-table
+              v-if="basis.snapshot.lines?.length"
+              :data-source="basis.snapshot.lines"
+              :columns="sourceLineColumns"
+              row-key="lineId"
+              size="small"
+              :pagination="false"
+              :scroll="{ x: 600 }"
+            >
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'type'">{{
+                  record.productType === "welfare"
+                    ? "福利品（不计奖励）"
+                    : "普通商品"
+                }}</template>
+                <template v-else-if="column.key === 'unit'"
+                  >¥{{ amount(record.unitCents) }}</template
+                >
+                <template v-else-if="column.key === 'principal'">{{
+                  record.principalCents == null
+                    ? "—"
+                    : "¥" + amount(record.principalCents)
+                }}</template>
+              </template>
+            </a-table>
+            <pre>{{ JSON.stringify(basis.snapshot, null, 2) }}</pre>
+          </a-collapse-panel>
+        </a-collapse>
         <label
-          >人工核对金额（元）<input
-            v-model="registrationAmount"
+          >人工核对金额（元）<a-input
+            v-model:value="registrationAmount"
             required
             inputmode="decimal"
             pattern="\d+(\.\d{1,2})?"
@@ -742,35 +921,27 @@ function openReconcile(id: number) {
           普通商品收益不含运费和福利品；入驻奖励按原来源分别登记每位收益人。登记不代表付款。
         </p>
         <label class="reason"
-          >本次操作原因<textarea
-            v-model="reason"
+          >本次操作原因<a-textarea
+            v-model:value="reason"
             required
-            maxlength="1000"
-            rows="3"
+            :maxlength="1000"
+            :rows="3"
             placeholder="填写核对依据，写入操作记录"
           />
         </label>
         <div class="dialog-actions">
-          <button
-            type="button"
-            class="secondary"
-            :disabled="busy"
-            @click="closeDialog"
-          >
+          <a-button html-type="button" :disabled="busy" @click="closeDialog">
             取消
-          </button>
-          <button class="primary" :disabled="busy">确认登记</button>
+          </a-button>
+          <a-button html-type="submit" type="primary" :disabled="busy"
+            >确认登记</a-button
+          >
         </div>
       </AdminForm>
       <div v-else class="dialog-actions">
-        <button
-          type="button"
-          class="secondary"
-          :disabled="busy"
-          @click="closeDialog"
-        >
+        <a-button html-type="button" :disabled="busy" @click="closeDialog">
           取消
-        </button>
+        </a-button>
       </div>
     </AdminDialog>
     <AdminDialog
@@ -797,7 +968,7 @@ function openReconcile(id: number) {
             type="month"
             required /></label
         ><label
-          >实际收款人<input v-model="payee" required maxlength="100"
+          >实际收款人<a-input v-model:value="payee" required :maxlength="100"
         /></label>
         <div class="settlement-totals">
           <div>
@@ -816,29 +987,25 @@ function openReconcile(id: number) {
           }}。抵扣在核实结算后入账。
         </p>
         <label class="reason"
-          >本次操作原因<input
-            v-model="reason"
+          >本次操作原因<a-input
+            v-model:value="reason"
             required
-            maxlength="1000"
+            :maxlength="1000"
             placeholder="填写核对依据，写入操作记录"
         /></label>
         <div class="dialog-actions">
-          <button
-            type="button"
-            class="secondary"
-            :disabled="busy"
-            @click="closeDialog"
-          >
+          <a-button html-type="button" :disabled="busy" @click="closeDialog">
             取消
-          </button>
-          <button
-            class="primary"
+          </a-button>
+          <a-button
+            html-type="submit"
+            type="primary"
             :disabled="
               busy || !configured || !selected.length || selectedUser.size !== 1
             "
           >
             创建待付款月结单
-          </button>
+          </a-button>
         </div>
       </AdminForm>
     </AdminDialog>
@@ -864,29 +1031,25 @@ function openReconcile(id: number) {
               type="datetime-local"
               required /></label
           ><label
-            >付款或全额抵扣凭证<textarea
-              v-model="result.proof"
+            >付款或全额抵扣凭证<a-textarea
+              v-model:value="result.proof"
               required
-              placeholder="银行流水号、凭证存储地址或抵扣核对依据"
-            /></label
+              placeholder="银行流水号、凭证存储地址或抵扣核对依据" /></label
         ></template>
         <label class="reason"
-          >本次操作原因<input
-            v-model="reason"
+          >本次操作原因<a-input
+            v-model:value="reason"
             required
-            maxlength="1000"
+            :maxlength="1000"
             placeholder="填写核对依据，写入操作记录"
         /></label>
         <div class="dialog-actions">
-          <button
-            type="button"
-            class="secondary"
-            :disabled="busy"
-            @click="closeDialog"
-          >
+          <a-button html-type="button" :disabled="busy" @click="closeDialog">
             取消
-          </button>
-          <button class="primary" :disabled="busy">保存核实结果</button>
+          </a-button>
+          <a-button html-type="submit" type="primary" :disabled="busy"
+            >保存核实结果</a-button
+          >
         </div>
       </AdminForm>
     </AdminDialog>
@@ -899,8 +1062,8 @@ function openReconcile(id: number) {
       <AdminForm @submit="recover" class="form-grid">
         <p>冲回 #{{ recovery.reversalId }} 的实际到账记录</p>
         <label
-          >实际收回（元）<input
-            v-model="recovery.amount"
+          >实际收回（元）<a-input
+            v-model:value="recovery.amount"
             inputmode="decimal"
             pattern="\d+(\.\d{1,2})?"
             data-error-message="请输入金额，最多两位小数"
@@ -910,24 +1073,23 @@ function openReconcile(id: number) {
             v-model="recovery.receivedAt"
             type="datetime-local"
             required /></label
-        ><label>到账凭证<textarea v-model="recovery.proof" required /></label>
+        ><label
+          >到账凭证<a-textarea v-model:value="recovery.proof" required
+        /></label>
         <label class="reason"
-          >本次操作原因<input
-            v-model="reason"
+          >本次操作原因<a-input
+            v-model:value="reason"
             required
-            maxlength="1000"
+            :maxlength="1000"
             placeholder="填写核对依据，写入操作记录"
         /></label>
         <div class="dialog-actions">
-          <button
-            type="button"
-            class="secondary"
-            :disabled="busy"
-            @click="closeDialog"
-          >
+          <a-button html-type="button" :disabled="busy" @click="closeDialog">
             取消
-          </button>
-          <button class="primary" :disabled="busy">核实到账并登记</button>
+          </a-button>
+          <a-button html-type="submit" type="primary" :disabled="busy"
+            >核实到账并登记</a-button
+          >
         </div>
       </AdminForm>
     </AdminDialog>
@@ -943,22 +1105,19 @@ function openReconcile(id: number) {
           来源订单的退款并记录冲回；已付奖励优先抵扣同一人后续应结算奖励，不足部分持续记录待追回。
         </p>
         <label class="reason"
-          >本次操作原因<input
-            v-model="reason"
+          >本次操作原因<a-input
+            v-model:value="reason"
             required
-            maxlength="1000"
+            :maxlength="1000"
             placeholder="填写核对依据，写入操作记录"
         /></label>
         <div class="dialog-actions">
-          <button
-            type="button"
-            class="secondary"
-            :disabled="busy"
-            @click="closeDialog"
-          >
+          <a-button html-type="button" :disabled="busy" @click="closeDialog">
             取消
-          </button>
-          <button class="primary" :disabled="busy">确认核对退款冲回</button>
+          </a-button>
+          <a-button html-type="submit" type="primary" :disabled="busy"
+            >确认核对退款冲回</a-button
+          >
         </div>
       </AdminForm>
     </AdminDialog>
@@ -1049,17 +1208,6 @@ summary {
   min-width: 0;
   gap: 6px;
 }
-.reward-operations input:not([type="checkbox"]),
-select,
-textarea {
-  box-sizing: border-box;
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-}
-textarea {
-  resize: vertical;
-}
 .inline {
   justify-content: flex-start;
   align-items: end;
@@ -1077,41 +1225,9 @@ textarea {
   border: 1px solid var(--admin-border);
   border-radius: 8px;
 }
-.area-nav button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px 12px;
-  color: var(--admin-muted);
-  border: 1px solid transparent;
-  border-radius: 8px;
-}
-.area-nav button[aria-pressed="true"] {
-  background: var(--admin-accent-soft);
-  color: var(--admin-accent);
-  border-color: var(--admin-accent);
-  font-weight: 600;
-}
 .area-nav span {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-}
-.area-nav button:focus-visible {
-  outline: 2px solid var(--admin-accent);
-  outline-offset: 2px;
-}
-.table-wrap {
-  min-width: 0;
-  max-width: 100%;
-  overflow: auto;
-}
-th,
-td {
-  white-space: nowrap;
-}
-td:last-child button + button {
-  margin-left: 8px;
 }
 small {
   display: block;
@@ -1157,16 +1273,6 @@ pre {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-}
-.source-query-input {
-  display: grid;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-}
-.source-query-row > button {
-  flex-shrink: 0;
-  min-height: 40px;
 }
 .source-lookup + .source-basis,
 .source-lookup + .dialog-actions {
@@ -1301,21 +1407,11 @@ p.success {
   .form-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-  .area-nav button {
-    flex: 1 1 auto;
-  }
   .inline label {
     max-width: none;
   }
-  .inline button {
-    width: 100%;
-  }
   .source-query-row {
     flex-direction: column;
-  }
-  .source-query-input,
-  .source-query-row > button {
-    width: 100%;
   }
   .source-summary {
     grid-template-columns: minmax(0, 1fr);
@@ -1326,6 +1422,46 @@ p.success {
   }
   .settlement-totals {
     gap: 8px;
+  }
+}
+
+.number-field {
+  width: 100%;
+  min-width: 0;
+}
+.table-cell-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.table-cell-content > .ant-btn + .ant-btn {
+  margin-left: 8px;
+}
+.section-heading {
+  margin: 0 0 16px;
+}
+.area-tabs {
+  min-width: 0;
+}
+.detail-summary {
+  margin-top: 16px;
+}
+.source-query-input {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.source-query-row > .ant-btn {
+  flex-shrink: 0;
+}
+.form-grid > label,
+.source-basis > label {
+  align-content: start;
+}
+@media (max-width: 650px) {
+  .source-query-input,
+  .source-query-row > .ant-btn {
+    width: 100%;
   }
 }
 </style>

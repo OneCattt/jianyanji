@@ -33,17 +33,17 @@ const preview = computed(() => {
     </AdminSelect></label
   >
   <label v-if="productType === 'regular'"
-    >零售价（元）<input
+    >零售价（元）<a-input
       :value="retail"
-      @input="emit('update:retail', ($event.target as HTMLInputElement).value)"
+      @update:value="emit('update:retail', $event)"
       inputmode="decimal"
       pattern="[0-9]+([.][0-9]{1,2})?"
       placeholder="暂不可购买"
   /></label>
   <label v-else
-    >统一福利价（元）<input
+    >统一福利价（元）<a-input
       :value="welfare"
-      @input="emit('update:welfare', ($event.target as HTMLInputElement).value)"
+      @update:value="emit('update:welfare', $event)"
       inputmode="decimal"
       pattern="[0-9]+([.][0-9]{1,2})?"
       placeholder="暂不可购买"

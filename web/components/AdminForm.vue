@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onUpdated, ref, useId } from "vue";
+import { onBeforeUnmount, onMounted, onUpdated, ref, useId } from "vue";
+
+import { Form } from "ant-design-vue";
 
 const emit = defineEmits<{ submit: [event: SubmitEvent] }>();
 const form = ref<HTMLFormElement>();
+const antForm = ref<{ $el: HTMLFormElement }>();
+onMounted(() => {
+  form.value = antForm.value?.$el;
+});
 const prefix = useId();
 type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 const errors = new Map<
@@ -23,7 +29,7 @@ function fieldName(control: Control) {
   ) as HTMLElement | undefined;
   label
     ?.querySelectorAll(
-      "[data-admin-control], input, select, textarea, button, small, .admin-field-error",
+      "[data-admin-control], .ant-select, .ant-checkbox, .ant-picker, input, select, textarea, button, small, .admin-field-error",
     )
     .forEach((node) => node.remove());
   return (
@@ -48,6 +54,15 @@ function message(control: Control) {
   }
   if (control.validity.badInput) return `请填写有效的${name}`;
   if (!control.value) return "";
+  // AntD 数值框使用文本 input，范围需从无障碍属性读取后参与提交校验。
+  if (input?.getAttribute("role") === "spinbutton") {
+    const value = Number(input.value);
+    if (!Number.isFinite(value)) return `请填写有效的${name}`;
+    const min = input.getAttribute("aria-valuemin");
+    const max = input.getAttribute("aria-valuemax");
+    if (min !== null && value < Number(min)) return `${name}不能小于 ${min}`;
+    if (max !== null && value > Number(max)) return `${name}不能大于 ${max}`;
+  }
   if (!(control instanceof HTMLSelectElement)) {
     if (control.minLength > 0 && control.value.length < control.minLength)
       return `${name}至少填写 ${control.minLength} 个字符`;
@@ -86,7 +101,9 @@ function focusTarget(control: Control) {
   return (
     control
       .closest("[data-admin-control]")
-      ?.querySelector<HTMLElement>("[data-admin-trigger]") || control
+      ?.querySelector<HTMLElement>(
+        "[role=combobox], .ant-picker-input input, [data-admin-trigger]",
+      ) || control
   );
 }
 function validate(control: Control) {
@@ -109,10 +126,11 @@ function validate(control: Control) {
       targetDescribedBy: target.getAttribute("aria-describedby"),
     };
     errors.set(control, error);
-    (control.closest("[data-admin-control]") || control).insertAdjacentElement(
-      "afterend",
-      node,
-    );
+    (
+      control.closest(
+        "[data-admin-control], .ant-input-number, .ant-checkbox-wrapper, .ant-input-affix-wrapper",
+      ) || control
+    ).insertAdjacentElement("afterend", node);
     control.setAttribute(
       "aria-describedby",
       [error.describedBy, node.id].filter(Boolean).join(" "),
@@ -166,8 +184,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <form
-    ref="form"
+  <Form
+    ref="antForm"
+    layout="vertical"
     class="admin-form"
     novalidate
     @submit.prevent="submit"
@@ -175,5 +194,5 @@ onBeforeUnmount(() => {
     @change="changed"
   >
     <slot />
-  </form>
+  </Form>
 </template>

@@ -24,6 +24,22 @@ async function submit() {
   error.value = "";
   try {
     const f = form.value;
+    const positiveId = (value: string) =>
+      /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value));
+    if (!positiveId(f.userId)) throw new Error("用户编号须为正整数");
+    if (
+      (!["bootstrap", "initial-application"].includes(action.value) ||
+        f.identity === "C") &&
+      !positiveId(f.principalId)
+    )
+      throw new Error("归属或接管主理人编号须为正整数");
+    if (action.value === "relation" && !positiveId(f.inviterId))
+      throw new Error("直接邀请人编号须为正整数");
+    if (
+      action.value === "initial-application" &&
+      (!positiveId(f.addressId) || !f.confirmed)
+    )
+      throw new Error("请填写本人有效地址编号并确认资格、协议与本次归属");
     const body =
       action.value === "bootstrap"
         ? {
@@ -91,7 +107,7 @@ async function submit() {
       首批核验仅用于已有真实资格的代理；新购产品包请核实实际收款。核验不补发历史积分或奖励。
     </p>
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
-    <AdminForm @submit="submit">
+    <AdminForm class="qualification-form" @submit="submit">
       <label
         >办理事项<AdminSelect v-model="action"
           ><option value="bootstrap">首批存量资格核验</option>
@@ -101,7 +117,14 @@ async function submit() {
         ></label
       >
       <label
-        >用户编号<input v-model="form.userId" type="number" min="1" required
+        >用户编号<a-input-number
+          class="number-field"
+          string-mode
+          :precision="0"
+          pattern="[0-9]+"
+          v-model:value="form.userId"
+          :min="1"
+          required
       /></label>
       <label v-if="['bootstrap', 'initial-application'].includes(action)"
         >核验身份<AdminSelect v-model="form.identity"
@@ -110,10 +133,13 @@ async function submit() {
         ></label
       >
       <label v-if="action === 'relation'"
-        >直接邀请人编号<input
-          v-model="form.inviterId"
-          type="number"
-          min="1"
+        >直接邀请人编号<a-input-number
+          class="number-field"
+          string-mode
+          :precision="0"
+          pattern="[0-9]+"
+          v-model:value="form.inviterId"
+          :min="1"
           required
       /></label>
       <label
@@ -122,33 +148,51 @@ async function submit() {
           form.identity === 'C'
         "
         >{{ action === "handover" ? "指定有效接管主理人编号" : "归属主理人编号"
-        }}<input v-model="form.principalId" type="number" min="1" required
+        }}<a-input-number
+          class="number-field"
+          string-mode
+          :precision="0"
+          pattern="[0-9]+"
+          v-model:value="form.principalId"
+          :min="1"
+          required
       /></label>
       <label v-if="['bootstrap', 'initial-application'].includes(action)"
-        >真实存量资格依据<textarea
-          v-model="form.evidence"
-          maxlength="2000"
+        >{{
+          action === "initial-application"
+            ? "资格、协议与申请依据"
+            : "真实存量资格依据"
+        }}<a-textarea
+          v-model:value="form.evidence"
+          :maxlength="2000"
           required
         />
       </label>
       <label v-if="action === 'initial-application'"
-        >本人有效地址编号<input
-          v-model="form.addressId"
-          type="number"
-          min="1"
-          required /></label
-      ><label v-if="action === 'initial-application'"
-        ><input
-          v-model="form.confirmed"
-          type="checkbox"
+        >本人有效地址编号<a-input-number
+          class="number-field"
+          string-mode
+          :precision="0"
+          pattern="[0-9]+"
+          v-model:value="form.addressId"
+          :min="1"
           required
-        />已与申请人确认资格、产品包、协议及本次归属</label
-      ><label
-        >办理原因<textarea v-model="form.reason" maxlength="2000" required />
+      /></label>
+      <div class="confirmation-field" v-if="action === 'initial-application'">
+        <a-checkbox v-model:checked="form.confirmed" required
+          >已与申请人确认资格、产品包、协议及本次归属</a-checkbox
+        >
+      </div>
+      <label
+        >办理原因<a-textarea
+          v-model:value="form.reason"
+          :maxlength="2000"
+          required
+        />
       </label>
-      <button class="primary" :disabled="busy">
+      <a-button html-type="submit" type="primary" :disabled="busy">
         {{ busy ? "办理中…" : "确认办理并留痕" }}
-      </button>
+      </a-button>
     </AdminForm>
   </section>
 </template>
@@ -162,28 +206,56 @@ async function submit() {
   background: white;
   margin-bottom: 16px;
 }
-form {
+.qualification-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
-label {
+.qualification-form > label {
   display: grid;
   gap: 6px;
-}
-textarea {
-  min-height: 70px;
-}
-button {
-  justify-self: start;
 }
 p {
   color: var(--admin-muted);
   font-size: 13px;
 }
 @media (max-width: 650px) {
-  form {
+  .qualification-form {
     grid-template-columns: 1fr;
   }
+}
+.qualification-form > label:has(.ant-checkbox-wrapper),
+.qualification-form > label:has(.ant-input-textarea),
+.qualification-form > .ant-btn {
+  grid-column: 1 / -1;
+}
+.qualification-form > .ant-btn {
+  justify-self: start;
+}
+
+.number-field {
+  width: 100%;
+  min-width: 0;
+}
+.table-cell-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.table-cell-content > .ant-btn + .ant-btn {
+  margin-left: 8px;
+}
+.section-heading {
+  margin: 0 0 16px;
+}
+.confirmation-field {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.admin-form > label,
+.fields > label,
+.result-fields > label,
+.field-grid > label,
+.sku-form > label {
+  align-content: start;
 }
 </style>

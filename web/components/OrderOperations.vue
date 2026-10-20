@@ -293,36 +293,108 @@ async function saveShipping() {
     saving.value = false;
   }
 }
+const snapshotColumns = [
+  { title: "商品 / 规格", key: "product", width: 180 },
+  { title: "数量", key: "quantity", width: 180 },
+  { title: "成交单价", key: "unit", width: 180 },
+  { title: "当时主理人单价", key: "principal", width: 180 },
+  { title: "货款小计", key: "subtotal", width: 180 },
+];
+const fulfillmentColumns = [
+  { title: "SKU / 行 ID", key: "sku", width: 180 },
+  { title: "订购", key: "quantity", width: 180 },
+  { title: "已发货", key: "shipped", width: 180 },
+  { title: "已收货", key: "received", width: 180 },
+  { title: "已退款", key: "refunded", width: 180 },
+  { title: "退款占用", key: "held", width: 180 },
+];
+const orderColumns = [
+  { title: "订单号 / 时间", key: "order", width: 230 },
+  { title: "购买者 / 类型", key: "buyer", width: 180 },
+  { title: "收货人", key: "recipient", width: 180 },
+  { title: "订单状态", key: "status", width: 180 },
+  { title: "支付状态", key: "payment", width: 180 },
+  { title: "订单金额", key: "amount", width: 120 },
+  { title: "详情", key: "actions", width: 170, fixed: "right" as const },
+];
+
+function statusColor(value: string) {
+  if (
+    [
+      "paid",
+      "completed",
+      "received",
+      "approved",
+      "success",
+      "succeeded",
+    ].includes(value)
+  )
+    return "success";
+  if (["failed", "rejected", "revoked", "review"].includes(value))
+    return "error";
+  if (
+    [
+      "pending",
+      "requested",
+      "unpaid",
+      "unknown",
+      "partially_refunded",
+      "submitted",
+    ].includes(value)
+  )
+    return "warning";
+  if (
+    [
+      "paying",
+      "processing",
+      "shipping",
+      "shipped",
+      "awaiting_shipment",
+    ].includes(value)
+  )
+    return "processing";
+  return "default";
+}
 </script>
 
 <template>
   <section class="order-operations" :aria-busy="loading || saving">
-    <nav class="operation-tabs" aria-label="订单管理">
-      <button
-        :aria-current="active === 'orders' ? 'page' : undefined"
+    <a-space
+      v-if="!props.section"
+      class="operation-tabs"
+      wrap
+      aria-label="订单管理"
+    >
+      <a-button
+        html-type="button"
+        :type="active === 'orders' ? 'primary' : 'default'"
         :disabled="loading || saving"
         @click="navigate('orders')"
+        >订单记录</a-button
       >
-        订单记录</button
-      ><button
-        :aria-current="active === 'shipping' ? 'page' : undefined"
+      <a-button
+        html-type="button"
+        :type="active === 'shipping' ? 'primary' : 'default'"
         :disabled="loading || saving"
         @click="navigate('shipping')"
+        >配送配置</a-button
       >
-        配送配置
-      </button>
-    </nav>
+    </a-space>
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
-    <p v-if="loading" class="loading" role="status">
-      正在读取{{ active === "shipping" ? "配送配置" : "订单记录" }}…
-    </p>
+    <a-spin v-if="loading" tip="正在读取…" />
     <template v-else-if="active === 'shipping'">
-      <article v-if="shippingLoaded" class="surface order-detail">
+      <a-card size="small" v-if="shippingLoaded" class="order-detail">
         <div class="section-heading">
           <h3>{{ shippingConfigured ? "当前配送配置" : "配送尚未配置" }}</h3>
-          <button class="primary" :disabled="saving" @click="openShipping">
-            {{ shippingConfigured ? "编辑配送配置" : "新增配送配置" }}
-          </button>
+          <a-button
+            v-if="shippingConfigured"
+            html-type="button"
+            type="primary"
+            :disabled="saving"
+            @click="openShipping"
+          >
+            编辑配送配置
+          </a-button>
         </div>
         <dl v-if="savedShipping" class="facts">
           <div>
@@ -342,23 +414,38 @@ async function saveShipping() {
             <dd>{{ savedShipping.instructions }}</dd>
           </div>
         </dl>
-        <p v-else>未配置时购买端无法下单，请新增配送配置。</p>
-      </article>
+        <div v-else class="shipping-empty">
+          <p>设置配送省份、运费及发货说明后，购买者即可下单。</p>
+          <a-button
+            html-type="button"
+            type="primary"
+            :disabled="saving"
+            @click="openShipping"
+          >
+            新增配送配置
+          </a-button>
+        </div>
+      </a-card>
       <p v-else class="empty">暂未读取到配送配置，请刷新重试。</p>
     </template>
     <template v-else-if="selected">
-      <button class="text-button back-orders" @click="selectedId = 0">
+      <a-button
+        html-type="button"
+        type="link"
+        class="back-orders"
+        @click="selectedId = 0"
+      >
         ‹ 返回订单列表
-      </button>
-      <article class="surface order-detail">
+      </a-button>
+      <a-card size="small" class="order-detail">
         <div class="detail-heading">
           <div>
-            <small>订单编号</small>
+            <small class="cell-note">订单编号</small>
             <h3>{{ selected.number }}</h3>
           </div>
-          <span class="state">{{
+          <a-tag :color="statusColor(selected.status)">{{
             orderStates[selected.status] ?? selected.status
-          }}</span>
+          }}</a-tag>
         </div>
         <dl class="facts">
           <div>
@@ -434,35 +521,35 @@ async function saveShipping() {
         <section class="snapshot-section">
           <h3>商品成交快照</h3>
           <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>商品 / 规格</th>
-                  <th>数量</th>
-                  <th>成交单价</th>
-                  <th>当时主理人单价</th>
-                  <th>货款小计</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="line in selected.snapshot.lines" :key="line.skuId">
-                  <td>
-                    {{ line.name
-                    }}<small>{{ line.skuName }} · SKU {{ line.skuId }}</small>
-                  </td>
-                  <td>{{ line.quantity }}{{ line.unit }}</td>
-                  <td>{{ money(line.unitCents) }}</td>
-                  <td>
-                    {{
-                      line.principalCents != null
-                        ? money(line.principalCents)
-                        : "—"
-                    }}
-                  </td>
-                  <td>{{ money(line.unitCents * line.quantity) }}</td>
-                </tr>
-              </tbody>
-            </table>
+            <a-table
+              :columns="snapshotColumns"
+              :data-source="selected.snapshot.lines || []"
+              row-key="skuId"
+              :pagination="false"
+              :scroll="{ x: 720 }"
+              size="small"
+              ><template #bodyCell="{ column, record: line }"
+                ><template v-if="column.key === 'product'">
+                  {{ line.name
+                  }}<small class="cell-note"
+                    >{{ line.skuName }} · SKU {{ line.skuId }}</small
+                  > </template
+                ><template v-else-if="column.key === 'quantity'"
+                  >{{ line.quantity }}{{ line.unit }}</template
+                ><template v-else-if="column.key === 'unit'">{{
+                  money(line.unitCents)
+                }}</template
+                ><template v-else-if="column.key === 'principal'">
+                  {{
+                    line.principalCents != null
+                      ? money(line.principalCents)
+                      : "—"
+                  }} </template
+                ><template v-else-if="column.key === 'subtotal'">{{
+                  money(line.unitCents * line.quantity)
+                }}</template></template
+              ></a-table
+            >
           </div>
         </section>
         <dl class="totals">
@@ -491,28 +578,33 @@ async function saveShipping() {
         <section class="snapshot-section">
           <h3>商品履约数量</h3>
           <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>SKU / 行 ID</th>
-                  <th>订购</th>
-                  <th>已发货</th>
-                  <th>已收货</th>
-                  <th>已退款</th>
-                  <th>退款占用</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="line in selected.lines" :key="line.id">
-                  <td>{{ line.sku_id }} / {{ line.id }}</td>
-                  <td>{{ line.quantity }}</td>
-                  <td>{{ line.shipped_qty }}</td>
-                  <td>{{ line.received_qty }}</td>
-                  <td>{{ line.refunded_qty }}</td>
-                  <td>{{ line.refund_held }}</td>
-                </tr>
-              </tbody>
-            </table>
+            <a-table
+              :columns="fulfillmentColumns"
+              :data-source="selected.lines || []"
+              row-key="id"
+              :pagination="false"
+              :scroll="{ x: 660 }"
+              size="small"
+              ><template #bodyCell="{ column, record: line }"
+                ><template v-if="column.key === 'sku'"
+                  >{{ line.sku_id }} / {{ line.id }}</template
+                ><template v-else-if="column.key === 'quantity'">{{
+                  line.quantity
+                }}</template
+                ><template v-else-if="column.key === 'shipped'">{{
+                  line.shipped_qty
+                }}</template
+                ><template v-else-if="column.key === 'received'">{{
+                  line.received_qty
+                }}</template
+                ><template v-else-if="column.key === 'refunded'">{{
+                  line.refunded_qty
+                }}</template
+                ><template v-else-if="column.key === 'held'">{{
+                  line.refund_held
+                }}</template></template
+              ></a-table
+            >
           </div>
         </section>
         <section class="snapshot-section">
@@ -536,25 +628,32 @@ async function saveShipping() {
           <summary>查看完整成交快照</summary>
           <pre>{{ JSON.stringify(selected.snapshot, null, 2) }}</pre>
         </details>
-      </article>
+      </a-card>
     </template>
     <template v-else>
-      <section class="surface order-list">
-        <AdminForm class="order-filters">
-          <label
-            >搜索订单 / 购买者<input
-              v-model="search"
+      <a-card size="small" class="order-list">
+        <AdminForm class="order-filters" @submit="() => {}">
+          <label class="field"
+            >搜索订单 / 购买者<a-input
+              v-model:value="search"
               type="search"
-              placeholder="订单号、用户 ID、收货人或电话" /></label
-          ><label
-            >订单状态<AdminSelect v-model="status">
+              placeholder="订单号、用户 ID、收货人或电话"
+              :disabled="loading || saving" /></label
+          ><label class="field"
+            >订单状态<AdminSelect
+              v-model="status"
+              :disabled="loading || saving"
+            >
               <option value="">全部状态</option>
               <option v-for="value in states" :key="value" :value="value">
                 {{ orderStates[value] ?? value }}
               </option>
             </AdminSelect></label
-          ><label
-            >支付状态<AdminSelect v-model="paymentState">
+          ><label class="field"
+            >支付状态<AdminSelect
+              v-model="paymentState"
+              :disabled="loading || saving"
+            >
               <option value="">全部状态</option>
               <option
                 v-for="value in paymentOptions"
@@ -571,51 +670,56 @@ async function saveShipping() {
           {{ filtered.length }} 笔。
         </p>
         <div class="table-wrap order-table">
-          <table>
-            <thead>
-              <tr>
-                <th>订单号 / 时间</th>
-                <th>购买者 / 类型</th>
-                <th>收货人</th>
-                <th>订单状态</th>
-                <th>支付状态</th>
-                <th>订单金额</th>
-                <th>详情</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="order in filtered" :key="order.id">
-                <td>
-                  {{ order.number }}<small>{{ time(order.create_time) }}</small>
-                </td>
-                <td>
-                  {{ order.user_id }}<small>{{ kindName(order.kind) }}</small>
-                </td>
-                <td>{{ order.snapshot.address?.recipient ?? "—" }}</td>
-                <td>
-                  <span class="state">{{
-                    orderStates[order.status] ?? order.status
-                  }}</span>
-                </td>
-                <td>
-                  {{
-                    paymentStates[order.payment_state] ?? order.payment_state
-                  }}
-                </td>
-                <td>{{ money(order.total_cents) }}</td>
-                <td>
-                  <button class="detail-button" @click="selectedId = order.id">
-                    查看详情
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-if="!filtered.length" class="empty">
-            {{ orders.length ? "没有符合条件的订单。" : "暂无订单记录。" }}
-          </p>
+          <a-table
+            :columns="orderColumns"
+            :data-source="filtered || []"
+            row-key="id"
+            :pagination="{
+              pageSize: 20,
+              showSizeChanger: false,
+              hideOnSinglePage: true,
+            }"
+            :scroll="{ x: 1000 }"
+            size="small"
+            :loading="loading"
+            ><template #bodyCell="{ column, record: order }"
+              ><template v-if="column.key === 'order'">
+                {{ order.number
+                }}<small class="cell-note">{{
+                  time(order.create_time)
+                }}</small> </template
+              ><template v-else-if="column.key === 'buyer'">
+                {{ order.user_id
+                }}<small class="cell-note">{{
+                  kindName(order.kind)
+                }}</small> </template
+              ><template v-else-if="column.key === 'recipient'">{{
+                order.snapshot.address?.recipient ?? "—"
+              }}</template
+              ><template v-else-if="column.key === 'status'">
+                <a-tag :color="statusColor(order.status)">{{
+                  orderStates[order.status] ?? order.status
+                }}</a-tag> </template
+              ><template v-else-if="column.key === 'payment'">
+                <a-tag :color="statusColor(order.payment_state)">{{
+                  paymentStates[order.payment_state] ?? order.payment_state
+                }}</a-tag> </template
+              ><template v-else-if="column.key === 'amount'">{{
+                money(order.total_cents)
+              }}</template
+              ><template v-else-if="column.key === 'actions'">
+                <a-button
+                  html-type="button"
+                  type="link"
+                  @click="selectedId = order.id"
+                >
+                  查看详情
+                </a-button>
+              </template></template
+            ></a-table
+          >
         </div>
-      </section>
+      </a-card>
     </template>
     <AdminDialog
       v-if="editingShipping"
@@ -623,68 +727,81 @@ async function saveShipping() {
       :busy="saving"
       @close="!saving && (editingShipping = false)"
     >
-      <AdminForm class="shipping-form surface" @submit="saveShipping">
-        <p v-if="!shippingConfigured" class="unconfigured">
+      <AdminForm class="shipping-form" @submit="saveShipping">
+        <p v-if="!shippingConfigured">
           配送尚未配置，请完整填写后保存。未配置时购买端无法下单。
         </p>
         <fieldset :disabled="saving">
-          <label
-            >配送省份<textarea
-              v-model="form.provinces"
-              rows="6"
+          <label class="field"
+            >配送省份<a-textarea
+              v-model:value="form.provinces"
+              :rows="6"
               required
               placeholder="每行填写一个完整省份名称，如：浙江省"
-            /><small
+              :disabled="loading || saving"
+            /><small class="cell-note"
               >须与收货地址省份一致；支持按行或逗号分隔。不在范围内的地址不可下单。</small
             ></label
           >
           <div class="shipping-fields">
-            <label
-              >固定运费（元）<input
-                v-model="form.fee"
+            <label class="field"
+              >固定运费（元）<a-input
+                v-model:value="form.fee"
                 required
                 inputmode="decimal"
                 pattern="[0-9]+(\.[0-9]{1,2})?"
                 placeholder="0.00"
-              /><small>0 表示包邮；最多两位小数。</small></label
-            ><label
-              >待付款有效期（分钟）<input
-                v-model="form.pendingMinutes"
+                :disabled="loading || saving"
+              /><small class="cell-note"
+                >0 表示包邮；最多两位小数。</small
+              ></label
+            ><label class="field"
+              >待付款有效期（分钟）<a-input
+                v-model:value="form.pendingMinutes"
                 required
                 inputmode="numeric"
                 pattern="[0-9]+"
                 placeholder="5～1440"
-              /><small>范围 5～1440 分钟。</small></label
+                :disabled="loading || saving"
+              /><small class="cell-note">范围 5～1440 分钟。</small></label
             >
           </div>
-          <label
-            >发货说明<textarea
-              v-model="form.instructions"
+          <label class="field"
+            >发货说明<a-textarea
+              v-model:value="form.instructions"
               required
-              maxlength="2000"
-              rows="4"
+              :maxlength="2000"
+              :rows="4"
               placeholder="填写真实发货安排及配送说明"
+              :disabled="loading || saving"
             />
           </label>
-          <label
-            >修改原因<input
-              v-model="form.reason"
+          <label class="field"
+            >修改原因<a-input
+              v-model:value="form.reason"
               required
-              maxlength="200"
+              :maxlength="200"
               placeholder="用于操作记录与后续核对"
+              :disabled="loading || saving"
           /></label>
         </fieldset>
         <div class="dialog-actions">
-          <button
-            type="button"
+          <a-button
+            html-type="button"
             :disabled="saving"
             @click="editingShipping = false"
           >
             取消
-          </button>
-          <button class="primary save-shipping" :disabled="saving">
+          </a-button>
+          <a-button
+            html-type="submit"
+            type="primary"
+            class="save-shipping"
+            :disabled="saving"
+            :loading="saving"
+          >
             {{ saving ? "保存中…" : "保存配送配置" }}
-          </button>
+          </a-button>
         </div>
       </AdminForm>
     </AdminDialog>
@@ -694,30 +811,14 @@ async function saveShipping() {
 <style scoped>
 .order-operations {
   min-width: 0;
-  max-width: 100%;
-  color: var(--admin-ink);
-  font-size: 13px;
-}
-.order-operations *,
-.order-operations *::before,
-.order-operations *::after {
-  box-sizing: border-box;
 }
 .operation-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   margin-bottom: 16px;
-  border-bottom: 1px solid var(--admin-border);
 }
-.operation-tabs button {
-  padding: 8px 12px;
-  border-bottom: 2px solid transparent;
-}
-.operation-tabs button[aria-current] {
-  color: var(--admin-accent);
-  border-bottom-color: var(--admin-accent);
-  font-weight: 600;
+.shipping-empty {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
 }
 .section-heading,
 .detail-heading {
@@ -726,24 +827,19 @@ async function saveShipping() {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 16px;
+  margin: 0 0 16px;
 }
-.section-heading h2 {
-  margin: 0;
-  font-size: 17px;
-  line-height: 1.5;
-}
-.section-heading p {
-  margin: 4px 0 0;
-  color: var(--admin-muted);
-  font-size: 12px;
-}
-.surface {
+.section-heading > div,
+.detail-heading > div,
+.order-list,
+.order-detail,
+.table-wrap {
   min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  background: #fff;
+}
+h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
 }
 .shipping-form,
 .shipping-form fieldset {
@@ -751,92 +847,42 @@ async function saveShipping() {
   gap: 16px;
 }
 .shipping-form fieldset {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
   min-width: 0;
-  margin: 0;
   padding: 0;
+  margin: 0;
   border: 0;
 }
-.shipping-form label,
-.order-filters label {
+.field {
   display: grid;
+  align-content: start;
   gap: 6px;
   min-width: 0;
 }
-.order-operations input,
-.order-operations select,
-.order-operations textarea {
-  min-width: 0;
-  max-width: 100%;
+.field :deep(.ant-input-number) {
   width: 100%;
 }
-.order-operations textarea {
-  resize: vertical;
+.shipping-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
-.order-operations small {
+.order-filters {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  align-items: end;
+  gap: 12px;
+}
+.cell-note {
+  display: block;
+  margin-top: 4px;
   color: var(--admin-muted);
   font-size: 12px;
   font-weight: 400;
   line-height: 1.5;
 }
-.shipping-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.save-shipping {
-  justify-self: start;
-}
-.unconfigured {
-  margin: 0;
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--admin-accent-soft);
-  color: var(--admin-accent);
-  line-height: 1.6;
-}
-.loading,
-.empty {
-  padding: 24px 12px;
-  color: var(--admin-muted);
-  text-align: center;
-}
-.order-filters {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 12px;
-}
 .list-caption {
   margin: 12px 0;
   color: var(--admin-muted);
-  font-size: 12px;
-}
-.table-wrap {
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.table-wrap table {
-  min-width: 640px;
-}
-.order-table table {
-  min-width: 800px;
-}
-.order-operations td small {
-  display: block;
-  margin-top: 4px;
-}
-.detail-button {
-  color: var(--admin-accent);
-}
-.state {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: var(--admin-accent-soft);
-  color: var(--admin-accent);
   font-size: 12px;
 }
 .back-orders {
@@ -844,12 +890,7 @@ async function saveShipping() {
 }
 .detail-heading h3 {
   margin: 4px 0 0;
-  font-size: 15px;
   overflow-wrap: anywhere;
-}
-.section-heading > div,
-.detail-heading > div {
-  min-width: 0;
 }
 .facts {
   display: grid;
@@ -868,25 +909,23 @@ async function saveShipping() {
 }
 .snapshot-section {
   min-width: 0;
-  margin-top: 16px;
+  margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--admin-border);
 }
 .snapshot-section h3 {
-  margin: 0 0 12px;
-  font-size: 14px;
+  margin-bottom: 12px;
 }
 .snapshot-section p {
   margin: 8px 0;
-  color: var(--admin-muted);
-  line-height: 1.6;
+  line-height: 1.7;
   overflow-wrap: anywhere;
 }
 .totals {
   display: grid;
   gap: 8px;
   max-width: 320px;
-  margin: 16px 0 0 auto;
+  margin: 20px 0 0 auto;
 }
 .totals > div {
   display: flex;
@@ -916,29 +955,19 @@ async function saveShipping() {
 .snapshot-section pre {
   max-width: 100%;
   padding: 12px;
-  border-radius: 8px;
   background: var(--admin-bg);
   font-size: 12px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.order-operations .message {
-  overflow-wrap: anywhere;
-}
-.order-operations button {
-  max-width: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-@media (max-width: 900px) {
-  .shipping-form fieldset {
-    grid-template-columns: 1fr;
-  }
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
 }
 @media (max-width: 650px) {
-  .surface {
-    padding: 12px;
-  }
   .shipping-fields,
   .order-filters {
     grid-template-columns: 1fr;

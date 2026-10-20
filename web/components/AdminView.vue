@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, h } from "vue";
 import "../admin.css";
 import {
   LayoutDashboard,
@@ -17,11 +17,9 @@ import {
   ArrowUpRight,
   LogOut,
   Menu,
-  X,
   ChevronRight,
   RefreshCw,
   Plus,
-  ShieldCheck,
 } from "lucide-vue-next";
 import OrderOperations from "./OrderOperations.vue";
 import PaymentOperations from "./PaymentOperations.vue";
@@ -373,10 +371,6 @@ async function save() {
     busy.value = false;
   }
 }
-async function turnPage(delta: number) {
-  page.value += delta;
-  await load();
-}
 const actionNames: Record<string, string> = {
   "user.login": "用户登录",
   "user.logout": "用户退出",
@@ -392,487 +386,464 @@ const actionNames: Record<string, string> = {
   "permission.denied": "拦截功能越权",
   "request.denied": "拦截不允许的操作",
 };
+
+const menuItems = computed(() =>
+  sectionGroups.value.map((group) => ({
+    key: group.label,
+    type: "group",
+    label: group.label === "总览" ? undefined : group.label,
+    children: group.items.map((item) => ({
+      key: item.key,
+      label: item.label,
+      icon: () => h(item.icon, { size: 17, "aria-hidden": true }),
+    })),
+  })),
+);
+const staffSearch = ref("");
+const filteredStaff = computed(() =>
+  staff.value.filter((person) =>
+    `${person.displayName} ${person.username}`
+      .toLowerCase()
+      .includes(staffSearch.value.toLowerCase().trim()),
+  ),
+);
+const staffColumns = [
+  { title: "工作人员", key: "person", width: 160 },
+  { title: "账号", dataIndex: "username", key: "username", width: 150 },
+  { title: "已授权功能", key: "permissions", width: 330 },
+  { title: "状态", key: "status", width: 100 },
+  { title: "操作", key: "actions", width: 190 },
+];
+const userColumns = [
+  { title: "用户编号", key: "id", width: 140 },
+  { title: "昵称", dataIndex: "nickname", key: "nickname", width: 200 },
+  { title: "有效身份", key: "identity", width: 160 },
+  { title: "联系电话", key: "phone", width: 180 },
+];
+const auditColumns = [
+  { title: "操作时间", key: "time", width: 180 },
+  { title: "操作者", key: "actor", width: 150 },
+  { title: "操作 / 对象", key: "object", width: 220 },
+  { title: "结果与原因", key: "result", width: 360 },
+];
+const permissionOptions = Object.entries(permissionNames).map(
+  ([value, label]) => ({ value, label }),
+);
+async function changePage(value: number) {
+  page.value = value;
+  await load();
+}
 </script>
 <template>
   <FeedbackToast v-model:notice="notice" v-model:error="error" />
-  <div v-if="loading" class="loading-screen">正在确认登录状态…</div>
+  <div v-if="loading" class="loading-screen">
+    <a-spin size="large" tip="正在确认登录状态…" />
+  </div>
   <main v-else-if="!me" class="admin-login">
     <aside class="login-story">
-      <span class="brand-logo-link"
-        ><img
+      <img
+        class="brand-logo-image"
+        src="/brand/logo-horizontal-red.svg"
+        alt="清欣简妍肌"
+        width="680"
+        height="200"
+      />
+      <div>
+        <span class="login-caption">品牌经营 · 有序协作</span>
+        <h1>让每一份关照，<br />都有清楚的记录。</h1>
+        <p>商品、代理、收款与履约，<br />在同一个工作空间里有序开展。</p>
+      </div>
+      <small>QINGXIN · BRAND OPERATIONS</small>
+    </aside>
+    <section class="login-form-wrap">
+      <AdminForm class="login-form" @submit="login">
+        <div class="login-title">
+          <h2>登录管理后台</h2>
+          <p>使用品牌方授权的工作人员账号</p>
+        </div>
+        <label
+          >工作人员账号<a-input
+            v-model:value="username"
+            name="username"
+            autocomplete="username"
+            required
+            :maxlength="32"
+            placeholder="请输入账号"
+            size="large"
+        /></label>
+        <label
+          >登录密码<a-input-password
+            v-model:value="password"
+            name="password"
+            autocomplete="current-password"
+            required
+            :maxlength="128"
+            placeholder="请输入密码"
+            size="large"
+        /></label>
+        <a-button
+          type="primary"
+          html-type="submit"
+          size="large"
+          block
+          :loading="busy"
+          >进入管理后台</a-button
+        >
+        <small class="muted">账号尚未开通？请联系品牌管理员。</small>
+      </AdminForm>
+    </section>
+  </main>
+  <a-layout v-else class="admin-shell">
+    <a-layout-sider class="sidebar" theme="light" :width="232">
+      <div class="sidebar-brand">
+        <img
           class="brand-logo-image"
           src="/brand/logo-horizontal-red.svg"
           alt="清欣简妍肌"
           width="680"
           height="200"
-      /></span>
-      <div>
-        <span class="eyebrow">品牌方管理后台</span>
-        <h1>有序经营，<br />让关照更从容。</h1>
-        <p>从每一位用户，到每一次协作。<br />清楚记录，安心开展。</p>
+        /><span>品牌方管理后台</span>
       </div>
-      <span class="login-footer">QINGXIN · BRAND OPERATIONS</span>
-      <div class="login-orbit" aria-hidden="true"></div>
-    </aside>
-    <section class="login-form-wrap">
-      <AdminForm class="login-form" @submit="login">
-        <span class="eyebrow">欢迎回来</span>
-        <h2>登录品牌方后台</h2>
-        <p>使用已授权的工作人员账号登录。</p>
-        <label
-          >工作人员账号<input
-            v-model="username"
-            name="username"
-            autocomplete="username"
-            required
-            maxlength="32"
-            placeholder="请输入账号" /></label
-        ><label
-          >登录密码<input
-            v-model="password"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            required
-            maxlength="128"
-            placeholder="请输入密码"
-        /></label>
-        <button class="primary full" :disabled="busy">
-          {{ busy ? "正在登录…" : "进入管理后台" }} <span>↗</span></button
-        ><small>账号尚未开通？请联系品牌管理员。</small>
-      </AdminForm>
-    </section>
-  </main>
-  <div v-else class="admin-shell">
-    <aside class="sidebar" :class="{ 'menu-expanded': menuExpanded }">
-      <div class="sidebar-brand">
-        <span class="brand-logo-link"
-          ><img
-            class="brand-logo-image"
-            src="/brand/logo-horizontal-red.svg"
-            alt="清欣简妍肌"
-            width="680"
-            height="200"
-        /></span>
-        <button
-          class="mobile-menu icon-button"
-          :aria-expanded="menuExpanded"
-          aria-controls="admin-navigation"
-          :aria-label="menuExpanded ? '收起功能菜单' : '展开功能菜单'"
-          @click="menuExpanded = !menuExpanded"
-        >
-          <X v-if="menuExpanded" :size="20" /><Menu v-else :size="20" />
-        </button>
-      </div>
-      <span class="workspace-label">品牌方管理后台</span>
-      <nav id="admin-navigation" aria-label="后台功能">
-        <div
-          v-for="group in sectionGroups"
-          :key="group.label"
-          class="nav-group"
-        >
-          <p v-if="group.label !== '总览'" class="nav-group-label">
-            {{ group.label }}
-          </p>
-          <button
-            v-for="item in group.items"
-            :key="item.key"
-            :aria-current="section === item.key ? 'page' : undefined"
-            @click="navigate(item.key)"
-          >
-            <component
-              :is="item.icon"
-              :size="17"
-              :stroke-width="1.7"
-              aria-hidden="true"
-            />
-            <span>{{ item.label }}</span>
-          </button>
-        </div>
-      </nav>
+      <a-menu
+        id="admin-navigation"
+        class="workspace-menu"
+        mode="inline"
+        :items="menuItems"
+        :selected-keys="[section]"
+        @click="({ key }: any) => navigate(String(key))"
+        aria-label="后台功能"
+      />
       <div class="sidebar-bottom">
-        <span class="staff-avatar">{{ me.displayName.slice(0, 1) }}</span>
+        <a-avatar :size="34">{{ me.displayName.slice(0, 1) }}</a-avatar>
         <div>
           <strong>{{ me.displayName }}</strong
           ><small>{{ me.username }}</small>
         </div>
-        <button aria-label="退出登录" @click="logout" :disabled="busy">
-          <LogOut :size="17" aria-hidden="true" />
-        </button>
+        <a-button
+          type="text"
+          aria-label="退出登录"
+          :loading="busy"
+          @click="logout"
+          ><LogOut :size="17"
+        /></a-button>
       </div>
-    </aside>
-    <div class="admin-main">
-      <header class="admin-topbar">
-        <div class="breadcrumb">
-          <span>品牌方工作空间</span
-          ><ChevronRight :size="14" aria-hidden="true" /><strong>{{
+    </a-layout-sider>
+    <a-drawer
+      v-model:open="menuExpanded"
+      title="功能导航"
+      placement="left"
+      :width="280"
+      class="admin-navigation-drawer"
+      ><a-menu
+        mode="inline"
+        :items="menuItems"
+        :selected-keys="[section]"
+        @click="({ key }: any) => navigate(String(key))"
+    /></a-drawer>
+    <a-layout class="admin-main">
+      <a-layout-header class="admin-topbar">
+        <a-button
+          type="text"
+          class="mobile-menu"
+          aria-label="展开功能菜单"
+          @click="menuExpanded = true"
+          ><Menu :size="20"
+        /></a-button>
+        <a-breadcrumb
+          ><a-breadcrumb-item
+            ><a @click="navigate('overview')"
+              >品牌方工作空间</a
+            ></a-breadcrumb-item
+          ><a-breadcrumb-item>{{
             sectionTitle
-          }}</strong>
-        </div>
-      </header>
-      <main class="admin-content">
+          }}</a-breadcrumb-item></a-breadcrumb
+        >
+        <a-tag class="workspace-badge">品牌管理</a-tag>
+      </a-layout-header>
+      <a-layout-content class="admin-content">
         <div class="admin-heading">
           <div>
             <h1>{{ section === "overview" ? "经营工作台" : sectionTitle }}</h1>
             <p>
               {{
                 section === "overview"
-                  ? `你好，${me.displayName}。从这里开始今天的品牌工作。`
+                  ? `你好，${me.displayName}。开始今天的品牌工作。`
                   : currentSection.description
               }}
             </p>
           </div>
-          <div class="admin-page-actions">
+          <a-space class="admin-page-actions" wrap>
             <div id="admin-page-actions"></div>
-            <button
+            <a-button
               v-if="section === 'staff'"
-              class="primary"
+              type="primary"
               @click="open('create')"
+              ><template #icon><Plus :size="16" /></template
+              >新增工作人员</a-button
             >
-              <Plus :size="16" aria-hidden="true" /> 新增工作人员</button
-            ><button
+            <a-button
               v-else-if="section !== 'overview'"
-              class="secondary"
+              :loading="busy"
               @click="
                 ['users', 'staff', 'audit'].includes(section)
                   ? load()
                   : refreshKey++
               "
-              :disabled="busy"
+              ><template #icon><RefreshCw :size="14" /></template
+              >刷新记录</a-button
             >
-              <RefreshCw :size="14" aria-hidden="true" /> 刷新记录</button
-            ><span v-else class="date-label">{{
+            <span v-else class="date-label">{{
               new Date().toLocaleDateString("zh-CN", {
                 year: "numeric",
                 month: "long",
                 day: "numeric",
               })
             }}</span>
-          </div>
+          </a-space>
         </div>
         <template v-if="section === 'overview'">
-          <section
+          <a-card
             v-if="quickEntries.length"
+            title="常用工作"
             class="quick-work"
-            aria-labelledby="quick-work-title"
+            :bordered="false"
           >
-            <div class="overview-section-title">
-              <h2 id="quick-work-title">常用工作</h2>
-              <span>日常业务，直接进入</span>
-            </div>
             <div class="quick-work-grid">
-              <button
+              <a-button
                 v-for="item in quickEntries"
                 :key="item.key"
+                class="work-shortcut"
                 @click="navigate(item.key)"
-              >
-                <component
-                  :is="item.icon"
-                  :size="21"
-                  :stroke-width="1.6"
-                  aria-hidden="true"
-                />
-                <span>{{
-                  item.key === "catalog"
-                    ? "管理与上架商品"
-                    : item.key === "orders"
-                      ? "处理订单与发货"
-                      : item.key === "membership"
-                        ? "核实入驻与交付"
-                        : "核实收款与积分"
-                }}</span>
-                <ArrowUpRight
-                  :size="16"
-                  class="quick-arrow"
-                  aria-hidden="true"
-                />
-              </button>
+                ><component :is="item.icon" :size="22" /><span>{{
+                  item.label
+                }}</span
+                ><ArrowUpRight :size="16"
+              /></a-button>
             </div>
-          </section>
-          <div class="workspace-grid">
-            <section
-              class="work-directory"
-              aria-labelledby="work-directory-title"
-            >
-              <div class="overview-section-title">
-                <h2 id="work-directory-title">业务工作区</h2>
-                <span>{{ sections.length - 1 }} 项已授权功能</span>
-              </div>
-              <div
-                v-for="group in workGroups"
-                :key="group.label"
-                class="directory-group"
-              >
-                <h3>{{ group.label }}</h3>
-                <button
-                  v-for="item in group.items"
-                  :key="item.key"
-                  @click="navigate(item.key)"
-                >
-                  <span class="directory-icon"
-                    ><component
-                      :is="item.icon"
-                      :size="19"
-                      :stroke-width="1.6"
-                      aria-hidden="true"
-                  /></span>
-                  <span class="directory-copy"
-                    ><strong>{{ item.label }}</strong
-                    ><small>{{ item.description }}</small></span
-                  >
-                  <ChevronRight :size="16" aria-hidden="true" />
-                </button>
-              </div>
-              <p v-if="!workGroups.length" class="empty-cell">
-                当前尚未分配业务权限，请联系管理员开通。
-              </p>
-            </section>
-            <aside class="work-guide">
-              <section class="guide-panel">
-                <div class="guide-heading">
-                  <ShieldCheck :size="18" aria-hidden="true" />
-                  <h2>当前工作账号</h2>
-                </div>
-                <div class="account-summary">
-                  <span class="staff-avatar">{{
-                    me.displayName.slice(0, 1)
-                  }}</span>
-                  <div>
-                    <strong>{{ me.displayName }}</strong
-                    ><small>{{ me.username }}</small>
-                  </div>
-                </div>
-                <dl>
-                  <div>
-                    <dt>工作身份</dt>
-                    <dd>品牌方工作人员</dd>
-                  </div>
-                  <div>
-                    <dt>已授权功能</dt>
-                    <dd>{{ sections.length - 1 }} 项</dd>
-                  </div>
-                </dl>
-                <p>需要其他功能？请联系品牌管理员调整账号权限。</p>
-              </section>
-              <section class="guide-panel processing-guide">
-                <h2>业务处理提醒</h2>
-                <div>
-                  <span class="guide-dot"></span><strong>公司收款</strong>
-                  <p>先核实实际到账，再向对应代理发放积分。</p>
-                </div>
-                <div>
-                  <span class="guide-dot"></span><strong>代理入驻</strong>
-                  <p>产品包货款用于实物交付，不另发等额订货积分。</p>
-                </div>
-                <div>
-                  <span class="guide-dot"></span><strong>奖励结算</strong>
-                  <p>核对收货与售后情况，记录公司实际转账凭证。</p>
-                </div>
-              </section>
-              <p class="workspace-footnote">
-                关键业务操作保留处理人和原因，便于后续核对。
-              </p>
-            </aside>
+          </a-card>
+          <div class="work-directory">
+            <a-card
+              v-for="group in workGroups"
+              :key="group.label"
+              :title="group.label"
+              class="directory-group"
+              :bordered="false"
+              ><a-list :data-source="group.items"
+                ><template #renderItem="{ item }"
+                  ><a-list-item
+                    ><a-button
+                      type="text"
+                      class="directory-button"
+                      @click="navigate(item.key)"
+                      ><span class="directory-icon"
+                        ><component :is="item.icon" :size="19" /></span
+                      ><span class="directory-copy"
+                        ><strong>{{ item.label }}</strong
+                        ><small>{{ item.description }}</small></span
+                      ><ChevronRight
+                        :size="
+                          16
+                        " /></a-button></a-list-item></template></a-list
+            ></a-card>
           </div>
         </template>
-        <section v-else-if="section === 'staff'" class="table-panel">
-          <div class="panel-title">
-            <span>{{ staff.length }} 个账号</span>
+        <a-card
+          v-else-if="section === 'staff'"
+          :bordered="false"
+          class="table-panel"
+        >
+          <div class="panel-toolbar">
+            <strong>{{ staff.length }} 个工作人员账号</strong
+            ><a-input-search
+              v-model:value="staffSearch"
+              allow-clear
+              placeholder="搜索姓名或账号"
+              aria-label="搜索工作人员"
+              class="staff-search"
+            />
           </div>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>工作人员</th>
-                  <th>账号</th>
-                  <th>已授权功能</th>
-                  <th>状态</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="person in staff" :key="person.id">
-                  <td>
-                    <strong>{{ person.displayName }}</strong
-                    ><small v-if="person.id === me.id"> · 当前账号</small>
-                  </td>
-                  <td class="mono">{{ person.username }}</td>
-                  <td>
-                    <div class="tags">
-                      <span
-                        v-for="permission in person.permissions"
-                        :key="permission"
-                        class="tag"
-                        >{{ permissionNames[permission] }}</span
-                      ><span v-if="!person.permissions.length" class="muted"
-                        >尚未授权</span
-                      >
-                    </div>
-                  </td>
-                  <td>
-                    <span
-                      :class="[
-                        'status-dot',
-                        person.enabled ? 'enabled' : 'disabled',
-                      ]"
-                      >{{ person.enabled ? "已启用" : "已停用" }}</span
-                    >
-                  </td>
-                  <td>
-                    <div class="row-actions">
-                      <button class="secondary" @click="open('edit', person)">
-                        授权 / 状态</button
-                      ><button
-                        class="secondary danger-text"
-                        @click="open('remove', person)"
-                      >
-                        移除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="!staff.length">
-                  <td colspan="5" class="empty-cell">
-                    {{ busy ? "正在读取…" : "暂无工作人员" }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <a-table
+            :columns="staffColumns"
+            :data-source="filteredStaff"
+            row-key="id"
+            :loading="busy"
+            :scroll="{ x: 930 }"
+            :pagination="{
+              pageSize: 10,
+              showSizeChanger: false,
+              hideOnSinglePage: true,
+            }"
+            :locale="{ emptyText: '暂无符合条件的工作人员' }"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'person'"
+                ><strong>{{ record.displayName }}</strong
+                ><a-tag v-if="record.id === me.id" color="processing"
+                  >当前账号</a-tag
+                ></template
+              >
+              <template v-else-if="column.key === 'permissions'"
+                ><a-space size="small" wrap
+                  ><a-tag
+                    v-for="permission in record.permissions as Permission[]"
+                    :key="permission"
+                    >{{ permissionNames[permission] }}</a-tag
+                  ><span v-if="!record.permissions.length" class="muted"
+                    >尚未授权</span
+                  ></a-space
+                ></template
+              >
+              <a-badge
+                v-else-if="column.key === 'status'"
+                :status="record.enabled ? 'success' : 'default'"
+                :text="record.enabled ? '已启用' : '已停用'"
+              />
+              <a-space v-else-if="column.key === 'actions'" wrap
+                ><a-button size="small" @click="open('edit', record as Staff)"
+                  >授权 / 状态</a-button
+                ><a-button
+                  size="small"
+                  danger
+                  @click="open('remove', record as Staff)"
+                  >移除</a-button
+                ></a-space
+              >
+            </template>
+          </a-table>
+        </a-card>
+        <a-card
+          v-else-if="section === 'users'"
+          :bordered="false"
+          class="table-panel"
+        >
+          <div class="panel-toolbar">
+            <strong>用户资料</strong
+            ><span class="muted">共 {{ total }} 位用户</span>
           </div>
-        </section>
-        <section v-else-if="section === 'users'" class="table-panel">
-          <div class="panel-title">
-            <span>{{ total }} 位用户</span>
-          </div>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>用户编号</th>
-                  <th>昵称</th>
-                  <th>有效身份</th>
-                  <th>联系电话</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="u in users" :key="u.id">
-                  <td class="mono">{{ String(u.id).padStart(6, "0") }}</td>
-                  <td>{{ u.nickname }}</td>
-                  <td>
-                    <span class="tag">{{ u.identityName }}</span>
-                  </td>
-                  <td class="mono">{{ u.phone || "尚未填写" }}</td>
-                </tr>
-                <tr v-if="!users.length">
-                  <td colspan="4" class="empty-cell">
-                    {{ busy ? "正在读取…" : "还没有用户登录" }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <section v-else-if="section === 'audit'" class="table-panel">
+          <a-table
+            :columns="userColumns"
+            :data-source="users"
+            row-key="id"
+            :loading="busy"
+            :pagination="false"
+            :scroll="{ x: 680 }"
+            :locale="{ emptyText: '还没有用户登录' }"
+            ><template #bodyCell="{ column, record }"
+              ><span v-if="column.key === 'id'" class="mono">{{
+                String(record.id).padStart(6, "0")
+              }}</span
+              ><a-tag v-else-if="column.key === 'identity'">{{
+                record.identityName
+              }}</a-tag
+              ><span v-else-if="column.key === 'phone'">{{
+                record.phone || "尚未填写"
+              }}</span></template
+            ></a-table
+          >
+        </a-card>
+        <a-card
+          v-else-if="section === 'audit'"
+          :bordered="false"
+          class="table-panel"
+        >
           <AdminForm
             class="filter-bar"
             @submit="
               page = 1;
               load();
             "
-          >
-            <label
-              >业务对象<AdminSelect v-model="filterType">
-                <option value="">全部对象</option>
+            ><label
+              >业务对象<AdminSelect v-model="filterType"
+                ><option value="">全部对象</option>
                 <option value="user">用户</option>
                 <option value="staff">工作人员</option>
                 <option value="permission">功能权限</option>
-              </AdminSelect></label
+                <option value="order">订单</option>
+                <option value="refund">售后退款</option>
+                <option value="receipt">公司收款</option>
+                <option value="reward">奖励</option></AdminSelect
+              ></label
             ><label
-              >对象编号<input
-                v-model="filterId"
-                maxlength="40"
-                placeholder="如：1" /></label
-            ><button class="secondary" :disabled="busy">查找记录</button>
-          </AdminForm>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>操作时间</th>
-                  <th>操作者</th>
-                  <th>操作 / 对象</th>
-                  <th>结果与原因</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="event in events" :key="event.id">
-                  <td class="mono">
-                    {{ new Date(event.create_time).toLocaleString("zh-CN") }}
-                  </td>
-                  <td>
-                    {{
-                      event.actor_kind === "staff"
-                        ? "工作人员"
-                        : event.actor_kind === "user"
-                          ? "用户"
-                          : "系统"
-                    }}
-                    #{{ event.actor_id }}
-                  </td>
-                  <td>
-                    <strong>{{
-                      actionNames[event.action] || event.action
-                    }}</strong
-                    ><small class="block muted"
-                      >{{ event.object_type }} · {{ event.object_id }}</small
-                    >
-                  </td>
-                  <td>
-                    <span
-                      :class="[
-                        'tag',
-                        event.result === 'success' ? '' : 'warning',
-                      ]"
-                      >{{
-                        event.result === "success"
-                          ? "成功"
-                          : event.result === "denied"
-                            ? "已拦截"
-                            : "失败"
-                      }}</span
-                    >
-                    <p class="audit-reason">{{ event.reason }}</p>
-                    <small class="mono muted">{{ event.request_id }}</small>
-                  </td>
-                </tr>
-                <tr v-if="!events.length">
-                  <td colspan="4" class="empty-cell">
-                    {{ busy ? "正在读取…" : "没有符合条件的记录" }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <div
-          v-if="section === 'users' || section === 'audit'"
+              >对象编号<a-input
+                v-model:value="filterId"
+                :maxlength="40"
+                placeholder="请输入对象编号" /></label
+            ><a-button html-type="submit" type="primary" :loading="busy"
+              >查找记录</a-button
+            ><a-button
+              @click="
+                filterType = '';
+                filterId = '';
+                page = 1;
+                load();
+              "
+              >重置</a-button
+            ></AdminForm
+          >
+          <a-table
+            :columns="auditColumns"
+            :data-source="events"
+            row-key="id"
+            :loading="busy"
+            :pagination="false"
+            :scroll="{ x: 910 }"
+            :locale="{ emptyText: '没有符合条件的记录' }"
+            ><template #bodyCell="{ column, record }"
+              ><span v-if="column.key === 'time'" class="mono">{{
+                new Date(record.create_time).toLocaleString("zh-CN")
+              }}</span
+              ><template v-else-if="column.key === 'actor'"
+                >{{
+                  record.actor_kind === "staff"
+                    ? "工作人员"
+                    : record.actor_kind === "user"
+                      ? "用户"
+                      : "系统"
+                }}
+                #{{ record.actor_id }}</template
+              ><template v-else-if="column.key === 'object'"
+                ><strong>{{
+                  actionNames[record.action] || record.action
+                }}</strong
+                ><small class="block muted"
+                  >{{ record.object_type }} · {{ record.object_id }}</small
+                ></template
+              ><template v-else-if="column.key === 'result'"
+                ><a-tag
+                  :color="
+                    record.result === 'success'
+                      ? 'success'
+                      : record.result === 'denied'
+                        ? 'warning'
+                        : 'error'
+                  "
+                  >{{
+                    record.result === "success"
+                      ? "成功"
+                      : record.result === "denied"
+                        ? "已拦截"
+                        : "失败"
+                  }}</a-tag
+                >
+                <p class="audit-reason">{{ record.reason }}</p>
+                <small class="mono muted">{{
+                  record.request_id
+                }}</small></template
+              ></template
+            ></a-table
+          >
+        </a-card>
+        <a-pagination
+          v-if="['users', 'audit'].includes(section)"
           class="pagination"
-        >
-          <span>共 {{ total }} 条 · 第 {{ page }} 页</span
-          ><button
-            class="secondary"
-            :disabled="page === 1 || busy"
-            @click="turnPage(-1)"
-          >
-            上一页</button
-          ><button
-            class="secondary"
-            :disabled="page * 30 >= total || busy"
-            @click="turnPage(1)"
-          >
-            下一页
-          </button>
-        </div>
+          :current="page"
+          :total="total"
+          :page-size="30"
+          :show-size-changer="false"
+          :show-total="(count: number) => `共 ${count} 条`"
+          :disabled="busy"
+          @change="changePage"
+        />
         <OrderOperations
           v-if="section === 'shipping'"
           :key="'shipping:' + refreshKey"
@@ -894,22 +865,6 @@ const actionNames: Record<string, string> = {
         <RewardOperations
           v-if="section === 'rewards'"
           :key="'rewards:' + refreshKey"
-        />
-        <OperationsExports
-          v-if="['membership', 'orders', 'aftersales'].includes(section)"
-          :permissions="me.permissions"
-        />
-        <FinanceExports
-          v-if="
-            [
-              'wallet',
-              'cashrefunds',
-              'orders',
-              'aftersales',
-              'rewards',
-            ].includes(section)
-          "
-          :permissions="me.permissions"
         />
         <MembershipOperations
           v-if="section === 'membership'"
@@ -933,11 +888,27 @@ const actionNames: Record<string, string> = {
           :key="section + refreshKey"
           :section="section"
         />
-      </main>
-      <footer class="admin-footer">
-        清欣简妍肌 <span>·</span> 品牌方管理后台
-      </footer>
-    </div>
+        <OperationsExports
+          v-if="['membership', 'orders', 'aftersales'].includes(section)"
+          :permissions="me.permissions"
+        />
+        <FinanceExports
+          v-if="
+            [
+              'wallet',
+              'cashrefunds',
+              'orders',
+              'aftersales',
+              'rewards',
+            ].includes(section)
+          "
+          :permissions="me.permissions"
+        />
+      </a-layout-content>
+      <a-layout-footer class="admin-footer"
+        >清欣简妍肌 · 品牌方管理后台</a-layout-footer
+      >
+    </a-layout>
     <AdminDialog
       v-if="modal"
       :title="
@@ -951,80 +922,68 @@ const actionNames: Record<string, string> = {
       @close="modal = null"
     >
       <AdminForm @submit="save">
-        <template v-if="modal !== 'remove'"
-          ><label v-if="modal === 'create'"
-            >登录账号<input
-              v-model="form.username"
+        <template v-if="modal !== 'remove'">
+          <label v-if="modal === 'create'"
+            >登录账号<a-input
+              v-model:value="form.username"
               required
               pattern="[a-zA-Z][a-zA-Z0-9_\-]{2,31}"
               data-error-message="账号须以字母开头，使用 3～32 位字母、数字、下划线或短横线"
-              maxlength="32"
+              :maxlength="32"
               autocomplete="off"
-              placeholder="3～32 位字母、数字、下划线" /></label
-          ><label
-            >工作人员姓名<input
-              v-model="form.displayName"
+              placeholder="3～32 位字母、数字、下划线"
+          /></label>
+          <label
+            >工作人员姓名<a-input
+              v-model:value="form.displayName"
               required
-              maxlength="30" /></label
-          ><label v-if="modal === 'create'"
-            >初始密码<input
-              v-model="form.password"
-              type="password"
+              :maxlength="30"
+          /></label>
+          <label v-if="modal === 'create'"
+            >初始密码<a-input-password
+              v-model:value="form.password"
               required
               minlength="12"
-              maxlength="128"
+              :maxlength="128"
               autocomplete="new-password"
               placeholder="至少 12 位"
           /></label>
-          <fieldset>
+          <fieldset class="permission-fieldset">
             <legend>功能权限</legend>
-            <label
-              v-for="(label, key) in permissionNames"
-              :key="key"
-              class="check-label"
-              ><input
-                v-model="form.permissions"
-                type="checkbox"
-                :value="key"
-              />{{ label }}</label
-            >
+            <a-checkbox-group
+              v-model:value="form.permissions"
+              :options="permissionOptions"
+              class="permission-grid"
+            />
           </fieldset>
-          <label v-if="modal === 'edit'" class="check-label"
-            ><input v-model="form.enabled" type="checkbox" />启用该账号</label
-          ></template
-        >
+          <a-checkbox v-if="modal === 'edit'" v-model:checked="form.enabled"
+            >启用该账号</a-checkbox
+          >
+        </template>
         <p v-else class="field-help">
           移除「{{
             selected?.displayName
           }}」后，该账号将无法登录，历史操作记录会保留。
         </p>
         <label
-          >操作原因<textarea
-            v-model="form.reason"
+          >操作原因<a-textarea
+            v-model:value="form.reason"
             required
-            maxlength="200"
-            rows="3"
+            :maxlength="200"
+            :auto-size="{ minRows: 3, maxRows: 5 }"
             placeholder="说明本次新增、授权、停用或移除的原因"
-          ></textarea>
-        </label>
+        /></label>
         <div class="dialog-actions">
-          <button
-            type="button"
-            class="secondary"
-            :disabled="busy"
-            @click="modal = null"
+          <a-button :disabled="busy" @click="modal = null">取消</a-button
+          ><a-button
+            type="primary"
+            :danger="modal === 'remove'"
+            html-type="submit"
+            :loading="busy"
+            >{{ modal === "remove" ? "确认移除" : "保存设置" }}</a-button
           >
-            取消</button
-          ><button
-            :class="modal === 'remove' ? 'danger' : 'primary'"
-            :disabled="busy"
-          >
-            {{
-              busy ? "正在保存…" : modal === "remove" ? "确认移除" : "保存设置"
-            }}
-          </button>
         </div>
       </AdminForm>
     </AdminDialog>
-  </div>
+  </a-layout>
 </template>

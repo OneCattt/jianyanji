@@ -12,7 +12,6 @@ const props = defineProps<{
 }>();
 const model = defineModel<string>({ required: true });
 const emit = defineEmits<{ "busy-change": [value: boolean] }>();
-const input = ref<HTMLInputElement>();
 const busy = ref(false),
   progress = ref(0),
   error = ref(""),
@@ -21,10 +20,8 @@ const id = useId();
 let controller: AbortController | undefined;
 watch(model, () => (previewFailed.value = false));
 
-async function selected(event: Event) {
-  const control = event.target as HTMLInputElement;
-  const file = control.files?.[0];
-  if (!file || busy.value || props.disabled) return;
+async function selected(file: File) {
+  if (busy.value || props.disabled) return false;
   controller = new AbortController();
   const current = controller;
   busy.value = true;
@@ -45,10 +42,10 @@ async function selected(event: Event) {
     if (!current.signal.aborted)
       error.value = e instanceof Error ? e.message : "图片上传失败，请重试";
   } finally {
-    control.value = "";
     busy.value = false;
     emit("busy-change", false);
   }
+  return false;
 }
 onBeforeUnmount(() => {
   controller?.abort();
@@ -77,43 +74,46 @@ onBeforeUnmount(() => {
           >*</span
         >{{ label }}
       </span>
-      <input
-        ref="input"
+      <a-input
         class="sr-only"
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        :aria-label="label"
-        :aria-describedby="`${id}-help`"
-        :required="required && !model"
+        :value="model"
+        :required="required"
         :disabled="disabled || busy"
+        :aria-label="label"
         tabindex="-1"
-        @change="selected"
       />
       <div class="image-uploader-actions">
-        <button
-          type="button"
-          class="secondary"
-          data-admin-trigger
-          :aria-labelledby="`${id}-action ${id}-label`"
-          :aria-describedby="`${id}-help`"
+        <a-upload
+          accept="image/jpeg,image/png,image/webp"
+          :show-upload-list="false"
+          :before-upload="selected"
           :disabled="disabled || busy"
-          @click="input?.click()"
         >
-          <Upload :size="14" aria-hidden="true" />
-          <span :id="`${id}-action`">{{
-            busy ? `上传中 ${progress}%` : model ? "更换图片" : "上传图片"
-          }}</span>
-        </button>
-        <button
+          <a-button
+            html-type="button"
+            data-admin-trigger
+            :aria-labelledby="`${id}-action ${id}-label`"
+            :aria-describedby="`${id}-help`"
+            :disabled="disabled || busy"
+          >
+            <Upload :size="14" aria-hidden="true" />
+            <span :id="`${id}-action`">{{
+              busy ? `上传中 ${progress}%` : model ? "更换图片" : "上传图片"
+            }}</span>
+          </a-button>
+        </a-upload>
+        <a-button
+          html-type="button"
           v-if="model && !required"
-          type="button"
-          class="image-uploader-remove"
+          type="text"
+          danger
           :disabled="disabled || busy"
           @click="model = ''"
         >
           清除
-        </button>
+        </a-button>
       </div>
+      <a-progress v-if="busy" :percent="progress" size="small" />
       <small :id="`${id}-help`">JPG、PNG、WebP，单张不超过 5MB</small>
       <span v-if="busy" class="sr-only" role="status"
         >{{ label }}正在上传，{{ progress }}%</span
@@ -191,11 +191,5 @@ onBeforeUnmount(() => {
   color: var(--admin-muted);
   font-size: 11px;
   line-height: 1.6;
-}
-.image-uploader-remove {
-  border: 0;
-  background: transparent;
-  color: var(--admin-muted);
-  font-size: 12px;
 }
 </style>

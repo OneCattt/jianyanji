@@ -7,7 +7,7 @@ import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
 const creating = ref(false);
-const userInput = ref<HTMLInputElement | null>(null);
+const userInput = ref<{ focus: () => void } | null>(null);
 const rows = ref<any[]>([]),
   receipts = ref<any[]>([]),
   wallet = ref<any>(null),
@@ -63,7 +63,8 @@ async function run(work: () => Promise<any>, refresh = true) {
 onMounted(() => run(load, false));
 async function query() {
   await run(async () => {
-    if (!userId.value) throw new Error("请输入用户编号");
+    if (!Number.isSafeInteger(userId.value) || Number(userId.value) < 1)
+      throw new Error("请输入有效的用户编号");
     [wallet.value, receipts.value] = await Promise.all([
       api("/admin/wallets/" + userId.value),
       api<any[]>("/admin/receipts?userId=" + userId.value),
@@ -106,6 +107,14 @@ function open(r: any) {
 }
 async function resolve() {
   await run(async () => {
+    if (outcome.value === "success" && !confirmed.value)
+      throw new Error("请确认已经实际退现金");
+    if (
+      selected.value.status === "unknown" &&
+      ["failed", "rejected"].includes(outcome.value) &&
+      !confirmedNoPayment.value
+    )
+      throw new Error("请核实款项未退后再释放积分占用");
     await api("/admin/cash-refunds/" + selected.value.id + "/resolve", {
       method: "POST",
       body: {
@@ -121,44 +130,37 @@ async function resolve() {
     selected.value = null;
   });
 }
+
+const cashRefundColumns = [
+  { title: "状态 / 金额", key: "c0", width: 220 },
+  { title: "退款单 / 来源", key: "c1", width: 160 },
+  { title: "原因 / 异常", key: "c2", width: 160 },
+  { title: "操作", key: "c3", width: 200 },
+];
 </script>
 <template>
   <section class="cash-refunds">
     <Teleport defer to="#admin-page-actions">
-      <button
-        type="button"
-        class="primary"
+      <a-button
+        html-type="button"
+        type="primary"
         :disabled="busy || !wallet"
         :aria-describedby="!wallet ? 'cash-refund-create-help' : undefined"
         @click="openCreate"
       >
         人工受理未用积分退现金
-      </button>
+      </a-button>
     </Teleport>
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
-    <ol class="process-guide" aria-label="退现金办理流程">
-      <li>
-        <span class="step-number">1</span>
-        <div>
-          <strong>核实来源</strong>
-          <p>查询原收款和未用积分</p>
-        </div>
-      </li>
-      <li>
-        <span class="step-number">2</span>
-        <div>
-          <strong>受理申请</strong>
-          <p>填写金额并占用积分</p>
-        </div>
-      </li>
-      <li>
-        <span class="step-number">3</span>
-        <div>
-          <strong>登记实际结果</strong>
-          <p>核实线下退款，保存凭证</p>
-        </div>
-      </li>
-    </ol>
+    <a-steps
+      size="small"
+      :current="wallet ? 1 : 0"
+      :items="[
+        { title: '核实来源', description: '查询原收款和未用积分' },
+        { title: '受理申请', description: '填写金额并占用积分' },
+        { title: '登记实际结果', description: '核实线下退款并存证' },
+      ]"
+    />
     <div class="application-grid">
       <AdminForm class="surface query-form" @submit="query">
         <div class="section-heading">
@@ -166,23 +168,28 @@ async function resolve() {
           <p>输入申请人的用户编号，核对可退款来源。</p>
         </div>
         <label
-          >用户编号<input
+          >用户编号<a-input-number
+            class="number-field"
+            :precision="0"
+            pattern="[0-9]+"
             ref="userInput"
-            v-model.number="userId"
-            type="number"
-            min="1"
+            v-model:value="userId"
+            :min="1"
             required
         /></label>
         <div class="form-actions">
-          <button class="secondary" :disabled="busy">查询原收款及积分</button>
+          <a-button html-type="submit" :disabled="busy"
+            >查询原收款及积分</a-button
+          >
         </div>
         <div v-if="wallet" class="wallet-summary">
           <div>
             <span>可用积分</span
-            ><strong>{{ money(wallet.availableCents) }}</strong>
+            ><strong>{{ (wallet.availableCents / 100).toFixed(2) }}</strong>
           </div>
           <div>
-            <span>占用积分</span><strong>{{ money(wallet.heldCents) }}</strong>
+            <span>占用积分</span
+            ><strong>{{ (wallet.heldCents / 100).toFixed(2) }}</strong>
           </div>
           <p>1元 = 1积分</p>
         </div>
@@ -191,84 +198,88 @@ async function resolve() {
         </p>
       </AdminForm>
     </div>
-    <section class="surface records">
+    <a-card size="small" class="records">
       <div class="section-heading">
         <h3>积分余额退款记录</h3>
         <p>办理中或结果未明的记录，可继续登记实际处理结果。</p>
       </div>
       <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>状态 / 金额</th>
-              <th>退款单 / 来源</th>
-              <th>原因 / 异常</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in rows" :key="r.id">
-              <td>
-                <span
-                  class="status"
-                  :class="{
-                    'needs-attention': [
-                      'unknown',
-                      'failed',
-                      'rejected',
-                    ].includes(r.status),
-                  }"
-                  >{{ names[r.status] }}</span
+        <a-table
+          :data-source="rows"
+          :columns="cashRefundColumns"
+          row-key="id"
+          size="middle"
+          :loading="busy"
+          :scroll="{ x: 680 }"
+          :pagination="{
+            defaultPageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50'],
+            hideOnSinglePage: true,
+          }"
+          ><template #bodyCell="{ column, record: r }"
+            ><template v-if="column.key === 'c0'"
+              ><div class="table-cell-content">
+                <a-tag
+                  :color="
+                    r.status === 'success'
+                      ? 'green'
+                      : ['unknown', 'failed'].includes(r.status)
+                        ? 'orange'
+                        : 'default'
+                  "
+                  >{{ names[r.status] }}</a-tag
                 ><strong class="record-amount">{{
                   money(r.amount_cents)
                 }}</strong>
-              </td>
-              <td>
+              </div></template
+            >
+            <template v-else-if="column.key === 'c1'"
+              ><div class="table-cell-content">
                 {{ r.number
                 }}<small
                   >用户 #{{ r.user_id }} · 原收款 #{{ r.receipt_id }}</small
                 >
-              </td>
-              <td class="record-context">
+              </div></template
+            >
+            <template v-else-if="column.key === 'c2'"
+              ><div class="table-cell-content">
                 <p>{{ r.reason }}</p>
-                <p v-if="r.last_error" class="record-error">
-                  <strong>异常：</strong>{{ r.last_error }}
-                </p>
-              </td>
-              <td>
-                <button
+                <a-collapse v-if="r.last_error" ghost
+                  ><a-collapse-panel key="error" header="查看历史异常">{{
+                    r.last_error
+                  }}</a-collapse-panel></a-collapse
+                >
+              </div></template
+            >
+            <template v-else-if="column.key === 'c3'"
+              ><div class="table-cell-content">
+                <a-button
+                  html-type="button"
                   v-if="['processing', 'unknown'].includes(r.status)"
-                  class="secondary"
                   @click="open(r)"
                 >
-                  登记实际处理结果</button
+                  登记实际处理结果</a-button
                 ><span v-else class="record-complete">已完成处理</span>
-              </td>
-            </tr>
-            <tr v-if="!rows.length">
-              <td colspan="4" class="empty-state">
-                <strong>暂无积分余额退款记录</strong>
-                <p>从用户编号查询原公司收款和未用积分，核实后办理退款。</p>
-                <button
-                  type="button"
-                  class="secondary"
-                  @click="userInput?.focus()"
-                >
-                  填写用户编号
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </div></template
+            ></template
+          ><template #emptyText>
+            <strong>暂无积分余额退款记录</strong>
+            <p>从用户编号查询原公司收款和未用积分，核实后办理退款。</p>
+            <a-button html-type="button" @click="userInput?.focus()">
+              填写用户编号
+            </a-button>
+          </template></a-table
+        >
       </div>
-    </section>
+    </a-card>
     <AdminDialog
       v-if="creating"
       title="人工受理未用积分退现金"
       :busy="busy"
       @close="!busy && (creating = false)"
     >
-      <AdminForm class="surface application-form" @submit="create">
+      <AdminForm class="application-form" @submit="create">
         <div class="section-heading">
           <p>
             产品包款、已消费积分和其他人的收款不能作为退款来源。办理时先占用，实际退款后才扣回积分。
@@ -296,23 +307,31 @@ async function resolve() {
           该用户暂无原公司订货收款可选。请核对用户编号和原收款记录后重新查询。
         </p>
         <label
-          >本次退款（元）<input v-model="amount" inputmode="decimal" required
+          >本次退款（元）<a-input
+            v-model:value="amount"
+            pattern="\d+(\.\d{1,2})?"
+            data-error-message="金额最多两位小数"
+            inputmode="decimal"
+            required
         /></label>
         <label
-          >申请原因<input v-model="reason" required maxlength="200"
+          >申请原因<a-input v-model:value="reason" required :maxlength="200"
         /></label>
         <div class="dialog-actions">
-          <button
-            class="secondary"
-            type="button"
+          <a-button
+            html-type="button"
             :disabled="busy"
             @click="creating = false"
           >
             取消
-          </button>
-          <button class="primary" :disabled="busy || !receiptId">
+          </a-button>
+          <a-button
+            html-type="submit"
+            type="primary"
+            :disabled="busy || !receiptId"
+          >
             确认受理并占用积分
-          </button>
+          </a-button>
         </div>
       </AdminForm>
     </AdminDialog>
@@ -322,7 +341,7 @@ async function resolve() {
       :busy="busy"
       @close="!busy && (selected = null)"
     >
-      <AdminForm v-if="selected" class="surface result-form" @submit="resolve">
+      <AdminForm v-if="selected" class="result-form" @submit="resolve">
         <div class="section-heading">
           <p>
             本次金额
@@ -341,8 +360,8 @@ async function resolve() {
             </AdminSelect></label
           >
           <label
-            >实际收款人<input
-              v-model="recipient"
+            >实际收款人<a-input
+              v-model:value="recipient"
               :required="outcome === 'success'"
           /></label>
           <label
@@ -352,8 +371,8 @@ async function resolve() {
               :required="outcome === 'success'"
           /></label>
           <label
-            >实际转账或核查凭证<input
-              v-model="proof"
+            >实际转账或核查凭证<a-input
+              v-model:value="proof"
               :required="
                 outcome === 'success' ||
                 (selected.status === 'unknown' &&
@@ -361,33 +380,39 @@ async function resolve() {
               "
           /></label>
           <div class="confirmations">
-            <label class="check-label"
-              ><input
-                v-model="confirmed"
-                type="checkbox"
-              />确认已经实际退现金</label
-            >
-            <label class="check-label"
-              ><input
-                v-model="confirmedNoPayment"
-                type="checkbox"
-              />已核实款项未退，允许释放积分占用</label
-            >
+            <div class="confirmation-field check-label">
+              <a-checkbox
+                v-model:checked="confirmed"
+                :required="outcome === 'success'"
+                >确认已经实际退现金</a-checkbox
+              >
+            </div>
+            <div class="confirmation-field check-label">
+              <a-checkbox
+                v-model:checked="confirmedNoPayment"
+                :required="
+                  selected.status === 'unknown' &&
+                  ['failed', 'rejected'].includes(outcome)
+                "
+                >已核实款项未退，允许释放积分占用</a-checkbox
+              >
+            </div>
           </div>
           <label class="full-width"
-            >处理原因<input v-model="reason" required maxlength="200"
+            >处理原因<a-input v-model:value="reason" required :maxlength="200"
           /></label>
         </div>
         <div class="dialog-actions">
-          <button
-            type="button"
-            class="secondary"
+          <a-button
+            html-type="button"
             :disabled="busy"
             @click="selected = null"
           >
             取消
-          </button>
-          <button class="primary" :disabled="busy">保存实际处理结果</button>
+          </a-button>
+          <a-button html-type="submit" type="primary" :disabled="busy"
+            >保存实际处理结果</a-button
+          >
         </div>
       </AdminForm>
     </AdminDialog>
@@ -495,13 +520,6 @@ label {
   gap: 6px;
   font-size: 13px;
 }
-input:not([type="checkbox"]),
-select {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
 .wallet-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -553,24 +571,10 @@ select {
   gap: 8px;
   line-height: 1.6;
 }
-.check-label input {
-  flex-shrink: 0;
-  margin-top: 3px;
-}
 .refund-amount {
   color: var(--admin-accent);
   font-size: 16px;
   font-variant-numeric: tabular-nums;
-}
-.table-wrap {
-  min-width: 0;
-  max-width: 100%;
-  margin-top: 16px;
-  overflow: auto;
-}
-th,
-td {
-  white-space: nowrap;
 }
 small,
 .record-amount {
@@ -651,8 +655,31 @@ p.success {
   .result-fields {
     grid-template-columns: minmax(0, 1fr);
   }
-  .form-actions > button {
-    flex: 1 1 auto;
-  }
+}
+
+.number-field {
+  width: 100%;
+  min-width: 0;
+}
+.table-cell-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.table-cell-content > .ant-btn + .ant-btn {
+  margin-left: 8px;
+}
+.section-heading {
+  margin: 0 0 16px;
+}
+.confirmation-field {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.admin-form > label,
+.fields > label,
+.result-fields > label,
+.field-grid > label,
+.sku-form > label {
+  align-content: start;
 }
 </style>
