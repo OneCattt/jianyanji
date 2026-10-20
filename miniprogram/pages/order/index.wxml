@@ -34,7 +34,7 @@
             >清欣简妍肌品牌仓</text
           ></view
         ><view wx:for="{{order.displayLines}}" wx:key="skuId" class="jy-product"
-          ><image src="{{item.image}}" mode="aspectFill" /><view
+          ><image src="{{item.imageThumb}}" mode="aspectFill" /><view
             class="jy-product-copy"
             ><view>{{item.name}}</view><text>{{item.skuName}}</text></view
           ><view class="jy-line-price"

@@ -75,7 +75,7 @@
           <image
             wx:if="{{selected.rightsImage}}"
             class="ob-rights-image"
-            src="{{selected.rightsImage}}"
+            src="{{selected.rightsImageDisplay}}"
             mode="widthFix"
           />
           <view class="ob-rights"

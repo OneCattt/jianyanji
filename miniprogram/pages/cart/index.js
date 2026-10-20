@@ -1,5 +1,6 @@
 const { request } = require("../../utils/api");
 const { money } = require("../../utils/catalog");
+const { imageUrl } = require("../../utils/image");
 const { listData, loadPage } = require("../../utils/list");
 const { isFresh, remember } = require("../../utils/state");
 Page({
@@ -19,7 +20,11 @@ Page({
       await loadPage(this, {
         reset,
         url: "/mini/cart",
-        map: (i) => ({ ...i, priceText: money(i.priceCents) }),
+        map: (i) => ({
+          ...i,
+          imageThumb: imageUrl(i.image, "thumb"),
+          priceText: money(i.priceCents),
+        }),
         extra: (r) => ({
           kinds: r.kinds,
           pieces: r.pieces,

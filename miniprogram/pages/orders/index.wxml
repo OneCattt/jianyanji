@@ -7,7 +7,7 @@
     <view wx:elif="{{!orders.length && !error && !ordersLoading}}" class="jy-empty">暂无{{tab?tabs[tab]:''}}订单</view>
     <view wx:for="{{orders}}" wx:key="id" class="jy-card">
       <view class="jy-order-top"><text>订单 {{item.number}}</text><text class="jy-status">{{item.stateText}}</text></view>
-      <view wx:for="{{item.displayLines}}" wx:for-item="line" wx:key="skuId" class="jy-product"><image src="{{line.image}}" mode="aspectFill" lazy-load/><view class="jy-product-copy"><view>{{line.name}}</view><text>{{line.skuName}} · 品牌仓发货</text></view><view class="jy-line-price">{{line.priceText}}<view>×{{line.quantity}}</view></view></view>
+      <view wx:for="{{item.displayLines}}" wx:for-item="line" wx:key="skuId" class="jy-product"><image src="{{line.imageThumb}}" mode="aspectFill" lazy-load/><view class="jy-product-copy"><view>{{line.name}}</view><text>{{line.skuName}} · 品牌仓发货</text></view><view class="jy-line-price">{{line.priceText}}<view>×{{line.quantity}}</view></view></view>
       <view class="jy-order-hint"><image src="/pages/order/assets/list-imgIcon1.png"/><text>{{item.hint}}</text></view>
       <view class="jy-order-bottom"><text>共 {{item.count}} 件 {{item.paid?'实付':'应付'}} <text class="jy-total">{{item.amountText}}</text></text><button bindtap="detail" data-id="{{item.id}}">查看详情</button></view>
     </view>

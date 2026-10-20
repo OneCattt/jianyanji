@@ -2,6 +2,7 @@
 import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
 import ImageUploader from "./ImageUploader.vue";
+import { imageUrl } from "../image-url";
 import SkuPricingFields from "./SkuPricingFields.vue";
 import { computed, nextTick, onMounted, ref } from "vue";
 import { api } from "../client";
@@ -380,7 +381,7 @@ const productColumns = [
               <p v-if="key !== 'heroImage'">{{ content[key] || "尚未配置" }}</p>
               <img
                 v-if="key === 'heroImage' && content.heroImage"
-                :src="content.heroImage"
+                :src="imageUrl(content.heroImage, 'detail')"
                 alt="首页图片预览"
                 class="brand-image"
               />
@@ -831,7 +832,7 @@ const productColumns = [
                     <div class="product-thumbnail image-placeholder">
                       <img
                         v-if="p.image"
-                        :src="p.image"
+                        :src="imageUrl(p.image, 'thumb')"
                         :alt="p.name"
                         loading="lazy"
                       /><span v-else>暂无图片</span>

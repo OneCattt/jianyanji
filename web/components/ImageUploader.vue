@@ -3,6 +3,7 @@ import FeedbackToast from "./FeedbackToast.vue";
 import { onBeforeUnmount, ref, useId, watch } from "vue";
 import { ImagePlus, Upload } from "lucide-vue-next";
 import { uploadImage, type ImagePurpose } from "../image-upload";
+import { imageUrl } from "../image-url";
 
 const props = defineProps<{
   label: string;
@@ -59,7 +60,7 @@ onBeforeUnmount(() => {
     <div class="image-uploader-preview">
       <img
         v-if="model && !previewFailed"
-        :src="model"
+        :src="imageUrl(model, 'card')"
         :alt="`${label}预览`"
         @error="previewFailed = true"
       />
@@ -98,7 +99,13 @@ onBeforeUnmount(() => {
           >
             <Upload :size="14" aria-hidden="true" />
             <span :id="`${id}-action`">{{
-              busy ? `上传中 ${progress}%` : model ? "更换图片" : "上传图片"
+              busy
+                ? progress
+                  ? `上传中 ${progress}%`
+                  : "准备图片中…"
+                : model
+                  ? "更换图片"
+                  : "上传图片"
             }}</span>
           </a-button>
         </a-upload>
@@ -114,7 +121,9 @@ onBeforeUnmount(() => {
         </a-button>
       </div>
       <a-progress v-if="busy" :percent="progress" size="small" />
-      <small :id="`${id}-help`">JPG、PNG、WebP，单张不超过 5MB</small>
+      <small :id="`${id}-help`"
+        >JPG、PNG、WebP，单张不超过 5MB，上传时自动压缩</small
+      >
       <span v-if="busy" class="sr-only" role="status"
         >{{ label }}正在上传，{{ progress }}%</span
       >

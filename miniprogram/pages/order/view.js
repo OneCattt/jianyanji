@@ -1,3 +1,4 @@
+const { imageUrl } = require("../../utils/image");
 const format = (cents) => (Number(cents) / 100).toFixed(2);
 function dateText(value) {
   if (!value) return "";
@@ -60,6 +61,7 @@ function decorate(order) {
     count: (snapshot.lines || []).reduce((n, l) => n + l.quantity, 0),
     displayLines: (snapshot.lines || []).map((line) => ({
       ...line,
+      imageThumb: imageUrl(line.image, "thumb"),
       priceText: amount(line.unitCents),
     })),
     hint: locked

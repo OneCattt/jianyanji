@@ -53,6 +53,7 @@ class OssUploadSignerTest {
                         "key", key,
                         "Content-Type", "image/jpeg",
                         "x-oss-content-type", "image/jpeg",
+                        "Cache-Control", "public, max-age=31536000, immutable",
                         "success_action_status", "204",
                         "x-oss-forbid-overwrite", "true",
                         "x-oss-signature-version", "OSS4-HMAC-SHA256",

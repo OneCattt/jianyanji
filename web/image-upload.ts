@@ -1,4 +1,5 @@
 import { api } from "./client";
+import { compressImage } from "./image-compression";
 
 export type ImagePurpose = "catalog" | "content" | "membership";
 export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -22,12 +23,7 @@ export async function uploadImage(
     throw new Error("请选择 JPG、PNG 或 WebP 图片");
   if (!file.size || file.size > MAX_IMAGE_BYTES)
     throw new Error("图片大小需在 1 字节至 5MB 之间");
-  try {
-    const image = await createImageBitmap(file);
-    image.close();
-  } catch {
-    throw new Error("图片无法读取，请选择有效的 JPG、PNG 或 WebP 图片");
-  }
+  file = await compressImage(file, signal);
   signal.throwIfAborted();
   const policy = await api<UploadPolicy>("/admin/image-uploads/policy", {
     method: "POST",

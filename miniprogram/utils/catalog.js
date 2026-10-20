@@ -1,3 +1,4 @@
+const { imageUrl } = require("./image");
 const money = (value) =>
   value == null ? "价格待配置" : "¥" + (value / 100).toFixed(2);
 function decorate(product) {
@@ -10,6 +11,8 @@ function decorate(product) {
   const first = skus.find((s) => s.available) || skus[0];
   return {
     ...product,
+    imageCard: imageUrl(product.image, "card"),
+    detailImageDisplay: imageUrl(product.detailImage, "detail"),
     skus,
     priceText: first ? first.priceText : "价格待配置",
     available: skus.some((s) => s.available),

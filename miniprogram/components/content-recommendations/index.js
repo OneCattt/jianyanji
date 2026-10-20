@@ -1,4 +1,5 @@
 const { request } = require("../../utils/api");
+const { imageUrl } = require("../../utils/image");
 const { isFresh, remember } = require("../../utils/state");
 Component({
   data: { items: [], error: "", loading: true },
@@ -14,7 +15,13 @@ Component({
       this.setData({ loading: true });
       try {
         const result = await request("/public/posts?limit=3");
-        this.setData({ items: result.items, error: "" });
+        this.setData({
+          items: result.items.map((item) => ({
+            ...item,
+            coverDisplay: imageUrl(item.cover, "card"),
+          })),
+          error: "",
+        });
         remember(this);
       } catch (e) {
         this.setData({ error: e.message });

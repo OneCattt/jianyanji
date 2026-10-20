@@ -1,4 +1,5 @@
 const { request } = require("../../utils/api");
+const { imageUrl } = require("../../utils/image");
 const { isFresh, remember } = require("../../utils/state");
 const { listValues } = require("../../utils/list");
 Page({
@@ -38,7 +39,15 @@ Page({
             : ""),
       );
       this.setData({
-        ...listValues(this, "items", result.items, reset),
+        ...listValues(
+          this,
+          "items",
+          result.items.map((item) => ({
+            ...item,
+            coverDisplay: imageUrl(item.cover, "card"),
+          })),
+          reset,
+        ),
         nextBefore: result.nextBefore,
         loaded: true,
       });

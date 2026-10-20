@@ -1,5 +1,6 @@
 const { request } = require("../../utils/api");
 const { money } = require("../../utils/catalog");
+const { imageUrl } = require("../../utils/image");
 Page({
   data: {
     quote: null,
@@ -56,7 +57,11 @@ Page({
         goodsText: money(q.goodsCents),
         shippingText: money(q.shippingCents),
         totalText: money(q.totalCents),
-        lines: q.lines.map((l) => ({ ...l, priceText: money(l.unitCents) })),
+        lines: q.lines.map((l) => ({
+          ...l,
+          imageThumb: imageUrl(l.image, "thumb"),
+          priceText: money(l.unitCents),
+        })),
       },
       error: "",
     });

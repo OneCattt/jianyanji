@@ -1,6 +1,7 @@
 const { showDialog } = require("../../utils/dialog");
 const { request } = require("../../utils/api");
 const { money } = require("../../utils/catalog");
+const { imageUrl } = require("../../utils/image");
 const { listData, loadPage } = require("../../utils/list");
 const { isFresh, remember } = require("../../utils/state");
 const key = () =>
@@ -54,6 +55,7 @@ Page({
       const config = await request("/membership");
       const packages = config.packages.map((p) => ({
         ...p,
+        rightsImageDisplay: imageUrl(p.rightsImage, "detail"),
         amountText: money(p.amountCents),
         valueText: money(p.valueCents),
         lines: p.lines.map((l) => ({ ...l, priceText: money(l.unitCents) })),

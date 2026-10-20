@@ -1,5 +1,6 @@
 const { request } = require("../../utils/api");
 const { decorate } = require("../../utils/catalog");
+const { imageUrl } = require("../../utils/image");
 const { isFresh, remember } = require("../../utils/state");
 Page({
   data: {
@@ -26,7 +27,7 @@ Page({
                 ? {
                     heroTitle: r.content.heroTitle,
                     heroSubtitle: r.content.heroSubtitle,
-                    heroImage: r.content.heroImage,
+                    heroImage: imageUrl(r.content.heroImage, "detail"),
                   }
                 : {}),
             }),

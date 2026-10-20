@@ -1,4 +1,5 @@
 const { request } = require("../../utils/api");
+const { imageUrl } = require("../../utils/image");
 Page({
   data: { post: null, loading: true, error: "", videoError: "" },
   onLoad(options) {
@@ -10,7 +11,21 @@ Page({
     if (!Number.isSafeInteger(this.postId) || this.postId < 1)
       return this.setData({ loading: false, error: "内容编号不合法" });
     try {
-      this.setData({ post: await request("/public/posts/" + this.postId) });
+      const post = await request("/public/posts/" + this.postId);
+      this.setData({
+        post: {
+          ...post,
+          coverDisplay: imageUrl(post.cover, "detail"),
+          displayImages: post.imageUrls.map((url) => ({
+            url,
+            displayUrl: imageUrl(url, "detail"),
+          })),
+          products: post.products.map((product) => ({
+            ...product,
+            imageThumb: imageUrl(product.image, "thumb"),
+          })),
+        },
+      });
     } catch (e) {
       this.setData({ error: e.message });
     } finally {
@@ -38,7 +53,7 @@ Page({
     return this.data.post
       ? {
           title: this.data.post.title,
-          imageUrl: this.data.post.cover,
+          imageUrl: imageUrl(this.data.post.cover, "card"),
           path: "/pages/post/index?id=" + this.postId,
         }
       : { title: "清欣简妍肌种草空间", path: "/pages/seeds/index" };
@@ -47,7 +62,7 @@ Page({
     return this.data.post
       ? {
           title: this.data.post.title,
-          imageUrl: this.data.post.cover,
+          imageUrl: imageUrl(this.data.post.cover, "card"),
           query: "id=" + this.postId,
         }
       : {};

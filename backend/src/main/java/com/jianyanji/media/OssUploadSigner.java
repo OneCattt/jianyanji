@@ -95,6 +95,8 @@ public class OssUploadSigner {
                         contentType,
                         "x-oss-content-type",
                         contentType,
+                        "Cache-Control",
+                        "public, max-age=31536000, immutable",
                         "success_action_status",
                         "204",
                         "x-oss-forbid-overwrite",
