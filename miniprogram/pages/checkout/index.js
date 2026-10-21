@@ -105,6 +105,7 @@ Page({
         quoteId: this.data.quote.id,
         requestKey: this.requestKey,
       });
+      wx.removeStorageSync("jyj_checkout");
       wx.removeStorageSync("jyj_sales_candidate");
       wx.redirectTo({ url: "/pages/order/index?id=" + o.id });
     } catch (e) {

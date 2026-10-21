@@ -311,7 +311,7 @@ public class CatalogService {
                                         actor);
                     List<ObjectNode> existing =
                             db.list(
-                                    "SELECT id,reserved FROM skus WHERE product_id=? AND is_deleted=0",
+                                    "SELECT id,stock,reserved FROM skus WHERE product_id=? AND is_deleted=0",
                                     saved);
                     Set<Long> retained = new HashSet<>();
                     for (JsonNode sku : value.withArray("skus")) {
@@ -335,11 +335,16 @@ public class CatalogService {
                                             .findFirst()
                                             .orElse(null);
                             if (old == null) throw conflict("规格不属于当前商品");
-                            if (l(sku, "stock") < l(old, "reserved"))
-                                throw conflict("库存不能低于待付款占用数量");
+                            if (has(sku, "stock")) {
+                                if (!has(sku, "expectedStock")
+                                        || l(sku, "expectedStock") != l(old, "stock"))
+                                    throw conflict("STOCK_CHANGED", "库存已变化或缺少原库存信息，请刷新商品后重新调整");
+                                if (l(sku, "stock") < l(old, "reserved"))
+                                    throw conflict("库存不能低于待付款占用数量");
+                            }
                             retained.add(skuId);
                             db.update(
-                                    "UPDATE skus SET name=?,unit=?,retail_cents=?,store_cents=?,principal_cents=?,product_type=?,welfare_cents=?,stock=?,active=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND product_id=? AND is_deleted=0",
+                                    "UPDATE skus SET name=?,unit=?,retail_cents=?,store_cents=?,principal_cents=?,product_type=?,welfare_cents=?,stock=COALESCE(?,stock),active=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND product_id=? AND is_deleted=0",
                                     s(sku, "name"),
                                     s(sku, "unit"),
                                     retail,
@@ -347,7 +352,7 @@ public class CatalogService {
                                     principal,
                                     s(sku, "productType"),
                                     welfare,
-                                    l(sku, "stock"),
+                                    has(sku, "stock") ? l(sku, "stock") : null,
                                     b(sku, "active") ? 1 : 0,
                                     actor,
                                     skuId,
@@ -400,7 +405,10 @@ public class CatalogService {
                 });
     }
 
-    /** 严格校验并规范化商品和规格，保留 null 价格与可选规格编号。 */
+    /**
+     * 严格校验商品和规格，保留 null 价格。已有规格可省略 stock 以保留当前库存；
+     * 主动调整须携带 expectedStock 原总库存，数量按规格 unit 计量且为 0 至 10000000 的整数。
+     */
     private ObjectNode productInput(JsonNode body) {
         Input.strict(
                 body,
@@ -446,6 +454,7 @@ public class CatalogService {
                     "productType",
                     "welfareCents",
                     "stock",
+                    "expectedStock",
                     "active");
             String type = Input.text(row, "productType", 1, 20);
             Input.require("regular".equals(type) || "welfare".equals(type), "商品类型无效");
@@ -463,10 +472,14 @@ public class CatalogService {
                             type,
                             "welfareCents",
                             welfare,
-                            "stock",
-                            Input.integer(row, "stock", 0, 10000000),
                             "active",
                             Input.bool(row, "active"));
+            if (!row.has("id") || row.has("stock"))
+                sku.put("stock", Input.integer(row, "stock", 0, 10000000));
+            if (row.has("expectedStock")) {
+                Input.require(row.has("id") && row.has("stock"), "原库存仅用于调整已有规格库存");
+                sku.put("expectedStock", Input.integer(row, "expectedStock", 0, 10000000));
+            }
             if (row.has("id")) {
                 long skuId = entityId(row.get("id"));
                 Input.require(ids.add(skuId), "规格不可重复");

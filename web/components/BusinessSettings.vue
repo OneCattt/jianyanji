@@ -85,6 +85,8 @@ interface Sku {
   productType: "regular" | "welfare";
   welfare: string;
   stock: number;
+  /** 编辑前的总库存，仅主动调整库存时提交，用于防止覆盖期间的销售扣减。 */
+  expectedStock?: number;
   active: boolean;
   reserved?: number;
 }
@@ -279,6 +281,7 @@ async function edit(p?: ProductRecord) {
         ...p,
         skus: p.skus.map((s) => ({
           ...s,
+          expectedStock: s.stock,
           retail: amount(s.retailCents),
           productType: s.productType,
           welfare: amount(s.welfareCents),
@@ -312,16 +315,20 @@ function saveProduct() {
         active: p.active,
         featured: p.featured,
         reason: reason.value,
-        skus: p.skus.map((s) => ({
-          ...(s.id ? { id: s.id } : {}),
-          name: s.name,
-          unit: s.unit,
-          retailCents: toCents(s.retail),
-          productType: s.productType,
-          welfareCents: toCents(s.welfare),
-          stock: Number(s.stock),
-          active: s.active,
-        })),
+        skus: p.skus.map((s) => {
+          const stockChanged = !s.id || s.stock !== s.expectedStock;
+          return {
+            ...(s.id ? { id: s.id } : {}),
+            name: s.name,
+            unit: s.unit,
+            retailCents: toCents(s.retail),
+            productType: s.productType,
+            welfareCents: toCents(s.welfare),
+            ...(stockChanged ? { stock: Number(s.stock) } : {}),
+            ...(s.id && stockChanged ? { expectedStock: s.expectedStock } : {}),
+            active: s.active,
+          };
+        }),
       },
     });
     editing.value = false;

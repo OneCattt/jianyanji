@@ -227,7 +227,11 @@ class OrdersMysqlTest {
                         stock,
                         "active",
                         true);
-        if (existingSku != null) sku.put("id", existingSku);
+        if (existingSku != null) {
+            sku.put("id", existingSku);
+            // 已有规格默认只维护资料，库存调整由用例显式提交新值及原值。
+            sku.remove("stock");
+        }
         return obj(
                 "categoryId",
                 categoryId,
@@ -265,6 +269,54 @@ class OrdersMysqlTest {
     /** 通过真实报价与建单 SQL 创建待支付订单。 */
     private ObjectNode create(long quantity) {
         return orders.create(obj("quoteId", l(quote(quantity), "id"), "requestKey", id()), user);
+    }
+
+    @Test
+    void creatingOrderRemovesOnlyItsCartItemsAndRetryKeepsNewAdditions() {
+        long otherProduct = l(catalog.saveProduct(null, productBody(null, 10, 10000), userId), "id");
+        long otherSku = l(db.one("SELECT id FROM skus WHERE product_id=? AND is_deleted=0", otherProduct), "id");
+        long otherUser = db.insert(
+                "INSERT INTO users(openid,nickname,create_user_id,update_user_id) VALUES(?,?,?,?)",
+                "cart-other-" + id(), "其他购物车用户", userId, userId);
+        try {
+            orders.saveCart(skuId, obj("quantity", 2, "selected", true), user);
+            orders.saveCart(otherSku, obj("quantity", 1, "selected", false), user);
+            db.insert("INSERT INTO cart_items(user_id,sku_id,quantity,selected,create_user_id,update_user_id) VALUES(?,?,1,1,?,?)",
+                    otherUser, skuId, userId, userId);
+            long cartId = l(db.one("SELECT id FROM cart_items WHERE user_id=? AND sku_id=? AND is_deleted=0", userId, skuId), "id");
+            ObjectNode body = obj("quoteId", l(quote(2), "id"), "requestKey", id());
+
+            ObjectNode order = orders.create(body, user);
+
+            assertEquals(1, orders.cart(user).path("items").size(), "下单后只保留未购买商品");
+            assertEquals(otherSku, orders.cart(user).path("items").get(0).path("skuId").asLong());
+            ObjectNode removed = db.one("SELECT * FROM cart_items WHERE id=?", cartId);
+            assertEquals(1, l(removed, "is_deleted"));
+            assertEquals(userId, l(removed, "update_user_id"));
+            assertNotNull(db.one("SELECT id FROM cart_items WHERE user_id=? AND sku_id=? AND is_deleted=0", otherUser, skuId));
+
+            orders.saveCart(skuId, obj("quantity", 1, "selected", true), user);
+            assertEquals(l(order, "id"), l(orders.create(body, user), "id"));
+            assertEquals(2, orders.cart(user).path("items").size(), "重试原订单不能清掉后来重新加购的商品");
+        } finally {
+            db.update("UPDATE cart_items SET is_deleted=1,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE user_id=? AND is_deleted=0", userId, otherUser);
+            db.update("UPDATE users SET is_deleted=1,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0", userId, otherUser);
+        }
+    }
+
+    @Test
+    void failedOrderRollsBackCartRemovalAndInventoryReservation() {
+        orders.saveCart(skuId, obj("quantity", 2, "selected", true), user);
+        ObjectNode body = obj("quoteId", l(quote(2), "id"), "requestKey", id());
+        doThrow(new IllegalStateException("模拟订单审计写入失败"))
+                .when(access).audit(eq("order.create"), eq("order"), anyLong(), anyString());
+
+        assertThrows(IllegalStateException.class, () -> orders.create(body, user));
+
+        assertEquals(1, orders.cart(user).path("items").size());
+        assertEquals(2, orders.cart(user).path("items").get(0).path("quantity").asInt());
+        assertEquals(0, l(db.one("SELECT reserved FROM skus WHERE id=?", skuId), "reserved"));
+        assertNull(db.one("SELECT id FROM orders WHERE user_id=? AND request_key=? AND is_deleted=0", userId, s(body, "requestKey")));
     }
 
     /** 只准备已付款库存前置事实以验证履约；不调用或声称验证支付结算、渠道到账。 */
@@ -675,6 +727,7 @@ class OrdersMysqlTest {
         ObjectNode before =
                 db.one("SELECT name,version FROM products WHERE id=? AND is_deleted=0", productId);
         ObjectNode product = productBody(skuId, 2, 11000);
+        ((ObjectNode) product.path("skus").get(0)).put("stock", 2).put("expectedStock", 10);
         product.put("name", "必须回滚的改名");
         assertEquals(
                 "库存不能低于待付款占用数量",
@@ -689,6 +742,72 @@ class OrdersMysqlTest {
         assertThrows(
                 BusinessException.class,
                 () -> catalog.removeProduct(productId, obj("reason", "测试不可移除"), userId));
+    }
+
+    /** 使用真实结算入口扣除库存，验证编辑页与销售交错时的库存一致性。 */
+    private void settleStock(long quantity) {
+        ObjectNode order = create(quantity);
+        PaymentService realPayments = new PaymentService(db, access, orders,
+                mock(com.jianyanji.payments.WechatPayClient.class));
+        db.tx(() -> realPayments.settlePaid(order, "offline", "stock-regression:" + id()));
+    }
+
+    @Test
+    void editingProductDetailsPreservesStockSoldAfterEditorOpened() {
+        ObjectNode editor = productBody(skuId, 10, 10000);
+        editor.put("name", "只修改资料");
+        settleStock(3);
+
+        catalog.saveProduct(productId, editor, userId);
+
+        assertEquals(7, l(sku(), "stock"));
+        assertEquals("只修改资料", s(db.one("SELECT name FROM products WHERE id=?", productId), "name"));
+    }
+
+    @Test
+    void staleStockAdjustmentAndLegacyEditorCannotRestoreSoldStock() {
+        ObjectNode before = db.one("SELECT name,version FROM products WHERE id=?", productId);
+        ObjectNode editor = productBody(skuId, 10, 10000);
+        editor.put("name", "应当回滚的修改");
+        ObjectNode editedSku = (ObjectNode) editor.path("skus").get(0);
+        settleStock(3);
+
+        editedSku.put("stock", 10);
+        assertEquals("STOCK_CHANGED", assertThrows(BusinessException.class,
+                () -> catalog.saveProduct(productId, editor, userId)).getCode());
+        editedSku.put("stock", 12).put("expectedStock", 10);
+        assertEquals("STOCK_CHANGED", assertThrows(BusinessException.class,
+                () -> catalog.saveProduct(productId, editor, userId)).getCode());
+        assertEquals(7, l(sku(), "stock"));
+        assertEquals(before, db.one("SELECT name,version FROM products WHERE id=?", productId));
+    }
+
+    @Test
+    void stockAdjustmentWithCurrentValueSucceedsWithoutChangingReservations() {
+        create(3);
+        ObjectNode editor = productBody(skuId, 10, 10000);
+        ((ObjectNode) editor.path("skus").get(0)).put("stock", 12).put("expectedStock", 10);
+
+        catalog.saveProduct(productId, editor, userId);
+
+        assertEquals(12, l(sku(), "stock"));
+        assertEquals(3, l(sku(), "reserved"));
+    }
+
+    @Test
+    void concurrentStockAdjustmentsFromSameOriginalValueCannotOverwriteEachOther() throws Exception {
+        ObjectNode first = productBody(skuId, 10, 10000);
+        ObjectNode second = first.deepCopy();
+        ((ObjectNode) first.path("skus").get(0)).put("stock", 12).put("expectedStock", 10);
+        ((ObjectNode) second.path("skus").get(0)).put("stock", 15).put("expectedStock", 10);
+
+        List<ObjectNode> results = compete(Arrays.asList(
+                () -> catalog.saveProduct(productId, first, userId),
+                () -> catalog.saveProduct(productId, second, userId)));
+
+        assertEquals(1, results.stream().filter(row -> l(row, "status") == 200).count());
+        assertEquals(1, results.stream().filter(row -> l(row, "status") == 409).count());
+        assertTrue(l(sku(), "stock") == 12 || l(sku(), "stock") == 15);
     }
 
     @Test

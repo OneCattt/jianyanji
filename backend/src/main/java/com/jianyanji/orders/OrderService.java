@@ -631,6 +631,12 @@ public class OrderService {
                                         s(line, "priceRule"),
                                         userId,
                                         userId);
+                            // 建单成功后移除本人本单商品；与订单共用事务，失败时一并回滚。
+                            db.update(
+                                    "UPDATE cart_items SET is_deleted=1,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE user_id=? AND is_deleted=0 AND sku_id IN (SELECT sku_id FROM order_lines WHERE order_id=? AND is_deleted=0)",
+                                    userId,
+                                    userId,
+                                    orderId);
                             access.audit("order.create", "order", orderId, "确认订单并占用库存，尚未扣款");
                             return owned(orderId, userId);
                         });

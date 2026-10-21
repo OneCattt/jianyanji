@@ -22,6 +22,8 @@ function runtime(name, request, token = "token") {
   const wx = {
     getStorageSync: (key) => storage.get(key),
     setStorageSync: (key, value) => storage.set(key, value),
+    removeStorageSync: (key) => storage.delete(key),
+    redirectTo: ({ url }) => navigation.push(url),
     navigateTo: (value) => {
       navigation.push(value.url);
       if (value.complete) value.complete();
@@ -258,6 +260,38 @@ test("结算页直接读取本人选中地址，不依赖地址列表第一页",
   await page.onShow();
   assert.equal(page.data.address.id, 99);
   assert.deepEqual(calls, ["/mini/address?id=99", "/checkout/quote"]);
+});
+
+test("下单成功后清除本次结算商品缓存并跳转订单，不逐项调用购物袋接口", async () => {
+  const { page, storage, navigation } = runtime(
+    "checkout",
+    async (url, method, body) => {
+      assert.equal(url, "/orders");
+      assert.equal(method, "POST");
+      assert.equal(body.quoteId, 1);
+      return { id: 9 };
+    },
+  );
+  storage.set("jyj_checkout", [{ skuId: 1, quantity: 2 }]);
+  page.setData({ quote: { id: 1 } });
+  page.requestKey = "order-cart-regression";
+  await page.submit();
+  assert.equal(storage.has("jyj_checkout"), false);
+  assert.deepEqual(navigation, ["/pages/order/index?id=9"]);
+  assert.equal(page.data.error, "");
+});
+
+test("下单失败保留结算商品供重试，不跳转订单", async () => {
+  const { page, storage, navigation } = runtime("checkout", async () => {
+    throw Error("库存不足");
+  });
+  storage.set("jyj_checkout", [{ skuId: 1, quantity: 2 }]);
+  page.setData({ quote: { id: 1 } });
+  await page.submit();
+  assert.equal(storage.has("jyj_checkout"), true);
+  assert.deepEqual(navigation, []);
+  assert.equal(page.data.error, "库存不足");
+  assert.equal(page.data.busy, false);
 });
 
 test("业务变更使缓存失效，再次进入会读取最新记录", async () => {
