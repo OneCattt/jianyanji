@@ -1,0 +1,23 @@
+{
+  "frontendCommit": "88d23d469dfdc58d7fdc219a76b3b124346aa785",
+  "backendCommit": "f76f5ca320d357e15dbcd7be3a7447738a608bc4",
+  "backup": "/var/backups/jianyanji/20261022T142328+0800-admin-88d23d4",
+  "files": {
+    "dist/assets/index-D6zSm3cd.js": "a862e0ec7c021fbde954c001118432d8daebef7566f524832eacf8230e2097ff",
+    "dist/assets/index-StWMqFkW.css": "ca356a6974c5c6de596c05fbc100a4cd8cd18e5b6163ab547842a0d03d81a6aa",
+    "dist/brand/app-icon.png": "60d9c1b6091b14e950a8bceab0601dbe7f08cd3400b4cd2f151b7552ffac9615",
+    "dist/brand/app-icon.svg": "e06f5104361b1a0f2972af5fd683778554600c8b55e06542e51f861b2b3a0d43",
+    "dist/brand/logo-horizontal-red.svg": "cfe315e54330cb0cb4cde5af9110c9a46f610f9af06b7087e060011500386c8d",
+    "dist/index.html": "ebe6d841ef4e85c34b675086608ac646f5080bb1c6e13f9fba6e4af4bc8d34fc"
+  },
+  "backendSha256": "236af1754e8b4371208e34f4694edfe39b4948dd35b60b7935672baa62df4d28",
+  "context": {
+    "brandName": "清欣简妍肌",
+    "devAuth": false,
+    "wechatConfigured": true
+  },
+  "unauthenticatedAdminStatus": "401",
+  "services": ["jianyanji:active", "nginx:active"],
+  "httpsArtifactHashesVerified": true,
+  "publishedAt": "2026-10-22T14:23:28.938177+08:00"
+}

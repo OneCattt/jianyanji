@@ -32,3 +32,12 @@ PLAYWRIGHT_MODULE=/本机/playwright ADMIN_TEST_BASE=http://127.0.0.1:4174 node 
 发布提交及构建哈希写入服务器 `/opt/jianyanji/release.json`，本次备份目录在发布记录中保留。先同步带哈希的静态文件，再原子替换 `index.html`；保留旧静态资源供已有页面使用，后端 JAR 保持原版本。
 
 回退时先恢复备份的资源，最后恢复旧版 `index.html` 及 `release.json`。没有数据库变更，代码回退不需要恢复业务数据；发布后已由运营保存的图片仍属于商品数据，不随页面回退撤销。
+
+### 2026-10-22 发布结果
+
+- 北京时间 14:23 发布管理前端 `88d23d469dfdc58d7fdc219a76b3b124346aa785`；后端保留 `f76f5ca320d357e15dbcd7be3a7447738a608bc4`，JAR SHA-256 仍为 `236af1754e8b4371208e34f4694edfe39b4948dd35b60b7935672baa62df4d28`。
+- 备份：`/var/backups/jianyanji/20261022T142328+0800-admin-88d23d4`；发布产物与清单：`/opt/jianyanji/releases/admin-88d23d4`。
+- 内部 HTTPS 的管理入口、JS 和 CSS 响应哈希与构建一致，Java、Nginx 均 active；未登录管理接口 401，`devAuth=false`。
+- 首次校验脚本遇到服务器 Python 3.6 参数兼容问题，旧入口和清单自动恢复；修正脚本后重新发布成功。
+- 当前检测网络访问公网域名 HTTPS 仍连接重置，服务器内 HTTPS 校验成功；不能据此声称公网全线路可用。真实 OSS 上传和微信端业务图片显示仍需运营账号及设备验收。
+- 完整哈希与校验结果见 `.scratch/product-image-publishing/verification/deployment.json`。
