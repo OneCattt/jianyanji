@@ -105,6 +105,14 @@ page {
   color: #8d1724;
   background: #eee7de;
 }
+.settings-page .settings-inline {
+  display: inline;
+  padding: 0;
+  color: #8d1724;
+  background: transparent;
+  font-size: inherit;
+  line-height: inherit;
+}
 .settings-error {
   padding: 23.936rpx;
   color: #8d1724;

@@ -1,0 +1,38 @@
+<view class="privacy-page">
+  <view class="privacy-eyebrow">PRIVACY &amp; YOUR CHOICE</view>
+  <view class="privacy-title">{{policy.title}}</view>
+  <view class="privacy-version">版本／更新日期：{{policy.version}}</view>
+  <view class="privacy-summary">{{policy.summary}}</view>
+  <button wx:if="{{consentMode}}" class="privacy-link" bindtap="decline" disabled="{{busy}}">暂不同意，返回继续浏览</button>
+  <view class="privacy-card">
+    <view class="privacy-label">运营主体</view>
+    <text class="privacy-value" user-select>{{operator || '品牌方尚未公布运营主体'}}</text>
+    <view class="privacy-label">隐私联系方式</view>
+    <text class="privacy-value" user-select>{{contact || '品牌方尚未公布隐私联系方式'}}</text>
+    <button wx:if="{{contact}}" class="privacy-link" bindtap="copyContact">复制隐私联系方式</button>
+    <button class="privacy-link" bindtap="openContract">查看微信{{contractName}}</button>
+    <button class="privacy-link" bindtap="contactRights">个人信息与账号申请</button>
+  </view>
+  <view wx:for="{{policy.sections}}" wx:key="id" id="{{item.id}}" class="privacy-section">
+    <view class="privacy-heading">{{item.title}}</view>
+    <text wx:for="{{item.paragraphs}}" wx:for-item="paragraph" wx:key="*this" class="privacy-paragraph" user-select>{{paragraph}}</text>
+  </view>
+  <view class="privacy-card privacy-rights">
+    <view class="privacy-heading">个人信息与账号申请</view>
+    <view class="privacy-paragraph">联系隐私负责人，说明需要查阅、复制、更正、删除或注销账号，并提供必要业务编号。请勿发送密码、完整身份证或银行卡信息。</view>
+    <text class="privacy-value" user-select>{{contact || '联系方式尚未配置，请通过品牌与服务联系品牌方'}}</text>
+    <button wx:if="{{contact}}" class="privacy-secondary" bindtap="copyContact">复制联系方式，联系负责人</button>
+  </view>
+  <view wx:if="{{error}}" class="privacy-error" role="alert">{{error}}</view>
+  <button wx:if="{{!loading && (!configured || (consentMode && !platformReady))}}" class="privacy-secondary" bindtap="load">重新加载主体与授权状态</button>
+  <view wx:if="{{consentMode}}" class="privacy-consent">
+    <view wx:if="{{loading}}" class="privacy-note">正在确认主体与微信隐私授权状态…</view>
+    <view wx:elif="{{!configured}}" class="privacy-note">运营主体与隐私联系方式尚未公布，暂不能同意并登录。你仍可匿名浏览。</view>
+    <checkbox-group bindchange="toggleAgreement">
+      <label class="privacy-check"><checkbox value="privacy" checked="{{agreed}}" color="#8d1724" disabled="{{busy || loading || !configured || !platformReady}}" /><text>我已阅读并同意本隐私政策及微信{{contractName}}，了解如何拒绝和撤回同意。</text></label>
+    </checkbox-group>
+    <button wx:if="{{needAuthorization}}" id="privacy-agree" class="privacy-primary {{busy || loading || !agreed || !configured || !platformReady ? 'privacy-disabled' : ''}}" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="agree" disabled="{{busy || loading || !agreed || !configured || !platformReady}}" loading="{{busy}}">同意并继续</button>
+    <button wx:else id="privacy-agree" class="privacy-primary {{busy || loading || !agreed || !configured || !platformReady ? 'privacy-disabled' : ''}}" bindtap="agree" disabled="{{busy || loading || !agreed || !configured || !platformReady}}" loading="{{busy}}">同意并继续</button>
+    <button class="privacy-secondary" bindtap="decline" disabled="{{busy}}">暂不同意，继续浏览</button>
+  </view>
+</view>

@@ -1,0 +1,128 @@
+page {
+  background: #f8f5ee;
+  color: #251d1a;
+}
+.privacy-page {
+  padding: 44rpx 36rpx calc(48rpx + env(safe-area-inset-bottom));
+  font-family: "PingFang SC", sans-serif;
+}
+.privacy-eyebrow {
+  color: #8e8178;
+  font:
+    18rpx/1.5 Georgia,
+    serif;
+  letter-spacing: 3rpx;
+}
+.privacy-title {
+  margin-top: 20rpx;
+  font:
+    44rpx/1.5 STSong,
+    "Songti SC",
+    serif;
+}
+.privacy-version {
+  margin-top: 14rpx;
+  color: #8e8178;
+  font-size: 23rpx;
+}
+.privacy-summary {
+  margin: 28rpx 0;
+  font-size: 28rpx;
+  line-height: 1.9;
+}
+.privacy-card {
+  padding: 30rpx;
+  background: #fffdfa;
+}
+.privacy-label {
+  margin-bottom: 12rpx;
+  color: #8e8178;
+  font-size: 23rpx;
+}
+.privacy-value {
+  display: block;
+  margin-bottom: 24rpx;
+  font-size: 27rpx;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.privacy-section {
+  padding-top: 36rpx;
+}
+.privacy-heading {
+  margin-bottom: 22rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.privacy-paragraph {
+  display: block;
+  margin-bottom: 22rpx;
+  font-size: 27rpx;
+  line-height: 1.95;
+  white-space: pre-wrap;
+}
+.privacy-page button {
+  margin: 18rpx 0 0;
+  border-radius: 0;
+  padding: 16rpx 24rpx;
+  font-size: 26rpx;
+  line-height: 1.8;
+  white-space: normal;
+}
+.privacy-page button::after {
+  border: 0;
+}
+.privacy-page .privacy-link {
+  min-height: 72rpx;
+  padding-left: 0;
+  text-align: left;
+  color: #8d1724;
+  background: transparent;
+}
+.privacy-page .privacy-primary {
+  color: #fffdfa;
+  background: #8d1724;
+}
+.privacy-page .privacy-secondary {
+  color: #6d4d3e;
+  background: #eee7de;
+}
+.privacy-page button[disabled] {
+  opacity: 0.5;
+}
+.privacy-page .privacy-primary.privacy-disabled {
+  color: #6d625a;
+  background: #e9e2d8;
+  opacity: 1;
+}
+.privacy-rights {
+  margin-top: 32rpx;
+}
+.privacy-consent {
+  margin-top: 36rpx;
+  border-top: 1rpx solid #4530261f;
+  padding-top: 28rpx;
+}
+.privacy-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  font-size: 26rpx;
+  line-height: 1.8;
+}
+.privacy-check checkbox {
+  flex-shrink: 0;
+}
+.privacy-note,
+.privacy-error {
+  margin-bottom: 24rpx;
+  font-size: 25rpx;
+  line-height: 1.8;
+}
+.privacy-error {
+  padding: 24rpx;
+  color: #8d1724;
+  background: #f7e6e2;
+}

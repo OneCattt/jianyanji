@@ -18,6 +18,7 @@
     "pages/rewards/detail",
     "pages/order/logistics",
     "pages/settings/index",
+    "pages/privacy/index",
     "pages/seeds/index",
     "pages/post/index",
     "pages/courses/index",

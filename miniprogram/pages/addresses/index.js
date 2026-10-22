@@ -52,6 +52,9 @@ Page({
   toggle(e) {
     this.setData({ "form.isDefault": e.detail.value });
   },
+  openPrivacy() {
+    wx.navigateTo({ url: "/pages/privacy/index" });
+  },
   add() {
     this.setData({ form: empty(), editing: true, editingId: 0 });
   },

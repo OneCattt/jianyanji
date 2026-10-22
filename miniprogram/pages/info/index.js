@@ -9,4 +9,7 @@ Page({
       this.setData({ error: e.message });
     }
   },
+  openPrivacy() {
+    wx.navigateTo({ url: "/pages/privacy/index" });
+  },
 });

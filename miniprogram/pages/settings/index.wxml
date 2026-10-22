@@ -3,7 +3,15 @@
   <view class="settings-card">
     <view class="settings-identity"><view class="settings-avatar">妍</view><view><view class="settings-name">{{user ? user.nickname : '欢迎，新朋友'}}</view><view class="settings-role">{{user ? user.identityName : '尚未登录'}}</view></view></view>
     <view class="settings-help">{{!user ? '使用微信登录后，查看订单并保存你的联系方式。' : user.identity === 'D' ? '当前为游客身份，可下单后线下付款，财务核款后发货。登录不会自动开通代理身份。' : '你的代理身份已生效，下单使用对应身份价格，可线下付款或使用已有积分订货。'}}</view>
+    <view wx:if="{{!user}}" class="settings-help">首次登录前将请你阅读并同意<button class="settings-inline" bindtap="openPrivacy">《隐私政策》</button>，不同意仍可浏览商品和品牌内容。</view>
     <button wx:if="{{!user}}" class="settings-primary" bindtap="onLogin" loading="{{busy}}" disabled="{{busy}}">微信登录</button>
+  </view>
+  <view class="settings-card">
+    <view class="settings-section-title">隐私保护</view>
+    <view class="settings-help">{{privacyConsented ? '已同意当前版本。你可随时查看政策或撤回同意。' : '尚未同意当前版本；公开内容可继续浏览。'}}</view>
+    <button class="settings-secondary" bindtap="openPrivacy">查看隐私政策与微信指引</button>
+    <button class="settings-secondary" bindtap="privacyRights">个人信息与账号注销申请</button>
+    <button wx:if="{{privacyConsented}}" class="settings-logout" bindtap="withdrawPrivacy" disabled="{{busy}}">撤回同意并退出</button>
   </view>
   <view wx:if="{{user}}" class="settings-card">
     <view class="settings-section-title">个人资料</view>
@@ -16,3 +24,4 @@
   <view wx:if="{{error}}" class="settings-error">{{error}}</view>
   <view wx:if="{{devAuth}}" class="settings-dev"><view class="settings-section-title">本地调试账号</view><picker range="{{accounts}}" value="{{accountIndex}}" bindchange="onAccount" disabled="{{busy}}"><button class="settings-secondary" disabled="{{busy}}">{{accounts[accountIndex]}} · 点击选择</button></picker><button class="settings-primary" bindtap="onLogin" loading="{{busy}}" disabled="{{busy}}">{{user ? '切换到所选账号' : '使用所选账号登录'}}</button></view>
 </view>
+<brand-dialog id="brand-dialog" />

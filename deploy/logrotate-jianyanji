@@ -1,7 +1,9 @@
 /var/log/nginx/jianyanji-access.log /var/log/nginx/jianyanji-error.log {
     daily
     maxsize 20M
-    rotate 7
+    # 按时间保留 200 天；不能按份数裁掉一天内多次轮转产生的安全日志。
+    rotate -1
+    maxage 200
     missingok
     notifempty
     compress

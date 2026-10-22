@@ -32,6 +32,8 @@ const content = ref({
   heroImage: "/assets/figma/Home-imgImage.png",
   customerService: "",
   purchaseNotes: "",
+  privacyOperator: "",
+  privacyContact: "",
   companyName: "",
   bankName: "",
   bankAccount: "",
@@ -48,6 +50,8 @@ const contentLabels: Record<string, string> = {
   heroImage: "首页图片",
   customerService: "客服联系方式",
   purchaseNotes: "购买说明",
+  privacyOperator: "运营主体全称",
+  privacyContact: "隐私联络方式",
   companyName: "公司收款户名",
   bankName: "开户银行",
   bankAccount: "公司收款账号",
@@ -69,6 +73,12 @@ const contentGroups = [
     title: "客服与购买说明",
     description: "让购买者清楚了解咨询方式与购买须知。",
     keys: ["customerService", "purchaseNotes"],
+  },
+  {
+    title: "隐私保护",
+    description:
+      "运营主体全称须与微信小程序主体核对；请填写可有效受理个人信息查阅、更正、删除及账号注销请求的联系方式。两项需一并填写或一并清空，资料缺失会阻止小程序首次隐私授权，匿名浏览仍可进行。",
+    keys: ["privacyOperator", "privacyContact"],
   },
   {
     title: "公司收款资料",
@@ -192,7 +202,13 @@ async function load() {
   try {
     if (props.section === "content") {
       const v = await api<typeof content.value | null>("/admin/content");
-      if (v) content.value = v;
+      // 旧品牌资料没有隐私字段时补空值，保证表单始终成对提交。
+      if (v)
+        content.value = {
+          ...v,
+          privacyOperator: v.privacyOperator ?? "",
+          privacyContact: v.privacyContact ?? "",
+        };
     } else {
       [categories.value, products.value] = await Promise.all([
         api<typeof categories.value>("/admin/categories"),
@@ -236,6 +252,11 @@ function editContent() {
 function saveContent() {
   if (uploadingImage.value) return;
   return act(async () => {
+    if (
+      Boolean(contentForm.value.privacyOperator.trim()) !==
+      Boolean(contentForm.value.privacyContact.trim())
+    )
+      throw new Error("运营主体全称与隐私联络方式需完整填写或全部留空");
     await api("/admin/content", {
       method: "PUT",
       body: { ...contentForm.value, reason: reason.value },
@@ -430,6 +451,7 @@ const productColumns = [
                       'heroTitle',
                       'heroImage',
                       'purchaseNotes',
+                      'privacyContact',
                       'bankAccount',
                       'transferNotes',
                     ].includes(key),
@@ -442,12 +464,14 @@ const productColumns = [
                         'introduction',
                         'heroTitle',
                         'purchaseNotes',
+                        'privacyContact',
                         'transferNotes',
                       ].includes(key)
                     "
                     v-model:value="contentForm[key]"
                     :rows="key === 'heroTitle' ? 2 : 3"
                     :required="['introduction', 'heroTitle'].includes(key)"
+                    :maxlength="key === 'privacyContact' ? 300 : undefined"
                   />
                   <ImageUploader
                     v-else-if="key === 'heroImage'"
@@ -464,6 +488,7 @@ const productColumns = [
                     :required="
                       ['brandName', 'heroSubtitle', 'heroImage'].includes(key)
                     "
+                    :maxlength="key === 'privacyOperator' ? 100 : undefined"
                   />
                 </label>
               </div>

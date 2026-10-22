@@ -147,6 +147,7 @@ public class CatalogService {
         return obj("configured", value != null && !value.isNull(), "content", value);
     }
 
+    /** 保存品牌资料；隐私主体全称限 0~100 字，联络方式限 0~300 字，成对填写或清空，省略时保留。 */
     public ObjectNode saveContent(JsonNode body, long actor) {
         Input.strict(
                 body,
@@ -158,6 +159,8 @@ public class CatalogService {
                 "heroImage",
                 "customerService",
                 "purchaseNotes",
+                "privacyOperator",
+                "privacyContact",
                 "companyName",
                 "bankName",
                 "bankAccount",
@@ -192,8 +195,27 @@ public class CatalogService {
                         + (s(value, "bankName").isEmpty() ? 0 : 1)
                         + (s(value, "bankAccount").isEmpty() ? 0 : 1);
         Input.require(filled == 0 || filled == 3, "公司收款资料需完整填写或全部留空");
+        // 必须区分字段省略与显式空值，单字段请求不得误当作旧请求保留配置。
+        Input.require(
+                body.has("privacyOperator") == body.has("privacyContact"),
+                "运营主体全称与隐私联络方式需一并提交");
+        if (body.has("privacyOperator")) {
+            String operator = Input.text(body, "privacyOperator", 0, 100);
+            String contact = Input.text(body, "privacyContact", 0, 300);
+            Input.require(
+                    operator.isEmpty() == contact.isEmpty(),
+                    "运营主体全称与隐私联络方式需完整填写或全部留空");
+            value.put("privacyOperator", operator);
+            value.put("privacyContact", contact);
+        }
         return db.tx(
                 () -> {
+                    // 旧请求省略隐私字段时，在写事务取得锁后读取最新配置，避免覆盖其他管理员的更新。
+                    if (!body.has("privacyOperator") && !body.has("privacyContact")) {
+                        JsonNode current = db.setting("content");
+                        value.put("privacyOperator", s(current, "privacyOperator"));
+                        value.put("privacyContact", s(current, "privacyContact"));
+                    }
                     db.putSetting("content", value, actor);
                     access.audit("content.update", "content", "brand", reason);
                     return value;
