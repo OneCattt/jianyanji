@@ -26,13 +26,14 @@ function createRequire(entry, context, request) {
   return (name) => load(path.resolve(path.dirname(entry), name + ".js"));
 }
 
-function setData(values) {
+function setData(values, callback) {
   for (const [key, value] of Object.entries(values)) {
     const parts = key.replace(/\[(\d+)\]/g, ".$1").split(".");
     let target = this.data;
     for (const part of parts.slice(0, -1)) target = target[part];
     target[parts.at(-1)] = value;
   }
+  if (callback) callback();
 }
 
 module.exports = { createRequire, setData };

@@ -28,6 +28,7 @@
 ```bash
 sudo install -d -m 0755 /etc/nginx/jianyanji
 sudo install -m 0644 deploy/nginx/api-guard.conf /etc/nginx/jianyanji/api-guard.conf
+sudo install -m 0644 deploy/nginx/traffic-saving.conf /etc/nginx/jianyanji/traffic-saving.conf
 # 首次安装复制封禁文件；以后升级必须保留服务器上已维护的名单。
 sudo test -f /etc/nginx/jianyanji/blocked-ips.conf || sudo install -m 0644 deploy/nginx/blocked-ips.conf /etc/nginx/jianyanji/blocked-ips.conf
 sudo install -m 0644 deploy/nginx.conf /etc/nginx/conf.d/jianyanji.conf
@@ -48,6 +49,29 @@ python3 scripts/check-edge-security.py --nginx /usr/sbin/nginx
 ```
 
 脚本会以临时自签名证书、随机本地端口和假后端加载实际部署模板，验证限流、转发头覆盖、Host 拒绝、请求体大小、IP 封禁和暂停/恢复。不访问正式业务库，不测试真实微信付款或云账单。
+
+## 减少正常访问的出网流量
+
+`deploy/nginx/traffic-saving.conf` 在 `http` 内只包含一次，IP 和正式域名入口共用：
+
+- 对支持 gzip 的客户端压缩脚本、样式、JSON、SVG 和 HTML；小于 1KB 的响应不压缩。PNG、JPEG、WebP 不重复压缩。
+- `/assets/` 下带 Vite 八位内容指纹的 JS/CSS 设置 `public, max-age=31536000, immutable`。同版本再次打开时，客户端缓存命中可避免重复下载；发布新内容生成新地址。
+- 固定名称素材使用 `no-cache`，每次验证是否更新；未变化时可返回 304。HTML 不应用长期缓存，业务 API 保留 `no-store`，不缓存订单或余额数据。
+- 已有站点升级时，除安装公共配置外，还须同步更新每个 HTTPS 入口的 `/assets/` 缓存设置，移除旧的局部 gzip 配置。不要直接覆盖域名、证书、HTTP 联调入口和封禁名单。
+
+### 2026-10-20 23:57 部署验证
+
+仅平滑重载 Nginx，无需构建或重启 Java。配置检查、压缩前后解压内容校验、IP/域名入口、固定名称素材缓存、带指纹文件的 304、后台未登录 401 均通过；公网 IP 的 HTTPS 响应头也已核验。
+
+| 抽样资源 | 优化前响应体 | 优化后响应体 | 本次减少 |
+| --- | ---: | ---: | ---: |
+| 品牌横版 Logo SVG | 36,804 字节 | 10,830 字节 | 70.6% |
+| 商品列表 API | 1,684 字节 | 518 字节 | 69.2% |
+| 当时后台主脚本 | 419,382 字节 | 419,382 字节 | 已有 gzip，本次新增长期缓存 |
+
+以上为支持 gzip 时的抽样响应体，不是全站或云账单节省比例。缓存命中受浏览器及设备实际缓存策略影响。服务器备份及验证记录：`/var/backups/jianyanji/20261020T155701Z-traffic-saving/`；本地记录：`artifacts/traffic-saving-20261020/verification.json`。
+
+图片继续按 [图片压缩、缩略图与缓存](oss-image-upload.md#图片压缩缩略图与缓存) 控制大小；OSS 的出网、存储及图片处理费用须单独查看。当前低用量先保留按使用流量计费，取得实际月用量和报价后再比较固定带宽或 CDN；本次未变更云计费设置。
 
 ## OSS：公开商品图片与敏感凭证分开
 

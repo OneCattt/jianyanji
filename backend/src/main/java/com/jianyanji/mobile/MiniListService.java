@@ -52,12 +52,19 @@ public class MiniListService {
         return result;
     }
 
-    /** 商品列表批量读取本页规格，首页精选在 SQL 中筛选且只读取一条。 */
-    public ObjectNode products(JsonNode user,int page,int limit,Long categoryId,boolean featured) {
+    /** 商品列表先按分类、名称或副标题筛选再分页，批量读取本页规格；关键词最多200字。 */
+    public ObjectNode products(JsonNode user,int page,int limit,Long categoryId,boolean featured,String keyword) {
         String sql="SELECT p.id,p.category_id,p.name,p.subtitle,p.image,p.active,p.featured,p.version FROM products p JOIN categories c ON c.id=p.category_id AND c.is_deleted=0 AND c.active=1 WHERE p.is_deleted=0 AND p.active=1";
         List<Object> args=new ArrayList<>();
         if(categoryId!=null) {sql+=" AND p.category_id=?";args.add(Input.id(categoryId));}
         if(featured) sql+=" AND p.featured=1";
+        String term=keyword.trim();
+        Input.require(term.length()<=200,"搜索内容不能超过200字");
+        if(!term.isEmpty()) {
+            String pattern="%"+term.replace("!","!!").replace("%","!%").replace("_","!_")+"%";
+            sql+=" AND (p.name LIKE ? ESCAPE '!' OR p.subtitle LIKE ? ESCAPE '!')";
+            args.add(pattern);args.add(pattern);
+        }
         ObjectNode result=page(sql+" ORDER BY p.id DESC",args,page,limit,Function.identity());
         List<Long> ids=new ArrayList<>();
         for(JsonNode item:result.path("items")) ids.add(l(item,"id"));

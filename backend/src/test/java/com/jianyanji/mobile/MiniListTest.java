@@ -50,7 +50,7 @@ class MiniListTest {
             }
             return rows;
         });
-        ObjectNode result=service(db,mock(OrderService.class)).products(obj("identity","B"),1,20,3L,false);
+        ObjectNode result=service(db,mock(OrderService.class)).products(obj("identity","B"),1,20,3L,false,"");
         assertEquals(20,result.path("items").size());
         assertTrue(b(result,"hasMore"));assertEquals(2,l(result,"nextPage"));
         assertEquals(3500,l(result.path("items").get(0).path("skus").get(0),"priceCents"));
@@ -68,12 +68,41 @@ class MiniListTest {
             queries.add(call.getArgument(0));arguments.add(Arrays.copyOfRange(call.getArguments(),1,call.getArguments().length));return Collections.emptyList();
         });
         MiniListService service=service(db,mock(OrderService.class));
-        service.products(null,1,1,null,true);
+        service.products(null,1,1,null,true,"");
         assertTrue(queries.get(0).contains("p.featured=1"));
         assertArrayEquals(new Object[]{2,0},arguments.get(0));
-        ObjectNode result=service.products(null,2,20,null,false);
+        ObjectNode result=service.products(null,2,20,null,false,"");
         assertArrayEquals(new Object[]{21,20},arguments.get(1));
         assertFalse(b(result,"hasMore"));assertTrue(result.path("nextPage").isNull());
+    }
+
+    @Test
+    void productSearchBindsLiteralKeywordWithCategoryBeforePagination() {
+        List<String> queries=new ArrayList<>();List<Object[]> arguments=new ArrayList<>();
+        Db db=mock(Db.class,call->{
+            if(!call.getMethod().getName().equals("list"))return null;
+            queries.add(call.getArgument(0));arguments.add(Arrays.copyOfRange(call.getArguments(),1,call.getArguments().length));
+            return Collections.emptyList();
+        });
+        MiniListService lists=service(db,mock(OrderService.class));
+        lists.products(null,2,20,3L,false,"  修护%_!  ");
+        assertTrue(queries.get(0).contains("p.name LIKE ? ESCAPE '!' OR p.subtitle LIKE ? ESCAPE '!'"));
+        assertArrayEquals(new Object[]{3L,"%修护!%!_!!%","%修护!%!_!!%",21,20},arguments.get(0));
+        lists.products(null,1,20,null,false,"   ");
+        assertFalse(queries.get(1).contains("LIKE"));
+        assertArrayEquals(new Object[]{21,0},arguments.get(1));
+        assertThrows(BusinessException.class,()->lists.products(null,1,20,null,false,String.join("",Collections.nCopies(201,"字"))));
+        assertEquals(2,queries.size(),"过长关键词不能执行查询");
+    }
+
+    @Test
+    void productSearchEndpointPassesKeywordAndCategoryToService() throws Exception {
+        MiniListService lists=mock(MiniListService.class);Access access=mock(Access.class);
+        when(lists.products(null,2,20,3L,false,"修护")).thenReturn(obj("items",arr(),"hasMore",false));
+        org.springframework.test.web.servlet.MockMvc mvc=MockMvcBuilders.standaloneSetup(new MiniListController(lists,access)).build();
+        mvc.perform(get("/api/mini/products").param("categoryId","3").param("keyword","修护").param("page","2"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items").isArray());
+        verify(lists).products(null,2,20,3L,false,"修护");
     }
 
     @Test
@@ -109,10 +138,10 @@ class MiniListTest {
     void defaultPageIsTwentyAndPrivateListsRequireAuthentication() throws Exception {
         MiniListService lists=mock(MiniListService.class);Access access=mock(Access.class);
         when(access.optionalUser()).thenReturn(null);
-        when(lists.products(null,1,20,null,false)).thenReturn(obj("items",arr(),"hasMore",false,"nextPage",null));
+        when(lists.products(null,1,20,null,false,"")).thenReturn(obj("items",arr(),"hasMore",false,"nextPage",null));
         org.springframework.test.web.servlet.MockMvc mvc=MockMvcBuilders.standaloneSetup(new MiniListController(lists,access)).setControllerAdvice(new ApiErrors(access)).build();
         mvc.perform(get("/api/mini/products")).andExpect(status().isOk()).andExpect(jsonPath("$.items").isArray());
-        verify(lists).products(null,1,20,null,false);
+        verify(lists).products(null,1,20,null,false,"");
         when(access.user()).thenThrow(new BusinessException(401,"UNAUTHORIZED","请先登录"));
         mvc.perform(get("/api/mini/orders")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/mini/cart/count")).andExpect(status().isUnauthorized());
@@ -148,9 +177,9 @@ class MiniListTest {
     @Test
     void invalidPaginationIsRejectedBeforeQueryAndLastPageHasNoNextPage() {
         Db db=mock(Db.class);MiniListService service=service(db,mock(OrderService.class));
-        assertThrows(BusinessException.class,()->service.products(null,0,20,null,false));
-        assertThrows(BusinessException.class,()->service.products(null,1,21,null,false));
-        assertThrows(BusinessException.class,()->service.products(null,Integer.MAX_VALUE,20,null,false));
+        assertThrows(BusinessException.class,()->service.products(null,0,20,null,false,""));
+        assertThrows(BusinessException.class,()->service.products(null,1,21,null,false,""));
+        assertThrows(BusinessException.class,()->service.products(null,Integer.MAX_VALUE,20,null,false,""));
         verifyNoInteractions(db);
         List<ObjectNode> rows=new ArrayList<>();for(int i=0;i<20;i++)rows.add(obj("id",i));
         ObjectNode page=ListPage.result(rows,1,20);

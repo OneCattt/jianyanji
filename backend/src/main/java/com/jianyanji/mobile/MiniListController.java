@@ -24,8 +24,9 @@ public class MiniListController {
     public Object products(@RequestParam(defaultValue="1") int page,
             @RequestParam(defaultValue="20") int limit,
             @RequestParam(required=false) Long categoryId,
-            @RequestParam(defaultValue="false") boolean featured) {
-        return lists.products(access.optionalUser(), page, limit, categoryId, featured);
+            @RequestParam(defaultValue="false") boolean featured,
+            @RequestParam(defaultValue="") String keyword) {
+        return lists.products(access.optionalUser(), page, limit, categoryId, featured, keyword);
     }
 
     @GetMapping({"/orders", "/refunds", "/cash-refunds", "/addresses", "/cart",

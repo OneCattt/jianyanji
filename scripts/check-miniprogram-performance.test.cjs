@@ -212,6 +212,113 @@ test("订单和奖励切换筛选均重新查询服务端第一页", async () =>
   }
 });
 
+test("商城连续滚动不写回视图位置，切换条件时仍可连续回到顶部", async () => {
+  const { page } = runtime("mall", async (url) =>
+    url === "/public/categories"
+      ? []
+      : { items: [], identity: "D", hasMore: false, nextPage: null },
+  );
+  const writes = [];
+  page.setData = function (values, callback) {
+    writes.push(structuredClone(values));
+    setData.call(this, values);
+    if (callback) callback();
+  };
+  for (let index = 1; index <= 120; index++)
+    page.trackScroll({ detail: { scrollTop: index * 4 } });
+  assert.equal(writes.length, 0, "手指和惯性滚动不能向视图写回 scroll-top");
+
+  await page.resetProducts();
+  assert.equal(page.data.productsScrollTop, 0);
+  const firstPositions = writes
+    .filter((values) => Object.hasOwn(values, "productsScrollTop"))
+    .map((values) => values.productsScrollTop);
+  assert.deepEqual(
+    firstPositions,
+    [480, 0],
+    "仅在切换条件时更新已滚动位置并回顶",
+  );
+
+  writes.length = 0;
+  page.trackScroll({ detail: { scrollTop: 240 } });
+  assert.equal(writes.length, 0);
+  await page.resetProducts();
+  assert.equal(page.data.productsScrollTop, 0);
+  assert.deepEqual(
+    writes
+      .filter((values) => Object.hasOwn(values, "productsScrollTop"))
+      .map((values) => values.productsScrollTop),
+    [240, 0],
+    "上次绑定值已为零时，再次切换仍须触发回顶",
+  );
+});
+
+test("商城搜索交给服务端，搜索分页与分类切换保留关键词，清空后恢复分类列表", async () => {
+  const calls = [];
+  const { page } = runtime("mall", async (url) => {
+    calls.push(url);
+    if (url === "/public/categories") return [{ id: 3, name: "修护系列" }];
+    return {
+      items: [{ id: url.includes("page=2") ? 21 : 1, skus: [] }],
+      identity: "D",
+      hasMore: !url.includes("page=2"),
+      nextPage: url.includes("page=2") ? null : 2,
+    };
+  });
+  await page.load();
+  page.trackScroll({ detail: { scrollTop: 680 } });
+  page.inputSearch({ detail: { value: "  修护 & 保湿  " } });
+  assert.equal(calls.length, 2, "输入时不逐字发出请求");
+  await page.search();
+  assert.equal(page.data.productsScrollTop, 0);
+  assert.match(
+    calls.at(-1),
+    /keyword=%E4%BF%AE%E6%8A%A4%20%26%20%E4%BF%9D%E6%B9%BF&limit=20&page=1/,
+  );
+  await page.onReachBottom();
+  assert.match(calls.at(-1), /keyword=.*&limit=20&page=2/);
+  assert.equal(page.data.products.length, 2);
+  await page.selectCategory({ currentTarget: { dataset: { id: 3 } } });
+  assert.equal(page.data.categoryName, "修护系列");
+  assert.match(calls.at(-1), /categoryId=3&keyword=.*&limit=20&page=1/);
+  assert.equal(page.data.products.length, 1);
+  await page.inputSearch({ detail: { value: "" } });
+  assert.equal(calls.at(-1), "/mini/products?categoryId=3&limit=20&page=1");
+  assert.equal(page.data.keyword, "");
+});
+
+test("商城旧搜索不能覆盖新结果，首屏失败与下一页失败均可按原条件重试", async () => {
+  const old = deferred();
+  let fail = true;
+  const calls = [];
+  const { page } = runtime("mall", async (url) => {
+    if (url === "/public/categories") return [];
+    calls.push(url);
+    if (url.includes("keyword=old")) return old.promise;
+    if (fail) throw new Error("连接失败");
+    return { items: [{ id: 8, skus: [] }], hasMore: true, nextPage: 2 };
+  });
+  page.setData({ searchValue: "old" });
+  const first = page.search();
+  page.setData({ searchValue: "new" });
+  await page.search();
+  assert.equal(page.data.productsLoaded, false);
+  assert.equal(page.data.error, "连接失败");
+  fail = false;
+  await page.retry();
+  assert.match(calls.at(-1), /keyword=new&limit=20&page=1/);
+  old.resolve({ items: [{ id: 1, skus: [] }], hasMore: false, nextPage: null });
+  await first;
+  assert.equal(page.data.products[0].id, 8);
+  fail = true;
+  await page.onReachBottom();
+  assert.equal(page.data.products.length, 1);
+  assert.equal(page.data.productsNextPage, 2);
+  fail = false;
+  await page.retry();
+  assert.match(calls.at(-1), /keyword=new&limit=20&page=2/);
+});
+
 test("切换账号后清除上一个账号列表，旧响应不能写回", async () => {
   const old = deferred();
   const { page, storage } = runtime("cash-refunds", () => old.promise);

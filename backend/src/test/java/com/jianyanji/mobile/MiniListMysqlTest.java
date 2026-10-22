@@ -56,7 +56,7 @@ class MiniListMysqlTest {
         long hidden=db.insert("INSERT INTO products(category_id,name,subtitle,description,image,detail_image,active,is_deleted) VALUES(?,'已删除','说明','说明','/a.png','/a.png',1,1)",category);
         Set<Long> productIds=new HashSet<>();
         for(int page=1;page<=3;page++) {
-            ObjectNode result=lists.products(user,page,20,category,false);
+            ObjectNode result=lists.products(user,page,20,category,false,"");
             assertEquals(page<3?20:1,result.path("items").size());
             assertEquals(page<3,b(result,"hasMore"));
             for(JsonNode item:result.path("items")) {
@@ -65,7 +65,14 @@ class MiniListMysqlTest {
             }
         }
         assertEquals(41,productIds.size());
-        assertEquals(1,lists.products(user,1,1,category,true).path("items").size());
+        ObjectNode searched=lists.products(user,1,20,category,false,run+"0");
+        assertEquals(1,searched.path("items").size(),"搜索须覆盖原列表第三页，不能只筛选首屏商品");
+        assertEquals(run+"0",s(searched.path("items").get(0),"name"));
+        assertEquals(7000,l(searched.path("items").get(0).path("skus").get(0),"priceCents"));
+        assertFalse(b(searched,"hasMore"));
+        assertEquals(20,lists.products(user,1,20,category,false,"说明").path("items").size(),"副标题也参与搜索");
+        assertEquals(0,lists.products(user,1,20,category,false,"%_").path("items").size(),"通配符须按普通文字搜索");
+        assertEquals(1,lists.products(user,1,1,category,true,"").path("items").size());
         ObjectNode cart=lists.mine("cart",user,1,20,0,null);
         assertEquals(20,cart.path("items").size());assertEquals(41,l(cart,"kinds"));assertEquals(287000,l(cart,"totalCents"));
         assertEquals(41,lists.selection(user).path("items").size());

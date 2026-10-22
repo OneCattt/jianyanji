@@ -1,3 +1,53 @@
-<import src="../../templates/list-footer.wxml" />
-<tab-navigation title="臻选商城" />
-<view class="qx qx-tabpage qx-mall"><view class="qx-shop-head"><view class="qx-caption">BRAND STORE</view><view class="qx-h1">臻选商城</view><view class="qx-muted">专业配方，为每一种肌肤状态而生</view></view><view class="qx-role"><text>{{identityName}}专享</text><view>普通商品按{{identityName}}价格，福利品统一价</view></view><scroll-view class="qx-categories" scroll-x><button class="{{categoryId===0?'chosen':''}}" data-id="0" bindtap="selectCategory" hover-class="category-pressed">全部</button><button wx:for="{{categories}}" wx:key="id" class="{{categoryId===item.id?'chosen':''}}" data-id="{{item.id}}" bindtap="selectCategory" hover-class="category-pressed">{{item.name}}</button></scroll-view><view class="qx-grid"><view class="qx-product" wx:for="{{products}}" wx:key="id" data-id="{{item.id}}" bindtap="open"><image src="{{item.imageCard}}" mode="aspectFill" lazy-load/><view class="qx-product-copy"><view class="qx-muted">{{item.subtitle}}</view><view class="qx-product-name">{{item.name}}</view><view class="qx-section-row"><view class="qx-price">{{item.priceText}}</view><image class="qx-add" src="/assets/figma/shop-imgIcon2.png"/></view><text wx:if="{{!item.available}}" class="qx-muted">暂不可购买</text></view></view></view><view wx:if="{{!products.length && !error && !productsLoading}}" class="qx-empty">{{error || '商品尚未上架'}}</view><view wx:if="{{error}}" class="error">{{error}}</view><view wx:if="{{cartCountError}}" class="qx-count-error"><text>{{cartCountError}}</text><button bindtap="loadCartCount">重试</button></view><button class="qx-cart-float" bindtap="cart" hover-class="qx-cart-float-pressed" aria-label="{{cartCount !== null ? '购物袋，共' + cartCount + '件商品' : '打开购物袋'}}" aria-role="button"><image src="/assets/figma/shop-imgIcon.png" mode="aspectFit" aria-hidden="true"/><text wx:if="{{cartCount > 0}}" class="qx-count-badge qx-cart-badge" aria-hidden="true">{{cartCount > 99 ? '99+' : cartCount}}</text></button><template is="list-footer" data="{{loading:productsLoading,loaded:productsLoaded,hasMore:productsHasMore,error:error}}" /></view>
+<view class="qx qx-mall">
+  <tab-navigation class="mall-navigation" title="臻选商城" />
+  <view class="mall-search-bar">
+    <view class="mall-search-field">
+      <view class="mall-search-icon" aria-hidden="true"></view>
+      <input class="mall-search-input" value="{{searchValue}}" bindinput="inputSearch" bindconfirm="search" confirm-type="search" maxlength="200" placeholder="搜索商品名称、关键词" placeholder-class="mall-search-placeholder" aria-label="搜索商品名称、关键词" />
+      <button wx:if="{{searchValue}}" class="mall-search-clear" bindtap="clearSearch" aria-label="清空搜索">×</button>
+    </view>
+    <button class="mall-search-submit" bindtap="search" hover-class="mall-pressed">搜索</button>
+  </view>
+  <view class="mall-identity">
+    <text class="mall-identity-name">{{identityName}}专享</text>
+    <text class="mall-identity-tip">普通商品身份价 · 福利品统一价</text>
+  </view>
+  <view class="mall-catalog">
+    <scroll-view class="mall-sidebar" scroll-y enhanced show-scrollbar="{{false}}" aria-label="商品分类">
+      <button class="mall-category {{categoryId === 0 ? 'mall-category-active' : ''}}" data-id="0" bindtap="selectCategory" hover-class="mall-pressed" aria-label="全部商品{{categoryId === 0 ? '，已选中' : ''}}">全部商品</button>
+      <button wx:for="{{categories}}" wx:key="id" class="mall-category {{categoryId === item.id ? 'mall-category-active' : ''}}" data-id="{{item.id}}" bindtap="selectCategory" hover-class="mall-pressed" aria-label="{{item.name}}{{categoryId === item.id ? '，已选中' : ''}}">{{item.name}}</button>
+    </scroll-view>
+    <view class="mall-main">
+      <view class="mall-list-heading">
+        <text class="mall-category-title">{{keyword ? '搜索结果' : categoryName}}</text>
+        <text wx:if="{{keyword}}" class="mall-search-summary">{{categoryName}} · “{{keyword}}”</text>
+      </view>
+      <scroll-view class="mall-products" scroll-y enhanced show-scrollbar="{{false}}" scroll-top="{{productsScrollTop}}" bindscroll="trackScroll" lower-threshold="120" bindscrolltolower="onReachBottom" refresher-enabled refresher-triggered="{{refreshing}}" bindrefresherrefresh="onPullDownRefresh" aria-label="商品列表">
+        <view class="mall-product" wx:for="{{products}}" wx:key="id" data-id="{{item.id}}" bindtap="open" hover-class="mall-pressed" aria-role="link" aria-label="{{item.name}}，{{item.priceText}}，查看商品">
+          <image class="mall-product-image" src="{{item.imageCard}}" mode="aspectFill" lazy-load />
+          <view class="mall-product-copy">
+            <view class="mall-product-name">{{item.name}}</view>
+            <view wx:if="{{item.subtitle}}" class="mall-product-subtitle">{{item.subtitle}}</view>
+            <view class="mall-product-bottom">
+              <view class="mall-product-price">{{item.priceText}}</view>
+              <button wx:if="{{item.available}}" class="mall-product-select" data-id="{{item.id}}" catchtap="open" hover-class="mall-pressed" aria-label="{{item.name}}，选择规格并购买"><image src="/assets/figma/shop-imgIcon2.png" mode="aspectFit" aria-hidden="true" /></button>
+            </view>
+            <text wx:if="{{!item.available}}" class="mall-product-unavailable">暂不可购买</text>
+          </view>
+        </view>
+        <view wx:if="{{!products.length && !error && !productsLoading}}" class="qx-empty mall-empty">
+          <view>{{keyword ? '未找到相关商品' : (categoryId ? '该分类暂无商品' : '商品尚未上架')}}</view>
+          <button wx:if="{{keyword}}" class="mall-empty-action" bindtap="clearSearch">清空关键词，查看商品</button>
+        </view>
+        <view wx:if="{{error}}" class="error mall-error">{{error}}</view>
+        <view class="list-footer mall-list-footer" aria-live="polite">
+          <text wx:if="{{productsLoading}}">正在加载…</text>
+          <button wx:elif="{{error}}" bindtap="retry">加载失败，点击重试</button>
+          <text wx:elif="{{products.length && productsLoaded && !productsHasMore}}">已全部加载</text>
+        </view>
+        <view wx:if="{{cartCountError}}" class="qx-count-error"><text>{{cartCountError}}</text><button bindtap="loadCartCount">重试</button></view>
+      </scroll-view>
+    </view>
+  </view>
+  <button class="qx-cart-float" bindtap="cart" hover-class="qx-cart-float-pressed" aria-label="{{cartCount !== null ? '购物袋，共' + cartCount + '件商品' : '打开购物袋'}}" aria-role="button"><image src="/assets/figma/shop-imgIcon.png" mode="aspectFit" aria-hidden="true" /><text wx:if="{{cartCount > 0}}" class="qx-count-badge qx-cart-badge" aria-hidden="true">{{cartCount > 99 ? '99+' : cartCount}}</text></button>
+</view>
