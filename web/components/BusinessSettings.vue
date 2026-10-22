@@ -693,6 +693,8 @@ const productColumns = [
                   v-model="form.image"
                   label="列表图片"
                   purpose="catalog"
+                  edit-mode="cover"
+                  :product-name="form.name"
                   required
                   :disabled="busy || loading"
                   @busy-change="imageUploads.list = $event"
@@ -701,6 +703,7 @@ const productColumns = [
                   v-model="form.detailImage"
                   label="详情图片"
                   purpose="catalog"
+                  edit-mode="detail"
                   required
                   :disabled="busy || loading"
                   @busy-change="imageUploads.detail = $event"

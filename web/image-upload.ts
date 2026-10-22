@@ -5,6 +5,13 @@ export type ImagePurpose = "catalog" | "content" | "membership";
 export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
+export function validateImageFile(file: File) {
+  if (!IMAGE_TYPES.includes(file.type))
+    throw new Error("请选择 JPG、PNG 或 WebP 图片");
+  if (!file.size || file.size > MAX_IMAGE_BYTES)
+    throw new Error("图片大小需在 1 字节至 5MB 之间");
+}
+
 interface UploadPolicy {
   host: string;
   url: string;
@@ -18,12 +25,11 @@ export async function uploadImage(
   purpose: ImagePurpose,
   signal: AbortSignal,
   onProgress: (value: number) => void,
+  options: { prepared?: boolean } = {},
 ) {
-  if (!IMAGE_TYPES.includes(file.type))
-    throw new Error("请选择 JPG、PNG 或 WebP 图片");
-  if (!file.size || file.size > MAX_IMAGE_BYTES)
-    throw new Error("图片大小需在 1 字节至 5MB 之间");
-  file = await compressImage(file, signal);
+  validateImageFile(file);
+  // 裁剪封面已经完成尺寸限制及编码，避免再次有损压缩。
+  if (!options.prepared) file = await compressImage(file, signal);
   signal.throwIfAborted();
   const policy = await api<UploadPolicy>("/admin/image-uploads/policy", {
     method: "POST",
