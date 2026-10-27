@@ -92,6 +92,11 @@ interface Sku {
   name: string;
   unit: string;
   retail: string;
+  store?: string;
+  principal?: string;
+  storageEnabled?: boolean;
+  storageExclusion?: string;
+  storageLocked?: number;
   productType: "regular" | "welfare";
   welfare: string;
   stock: number;
@@ -304,6 +309,8 @@ async function edit(p?: ProductRecord) {
           ...s,
           expectedStock: s.stock,
           retail: amount(s.retailCents),
+          store: amount(s.storeCents),
+          principal: amount(s.principalCents),
           productType: s.productType,
           welfare: amount(s.welfareCents),
         })),
@@ -343,6 +350,10 @@ function saveProduct() {
             name: s.name,
             unit: s.unit,
             retailCents: toCents(s.retail),
+            storeCents: toCents(s.store || ""),
+            principalCents: toCents(s.principal || ""),
+            storageEnabled: Boolean(s.storageEnabled),
+            storageExclusion: s.storageExclusion || "none",
             productType: s.productType,
             welfareCents: toCents(s.welfare),
             ...(stockChanged ? { stock: Number(s.stock) } : {}),
@@ -717,8 +728,7 @@ const productColumns = [
                     规格与价格 <span class="count">{{ form.skus.length }}</span>
                   </h4>
                   <p>
-                    普通商品由零售价自动计算店主 7 折、主理人 3.5
-                    折；福利品统一价。必需价格留空时不可购买。
+                    普通商品分别设置普通顾客、2980店主、19800店主售价；福利品统一价。对应价格未配置时，该身份不可购买。
                   </p>
                 </div>
                 <a-button
@@ -752,9 +762,35 @@ const productColumns = [
                       v-model:product-type="s.productType"
                       v-model:retail="s.retail"
                       v-model:welfare="s.welfare"
+                      v-model:store="s.store"
+                      v-model:principal="s.principal"
                     />
                     <label
-                      >总库存<a-input-number
+                      >寄存限制<AdminSelect v-model="s.storageExclusion"
+                        ><option value="none">普通商品</option>
+                        <option value="flash">秒杀（禁寄存）</option>
+                        <option value="sample">小样（禁寄存）</option>
+                        <option value="near_expiry">
+                          临期（禁寄存）
+                        </option></AdminSelect
+                      ></label
+                    >
+                    <label
+                      ><a-checkbox
+                        v-model:checked="s.storageEnabled"
+                        :disabled="
+                          s.storageExclusion !== undefined &&
+                          s.storageExclusion !== 'none'
+                        "
+                        >允许寄存</a-checkbox
+                      ></label
+                    >
+                    <p v-if="s.storageLocked" class="field-help">
+                      用户寄存锁定 {{ s.storageLocked }}
+                      {{ s.unit }}（独立于可售库存）
+                    </p>
+                    <label
+                      >可售库存池<a-input-number
                         class="number-field"
                         :precision="0"
                         pattern="[0-9]+"

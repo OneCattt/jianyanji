@@ -27,6 +27,23 @@ async function submit() {
     const positiveId = (value: string) =>
       /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value));
     if (!positiveId(f.userId)) throw new Error("用户编号须为正整数");
+    if (action.value === "identity") {
+      if (f.identity === "C" && !positiveId(f.principalId))
+        throw new Error("2980店主须指定有效19800店主归属");
+      await api(`/admin/users/${f.userId}/identity`, {
+        method: "POST",
+        body: {
+          identity: f.identity,
+          ...(f.identity === "C" ? { principalId: Number(f.principalId) } : {}),
+          reason: f.reason,
+          evidence: f.evidence,
+          requestKey: crypto.randomUUID(),
+        },
+      });
+      notice.value = "身份调整已登记；历史交易及积分保留";
+      return;
+    }
+
     if (
       (!["bootstrap", "initial-application"].includes(action.value) ||
         f.identity === "C") &&
@@ -111,6 +128,7 @@ async function submit() {
       <label
         >办理事项<AdminSelect v-model="action"
           ><option value="bootstrap">首批存量资格核验</option>
+          <option value="identity">独立开通、变更或关闭身份</option>
           <option value="initial-application">首批新入驻产品包申请</option>
           <option value="handover">指定撤销后的团队接管人</option>
           <option value="relation">调整邀请与归属关系</option></AdminSelect
@@ -126,10 +144,14 @@ async function submit() {
           :min="1"
           required
       /></label>
-      <label v-if="['bootstrap', 'initial-application'].includes(action)"
+      <label
+        v-if="['bootstrap', 'initial-application', 'identity'].includes(action)"
         >核验身份<AdminSelect v-model="form.identity"
-          ><option value="C">店主</option>
-          <option value="B">主理人</option></AdminSelect
+          ><option value="C">2980店主</option>
+          <option value="B">19800店主</option>
+          <option v-if="action === 'identity'" value="D">
+            普通顾客（关闭店主身份）
+          </option></AdminSelect
         ></label
       >
       <label v-if="action === 'relation'"
@@ -144,7 +166,7 @@ async function submit() {
       /></label>
       <label
         v-if="
-          !['bootstrap', 'initial-application'].includes(action) ||
+          !['bootstrap', 'initial-application', 'identity'].includes(action) ||
           form.identity === 'C'
         "
         >{{ action === "handover" ? "指定有效接管主理人编号" : "归属主理人编号"
@@ -157,7 +179,8 @@ async function submit() {
           :min="1"
           required
       /></label>
-      <label v-if="['bootstrap', 'initial-application'].includes(action)"
+      <label
+        v-if="['bootstrap', 'initial-application', 'identity'].includes(action)"
         >{{
           action === "initial-application"
             ? "资格、协议与申请依据"

@@ -7,10 +7,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
-import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
 import com.jianyanji.common.ListPage;
+import com.jianyanji.common.PageQuery;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -144,14 +144,23 @@ public class RewardService {
 
     /** 后台奖励分页，仅展开当前页的可结算状态。 */
     public ObjectNode adminPage(java.util.Map<String, String> query) {
-        return db.tx(() -> new PageQuery(query, "FROM rewards WHERE is_deleted=0")
-                .select(db, "*", "id DESC", row -> view(row, true)));
+        return db.tx(
+                () ->
+                        new PageQuery(query, "FROM rewards WHERE is_deleted=0")
+                                .select(db, "*", "id DESC", row -> view(row, true)));
     }
 
     /** 后台月结分页，仅展开当前页的计划。 */
     public ObjectNode settlementsPage(java.util.Map<String, String> query) {
         return new PageQuery(query, "FROM reward_settlements WHERE is_deleted=0")
-                .select(db, "*", "id DESC", row -> { row.set("plan", parse(s(row, "plan"))); return row; });
+                .select(
+                        db,
+                        "*",
+                        "id DESC",
+                        row -> {
+                            row.set("plan", parse(s(row, "plan")));
+                            return row;
+                        });
     }
 
     /** 后台最多查询最近五百条奖励及当前可结算状态。 */
@@ -197,70 +206,134 @@ public class RewardService {
     public ObjectNode ownPage(long userId, int page, int limit, int tab) {
         int offset = ListPage.offset(page, limit);
         Input.require(tab >= 0 && tab <= 3, "奖励筛选无效");
-        String rewardCondition = tab == 1 ? " AND amount_cents-reversed_cents-settled_cents>0"
-                : tab == 2 ? " AND settled_cents>0" : tab == 3 ? " AND 1=0" : "";
+        String rewardCondition =
+                tab == 1
+                        ? " AND amount_cents-reversed_cents-settled_cents>0"
+                        : tab == 2 ? " AND settled_cents>0" : tab == 3 ? " AND 1=0" : "";
         String reversalCondition = tab == 1 || tab == 2 ? " AND 1=0" : "";
-        List<ObjectNode> rows = db.list(
-                "SELECT r.*,0 AS is_reversal,r.id AS event_id,r.create_time AS event_time,0 AS reversal_amount FROM rewards r WHERE r.user_id=? AND r.is_deleted=0" + rewardCondition
-                + " UNION ALL SELECT r.*,1 AS is_reversal,v.id AS event_id,v.create_time AS event_time,v.amount_cents AS reversal_amount FROM reward_reversals v JOIN rewards r ON r.id=v.reward_id AND r.is_deleted=0 WHERE r.user_id=? AND v.is_deleted=0 AND v.amount_cents>0" + reversalCondition
-                + " ORDER BY event_time DESC,is_reversal DESC,event_id DESC LIMIT ? OFFSET ?", userId, userId, limit + 1, offset);
+        List<ObjectNode> rows =
+                db.list(
+                        "SELECT r.*,0 AS is_reversal,r.id AS event_id,r.create_time AS event_time,0 AS reversal_amount FROM rewards r WHERE r.user_id=? AND r.is_deleted=0"
+                                + rewardCondition
+                                + " UNION ALL SELECT r.*,1 AS is_reversal,v.id AS event_id,v.create_time AS event_time,v.amount_cents AS reversal_amount FROM reward_reversals v JOIN rewards r ON r.id=v.reward_id AND r.is_deleted=0 WHERE r.user_id=? AND v.is_deleted=0 AND v.amount_cents>0"
+                                + reversalCondition
+                                + " ORDER BY event_time DESC,is_reversal DESC,event_id DESC LIMIT ? OFFSET ?",
+                        userId,
+                        userId,
+                        limit + 1,
+                        offset);
         ObjectNode result = ListPage.result(rows, page, limit);
         ArrayNode items = arr();
         for (JsonNode item : result.path("items")) {
             ObjectNode row = (ObjectNode) item;
             boolean reversal = b(row, "is_reversal");
-            ObjectNode value = reversal ? obj("id", row.get("id"), "isReversal", true,
-                    "amountCents", row.get("reversal_amount"), "createTime", row.get("event_time"),
-                    "orderNumber", parse(s(row,"snapshot")).get("orderNumber")) : view(row, false);
-            value.put("eventKey", (reversal ? "reversal-" : "reward-") + l(row,"event_id"));
+            ObjectNode value =
+                    reversal
+                            ? obj(
+                                    "id",
+                                    row.get("id"),
+                                    "isReversal",
+                                    true,
+                                    "amountCents",
+                                    row.get("reversal_amount"),
+                                    "createTime",
+                                    row.get("event_time"),
+                                    "orderNumber",
+                                    parse(s(row, "snapshot")).get("orderNumber"))
+                            : view(row, false);
+            value.put("eventKey", (reversal ? "reversal-" : "reward-") + l(row, "event_id"));
             items.add(value);
         }
         result.set("items", items);
         if (page == 1) {
             String month = YearMonth.now(ZoneId.of("Asia/Shanghai")).toString();
-            ObjectNode totals = db.one(
-                    "SELECT COALESCE(SUM(GREATEST(0,amount_cents-reversed_cents-settled_cents)),0) AS pending,COALESCE(SUM(settled_cents),0) AS settled,COALESCE(SUM(reversed_cents),0) AS reversed,COALESCE(SUM(CASE WHEN DATE_FORMAT(DATE_ADD(create_time,INTERVAL 8 HOUR),'%Y-%m')=? THEN amount_cents-reversed_cents ELSE 0 END),0) AS estimated FROM rewards WHERE user_id=? AND is_deleted=0", month,userId);
-            long debt=0;
-            for(ObjectNode row:debtRows(userId)) debt+=l(row,"remainingCents");
-            result.set("summary",obj("month",month,"estimatedCents",l(totals,"estimated"),"pendingCents",l(totals,"pending"),"settledCents",l(totals,"settled"),"reversedCents",l(totals,"reversed"),"debtCents",debt));
+            ObjectNode totals =
+                    db.one(
+                            "SELECT COALESCE(SUM(GREATEST(0,amount_cents-reversed_cents-settled_cents)),0) AS pending,COALESCE(SUM(settled_cents),0) AS settled,COALESCE(SUM(reversed_cents),0) AS reversed,COALESCE(SUM(CASE WHEN DATE_FORMAT(DATE_ADD(create_time,INTERVAL 8 HOUR),'%Y-%m')=? THEN amount_cents-reversed_cents ELSE 0 END),0) AS estimated FROM rewards WHERE user_id=? AND is_deleted=0",
+                            month, userId);
+            long debt = 0;
+            for (ObjectNode row : debtRows(userId)) debt += l(row, "remainingCents");
+            result.set(
+                    "summary",
+                    obj(
+                            "month",
+                            month,
+                            "estimatedCents",
+                            l(totals, "estimated"),
+                            "pendingCents",
+                            l(totals, "pending"),
+                            "settledCents",
+                            l(totals, "settled"),
+                            "reversedCents",
+                            l(totals, "reversed"),
+                            "debtCents",
+                            debt));
         }
         return result;
     }
 
     /** 本人奖励详情的五类历史分区；一次请求只读取仍有后续页的分区，每类最多二十条。 */
-    public ObjectNode ownDetailPage(long id,long userId,int page,int limit,String parts) {
-        int offset=ListPage.offset(page,limit);
-        ObjectNode original=reward(id,userId);
-        Set<String> requested=new LinkedHashSet<>(Arrays.asList(parts.split(",")));
-        Input.require(!requested.isEmpty()&&Arrays.asList("reversals","settlements","debts","offsets","recoveries").containsAll(requested),"奖励历史类型无效");
-        ObjectNode pages=obj();
-        for(String kind:requested) {
-            String sql; List<Object> args=new ArrayList<>();
-            switch(kind) {
+    public ObjectNode ownDetailPage(long id, long userId, int page, int limit, String parts) {
+        int offset = ListPage.offset(page, limit);
+        ObjectNode original = reward(id, userId);
+        Set<String> requested = new LinkedHashSet<>(Arrays.asList(parts.split(",")));
+        Input.require(
+                !requested.isEmpty()
+                        && Arrays.asList(
+                                        "reversals",
+                                        "settlements",
+                                        "debts",
+                                        "offsets",
+                                        "recoveries")
+                                .containsAll(requested),
+                "奖励历史类型无效");
+        ObjectNode pages = obj();
+        for (String kind : requested) {
+            String sql;
+            List<Object> args = new ArrayList<>();
+            switch (kind) {
                 case "reversals":
-                    sql="SELECT id,refund_id,amount_cents,debt_cents,create_time FROM reward_reversals WHERE reward_id=? AND is_deleted=0 ORDER BY id DESC";
-                    args.add(id);break;
+                    sql =
+                            "SELECT id,refund_id,amount_cents,debt_cents,create_time FROM reward_reversals WHERE reward_id=? AND is_deleted=0 ORDER BY id DESC";
+                    args.add(id);
+                    break;
                 case "settlements":
-                    sql="SELECT id,month,payee,status,gross_cents,offset_cents,net_cents,paid_at,proof FROM reward_settlements WHERE user_id=? AND is_deleted=0 AND JSON_CONTAINS(JSON_EXTRACT(plan,'$.rewards'),JSON_OBJECT('rewardId',?)) ORDER BY id DESC";
-                    args.add(userId);args.add(id);break;
+                    sql =
+                            "SELECT id,month,payee,status,gross_cents,offset_cents,net_cents,paid_at,proof FROM reward_settlements WHERE user_id=? AND is_deleted=0 AND JSON_CONTAINS(JSON_EXTRACT(plan,'$.rewards'),JSON_OBJECT('rewardId',?)) ORDER BY id DESC";
+                    args.add(userId);
+                    args.add(id);
+                    break;
                 case "debts":
-                    sql="SELECT v.*,COALESCE((SELECT SUM(o.amount_cents) FROM reward_offsets o WHERE o.reversal_id=v.id AND o.is_deleted=0),0) AS offset_cents,COALESCE((SELECT SUM(c.amount_cents) FROM reward_recoveries c WHERE c.reversal_id=v.id AND c.is_deleted=0),0) AS recovered_cents FROM reward_reversals v WHERE v.reward_id=? AND v.is_deleted=0 AND v.debt_cents>0 ORDER BY v.id DESC";
-                    args.add(id);break;
+                    sql =
+                            "SELECT v.*,COALESCE((SELECT SUM(o.amount_cents) FROM reward_offsets o WHERE o.reversal_id=v.id AND o.is_deleted=0),0) AS offset_cents,COALESCE((SELECT SUM(c.amount_cents) FROM reward_recoveries c WHERE c.reversal_id=v.id AND c.is_deleted=0),0) AS recovered_cents FROM reward_reversals v WHERE v.reward_id=? AND v.is_deleted=0 AND v.debt_cents>0 ORDER BY v.id DESC";
+                    args.add(id);
+                    break;
                 case "offsets":
-                    sql="SELECT o.id,o.reversal_id,o.settlement_id,o.reward_id,o.amount_cents,o.create_time FROM reward_offsets o JOIN reward_reversals v ON v.id=o.reversal_id AND v.is_deleted=0 WHERE (v.reward_id=? OR o.reward_id=?) AND o.is_deleted=0 ORDER BY o.id DESC";
-                    args.add(id);args.add(id);break;
+                    sql =
+                            "SELECT o.id,o.reversal_id,o.settlement_id,o.reward_id,o.amount_cents,o.create_time FROM reward_offsets o JOIN reward_reversals v ON v.id=o.reversal_id AND v.is_deleted=0 WHERE (v.reward_id=? OR o.reward_id=?) AND o.is_deleted=0 ORDER BY o.id DESC";
+                    args.add(id);
+                    args.add(id);
+                    break;
                 default:
-                    sql="SELECT c.id,c.reversal_id,c.amount_cents,c.received_at,c.proof FROM reward_recoveries c JOIN reward_reversals v ON v.id=c.reversal_id AND v.is_deleted=0 WHERE v.reward_id=? AND c.is_deleted=0 ORDER BY c.id DESC";
-                    args.add(id);break;
+                    sql =
+                            "SELECT c.id,c.reversal_id,c.amount_cents,c.received_at,c.proof FROM reward_recoveries c JOIN reward_reversals v ON v.id=c.reversal_id AND v.is_deleted=0 WHERE v.reward_id=? AND c.is_deleted=0 ORDER BY c.id DESC";
+                    args.add(id);
+                    break;
             }
-            args.add(limit+1);args.add(offset);
-            List<ObjectNode> rows=db.list(sql+" LIMIT ? OFFSET ?",args.toArray());
-            if("debts".equals(kind)) for(ObjectNode row:rows)
-                row.put("remainingCents",l(row,"debt_cents")-l(row,"offset_cents")-l(row,"recovered_cents"));
-            pages.set(kind,ListPage.result(rows,page,limit));
+            args.add(limit + 1);
+            args.add(offset);
+            List<ObjectNode> rows = db.list(sql + " LIMIT ? OFFSET ?", args.toArray());
+            if ("debts".equals(kind))
+                for (ObjectNode row : rows)
+                    row.put(
+                            "remainingCents",
+                            l(row, "debt_cents")
+                                    - l(row, "offset_cents")
+                                    - l(row, "recovered_cents"));
+            pages.set(kind, ListPage.result(rows, page, limit));
         }
-        ObjectNode result=obj("pages",pages);
-        if(page==1)result.set("item",view(original,false));
+        ObjectNode result = obj("pages", pages);
+        if (page == 1) result.set("item", view(original, false));
         return result;
     }
 
@@ -991,6 +1064,25 @@ public class RewardService {
                                         0,
                                         l(reward, "settled_cents")
                                                 - (l(reward, "amount_cents") - reversed));
+                ObjectNode sourceOrder = order(orderId);
+                if ("points-storage-v3"
+                                .equals(s(parse(s(sourceOrder, "snapshot")), "businessVersion"))
+                        && !"onboarding".equals(s(reward, "kind"))) {
+                    long recordedDebt =
+                            l(
+                                    db.one(
+                                            "SELECT COALESCE(SUM(debt_cents),0) AS amount FROM reward_reversals WHERE reward_id=? AND is_deleted=0",
+                                            l(reward, "id")),
+                                    "amount");
+                    debt =
+                            Math.min(
+                                    delta,
+                                    Math.max(
+                                            0,
+                                            l(reward, "settled_cents")
+                                                    - recordedDebt
+                                                    - receivedEarned(reward, false)));
+                }
                 long id =
                         db.insert(
                                 "INSERT INTO reward_reversals(reward_id,refund_id,amount_cents,debt_cents,reason,request_id,create_user_id,update_user_id) "
@@ -1035,6 +1127,20 @@ public class RewardService {
     private ObjectNode eligibility(ObjectNode reward) {
         ObjectNode order = order(l(reward, "order_id"));
         JsonNode snapshot = parse(s(reward, "snapshot"));
+        JsonNode orderSnapshot = parse(s(order, "snapshot"));
+        if ("points-storage-v3".equals(s(orderSnapshot, "businessVersion"))
+                && !"onboarding".equals(s(reward, "kind"))) {
+            long amount = receivedAvailable(reward);
+            return obj(
+                    "eligible",
+                    amount > 0,
+                    "reason",
+                    amount > 0 ? "按实际签收部分可结算，实际付款仍人工月结" : "尚无未结算的实际签收额度",
+                    "availableCents",
+                    amount,
+                    "eligibleAt",
+                    now());
+        }
         if (!has(order, "received_at") || s(order, "received_at").isEmpty())
             return obj("eligible", false, "reason", "未确认收货");
         Instant until;
@@ -1073,7 +1179,7 @@ public class RewardService {
     private ObjectNode view(ObjectNode reward, boolean admin) {
         ObjectNode eligibility = eligibility(reward);
         JsonNode snapshot = parse(s(reward, "snapshot"));
-        long remaining = remaining(reward);
+        long remaining = eligibleAvailable(reward, eligibility);
         ObjectNode result =
                 obj(
                         "id",
@@ -1166,7 +1272,7 @@ public class RewardService {
         for (Long id : sorted) {
             ObjectNode reward = reward(id, userId), eligible = eligibility(reward);
             requireConflict(b(eligible, "eligible"), s(eligible, "reason"));
-            long amount = remaining(reward), left = amount;
+            long amount = eligibleAvailable(reward, eligible), left = amount;
             requireConflict(amount > 0, "奖励已结算或已全部冲回");
             gross = safeSum(gross, amount, "结算合计超出范围");
             for (ObjectNode debt : debts) {
@@ -1192,6 +1298,62 @@ public class RewardService {
                 offset,
                 "netCents",
                 gross - offset);
+    }
+
+    /** 新规则仅按已实际签收且未退款/未占用的数量释放结算额度，原收益人和成交依据不变。 */
+    private long receivedEarned(ObjectNode reward, boolean excludeHeld) {
+        long goods = 0, margin = 0;
+        for (ObjectNode line :
+                db.list(
+                        "SELECT * FROM order_lines WHERE order_id=? AND is_deleted=0",
+                        l(reward, "order_id"))) {
+            if (b(line, "is_gift") || "welfare".equals(s(line, "product_type"))) continue;
+            long quantity =
+                    Math.max(
+                            0,
+                            Math.min(
+                                            l(line, "received_qty"),
+                                            l(line, "shipped_qty")
+                                                    - l(line, "refunded_qty")
+                                                    + l(line, "refunded_unshipped"))
+                                    - (excludeHeld
+                                            ? l(line, "refund_held") - l(line, "held_unshipped")
+                                            : 0));
+            goods = Math.addExact(goods, Math.multiplyExact(l(line, "unit_cents"), quantity));
+            margin =
+                    Math.addExact(
+                            margin,
+                            Math.multiplyExact(
+                                    Math.max(0, l(line, "unit_cents") - l(line, "principal_cents")),
+                                    quantity));
+        }
+        JsonNode snapshot = parse(s(reward, "snapshot"));
+        long earned =
+                "retail".equals(s(reward, "kind"))
+                        ? (goods * l(snapshot, "percent") + 50) / 100
+                        : margin;
+        return earned;
+    }
+    /** 已付后冲回的奖励形成独立欠款，不能再次当作已结算有效商品而少付后续签收部分。 */
+    private long receivedAvailable(ObjectNode reward) {
+        long revokedPaid =
+                l(
+                        db.one(
+                                "SELECT COALESCE(SUM(debt_cents),0) AS amount FROM reward_reversals WHERE reward_id=? AND is_deleted=0",
+                                l(reward, "id")),
+                        "amount");
+        long effectiveSettled = Math.max(0, l(reward, "settled_cents") - revokedPaid);
+        return Math.max(
+                0,
+                Math.min(
+                                receivedEarned(reward, true),
+                                l(reward, "amount_cents") - l(reward, "reversed_cents"))
+                        - effectiveSettled);
+    }
+
+    /** 旧奖励沿用历史条件，新奖励使用部分签收后的可结算额度。 */
+    private long eligibleAvailable(ObjectNode reward, ObjectNode eligible) {
+        return eligible.has("availableCents") ? l(eligible, "availableCents") : remaining(reward);
     }
 
     /** 比较计划数值及数组顺序，避免 JDBC/Jackson 整数节点宽度影响幂等判断。 */

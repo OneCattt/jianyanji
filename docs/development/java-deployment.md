@@ -2,6 +2,8 @@
 
 后端为 Java 8 / Spring Boot 2.7.18 / MySQL 8 单体。Vue 和小程序继续调用原 `/api` 接口，金额保持整数分。Node 只在开发、前端构建或旧 SQLite 导出时使用；正式服务直接运行 JAR。
 
+2026-10-27 全客户积分与寄存版本的切换，须同时执行[迁移与验收清单](customer-storage-points-delivery.md)。该版本以充值核款发积分、商品/产品包扣积分替代本文后续旧版直接货款核款说明，涉及 V12～V14 迁移和三档价格复核；本文通用运行配置继续适用，不能据此认定新版已经部署。
+
 ## 构建与本地运行
 
 显式设置 `JAVA_HOME` 为 JDK 8，确认 `java -version` 为 `1.8`；Maven Enforcer 也会拒绝其他 Java 版本。macOS：

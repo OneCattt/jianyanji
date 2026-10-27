@@ -92,7 +92,7 @@ class FulfillmentServiceTest {
         assertThrows(BusinessException.class, () -> service.ship(1, body, 9));
         verify(db)
                 .update(
-                        contains("quantity-shipped_qty-refunded_unshipped-held_unshipped>=?"),
+                        contains("quantity-shipped_qty-refunded_unshipped-held_unshipped-COALESCE"),
                         eq(3L),
                         eq(9L),
                         eq(5L),

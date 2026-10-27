@@ -67,13 +67,16 @@ public class MembershipController {
     @GetMapping("/api/admin/onboardings")
     public Object adminList(@RequestParam java.util.Map<String, String> query) {
         access.staff("onboarding:manage");
-        return query.containsKey("page") ? membership.adminPage(query) : membership.applications(null);
+        return query.containsKey("page")
+                ? membership.adminPage(query)
+                : membership.applications(null);
     }
 
     @PostMapping("/api/admin/onboardings/{id}/receipt")
     public Object receipt(@PathVariable long id, @RequestBody JsonNode body) {
         long actor = l(access.staff("finance:manage"), "id");
-        return membership.confirmReceipt(Input.id(id), body, actor);
+        throw com.jianyanji.common.BusinessException.conflict(
+                "POINTS_ONLY", "请先登记充值积分，再由客户扣积分购买，禁止直接核销货款");
     }
 
     @PostMapping("/api/admin/onboardings/{id}/review")
@@ -138,7 +141,6 @@ public class MembershipController {
         return membership.reconfirm(Input.id(id), body, l(access.user(), "id"));
     }
     /** 首批新入驻仍关联真实后续付款，不直接开通资格。 */
-
     @PostMapping("/api/admin/qualifications/initial-application")
     public Object initialApplication(@RequestBody JsonNode body) {
         return membership.initialApplication(body, l(access.staff("onboarding:manage"), "id"));

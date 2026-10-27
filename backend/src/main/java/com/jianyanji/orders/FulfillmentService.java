@@ -29,7 +29,7 @@ public class FulfillmentService {
     /** 发货只扣除已发货、未发货退款及未发货售后占用，已出库退款不得重复减少可发货量。 */
     public List<ObjectNode> shippableLines(long orderId) {
         return db.list(
-                "SELECT *,quantity-shipped_qty-refunded_unshipped-held_unshipped AS remaining FROM order_lines WHERE order_id=? AND is_deleted=0 ORDER BY id",
+                "SELECT *,quantity-shipped_qty-refunded_unshipped-held_unshipped-COALESCE((SELECT remaining_qty FROM storage_lots l WHERE l.line_id=order_lines.id AND l.is_deleted=0),0)-COALESCE((SELECT SUM(pl.quantity) FROM pickup_lines pl JOIN pickup_orders po ON po.id=pl.pickup_id AND po.is_deleted=0 WHERE pl.line_id=order_lines.id AND pl.lot_id IS NULL AND pl.is_deleted=0 AND po.status IN ('review','approved')),0) AS remaining FROM order_lines WHERE order_id=? AND is_deleted=0 ORDER BY id",
                 orderId);
     }
 
@@ -72,7 +72,7 @@ public class FulfillmentService {
                     for (JsonNode line : value.withArray("lines")) {
                         long quantity = l(line, "quantity");
                         if (db.update(
-                                        "UPDATE order_lines SET shipped_qty=shipped_qty+?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND order_id=? AND is_deleted=0 AND quantity-shipped_qty-refunded_unshipped-held_unshipped>=?",
+                                        "UPDATE order_lines SET shipped_qty=shipped_qty+?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND order_id=? AND is_deleted=0 AND quantity-shipped_qty-refunded_unshipped-held_unshipped-COALESCE((SELECT remaining_qty FROM storage_lots l WHERE l.line_id=order_lines.id AND l.is_deleted=0),0)-COALESCE((SELECT SUM(pl.quantity) FROM pickup_lines pl JOIN pickup_orders po ON po.id=pl.pickup_id AND po.is_deleted=0 WHERE pl.line_id=order_lines.id AND pl.lot_id IS NULL AND pl.is_deleted=0 AND po.status IN ('review','approved')),0)>=?",
                                         quantity,
                                         actor,
                                         l(line, "lineId"),
@@ -111,23 +111,39 @@ public class FulfillmentService {
                                     "SELECT * FROM shipments WHERE id=? AND is_deleted=0",
                                     shipmentId);
                     if (shipment == null) throw notFound("交付记录不存在");
-                    db.insert(
-                            "INSERT INTO shipment_corrections(shipment_id,old_carrier,old_tracking,carrier,tracking,reason,request_id,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?)",
-                            shipmentId,
-                            s(shipment, "carrier"),
-                            s(shipment, "tracking"),
-                            s(value, "carrier"),
-                            s(value, "tracking"),
-                            s(value, "reason"),
-                            access.requestId(),
-                            actor,
-                            actor);
-                    db.update(
-                            "UPDATE shipments SET carrier=?,tracking=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
-                            s(value, "carrier"),
-                            s(value, "tracking"),
-                            actor,
-                            shipmentId);
+                    // 合并提货只有一个实体包裹，所有来源订单必须同步物流并各自保留更正记录。
+                    List<ObjectNode> related =
+                            has(shipment, "pickup_id")
+                                    ? db.list(
+                                            "SELECT * FROM shipments WHERE pickup_id=? AND is_deleted=0 ORDER BY id",
+                                            l(shipment, "pickup_id"))
+                                    : java.util.Collections.singletonList(shipment);
+                    for (ObjectNode parcel : related) {
+                        db.insert(
+                                "INSERT INTO shipment_corrections(shipment_id,old_carrier,old_tracking,carrier,tracking,reason,request_id,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?)",
+                                l(parcel, "id"),
+                                s(parcel, "carrier"),
+                                s(parcel, "tracking"),
+                                s(value, "carrier"),
+                                s(value, "tracking"),
+                                s(value, "reason"),
+                                access.requestId(),
+                                actor,
+                                actor);
+                        db.update(
+                                "UPDATE shipments SET carrier=?,tracking=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                                s(value, "carrier"),
+                                s(value, "tracking"),
+                                actor,
+                                l(parcel, "id"));
+                    }
+                    if (has(shipment, "pickup_id"))
+                        db.update(
+                                "UPDATE pickup_orders SET carrier=?,tracking=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                                s(value, "carrier"),
+                                s(value, "tracking"),
+                                actor,
+                                l(shipment, "pickup_id"));
                     access.audit("shipment.correct", "shipment", shipmentId, s(value, "reason"));
                     return obj("ok", true);
                 });
@@ -144,6 +160,11 @@ public class FulfillmentService {
                                     shipmentId,
                                     orderId);
                     if (shipment == null) throw notFound("交付记录不存在");
+                    if (has(shipment, "pickup_id")) {
+                        new com.jianyanji.storage.StorageService(db, access)
+                                .receive(l(shipment, "pickup_id"), userId);
+                        return orders.view(orders.owned(orderId, userId));
+                    }
                     if (has(shipment, "received_at") && !s(shipment, "received_at").isEmpty())
                         return orders.view(order);
                     String payment = s(order, "payment_state");

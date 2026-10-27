@@ -31,7 +31,7 @@ public class WalletController {
 
     @GetMapping("/api/wallet/transfer")
     public Object transfer() {
-        wallet.requireAgent(l(access.user(), "id"));
+        access.user();
         return wallet.companyTransfer();
     }
 
@@ -42,7 +42,9 @@ public class WalletController {
             @RequestParam(required = false) String externalTransactionId,
             @RequestParam java.util.Map<String, String> query) {
         access.staff("finance:manage");
-        return query.containsKey("page") ? wallet.adminPage(query) : wallet.receipts(userId, receiptId, externalTransactionId);
+        return query.containsKey("page")
+                ? wallet.adminPage(query)
+                : wallet.receipts(userId, receiptId, externalTransactionId);
     }
 
     @PostMapping("/api/admin/receipts")
@@ -52,7 +54,8 @@ public class WalletController {
     }
 
     @GetMapping("/api/admin/wallets/{id}")
-    public Object adminView(@PathVariable long id, @RequestParam(defaultValue = "true") boolean includeLedger) {
+    public Object adminView(
+            @PathVariable long id, @RequestParam(defaultValue = "true") boolean includeLedger) {
         access.staff("finance:manage");
         return wallet.walletView(Input.id(id), includeLedger);
     }

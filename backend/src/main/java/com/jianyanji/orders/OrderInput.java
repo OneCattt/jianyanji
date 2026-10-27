@@ -88,17 +88,37 @@ final class OrderInput {
     }
 
     static ObjectNode checkout(JsonNode body) {
-        Input.strict(body, "addressId", "items", "salesCode", "salesConfirmed");
+        Input.strict(
+                body,
+                "addressId",
+                "items",
+                "salesCode",
+                "salesConfirmed",
+                "storedItems",
+                "offerId",
+                "offerQuantity",
+                "offerDelivery",
+                "offerShipQuantities");
         ObjectNode value =
                 obj(
                         "addressId",
                         entityId(body.get("addressId")),
                         "items",
-                        lines(body, "items", "skuId", "同规格不可重复"));
+                        body.has("offerId") ? arr() : lines(body, "items", "skuId", "同规格不可重复"));
         if (has(body, "salesCode")) {
             value.put("salesCode", Input.text(body, "salesCode", 0, 64));
             value.put("salesConfirmed", Input.bool(body, "salesConfirmed"));
         }
+        if (body.has("offerId")) {
+            value.put("offerId", Input.integer(body, "offerId", 1, 1000000));
+            value.put("offerQuantity", Input.integer(body, "offerQuantity", 1, 99));
+            String mode = Input.text(body, "offerDelivery", 4, 5);
+            Input.require(java.util.Arrays.asList("ship", "store").contains(mode), "套餐交付方式无效");
+            value.put("offerDelivery", mode);
+        }
+        if (body.has("offerShipQuantities"))
+            value.set("offerShipQuantities", body.get("offerShipQuantities"));
+        if (body.has("storedItems")) value.set("storedItems", body.get("storedItems"));
         return value;
     }
 
@@ -106,10 +126,16 @@ final class OrderInput {
         ArrayNode result = arr();
         Set<Long> seen = new HashSet<>();
         for (JsonNode line : Input.array(body, field, 1, 50)) {
-            Input.strict(line, idField, "quantity");
+            if ("skuId".equals(idField)) Input.strict(line, idField, "quantity", "shipQuantity");
+            else Input.strict(line, idField, "quantity");
             long id = entityId(line.get(idField));
             Input.require(seen.add(id), duplicateMessage);
-            result.add(obj(idField, id, "quantity", Input.integer(line, "quantity", 1, 999)));
+            ObjectNode item = obj(idField, id, "quantity", Input.integer(line, "quantity", 1, 999));
+            if (line.has("shipQuantity"))
+                item.put(
+                        "shipQuantity",
+                        Input.integer(line, "shipQuantity", 0, l(item, "quantity")));
+            result.add(item);
         }
         return result;
     }

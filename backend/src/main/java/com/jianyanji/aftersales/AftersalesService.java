@@ -7,10 +7,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
-import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.BusinessException;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
+import com.jianyanji.common.PageQuery;
 import com.jianyanji.membership.MembershipService;
 import com.jianyanji.orders.OrderService;
 import com.jianyanji.payments.WechatPayClient;
@@ -50,7 +50,8 @@ public class AftersalesService {
     /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
     public ObjectNode adminPage(java.util.Map<String, String> query) {
         return new PageQuery(query, "FROM refunds WHERE is_deleted=0")
-                .eq("status", "status").keyword("number", "CAST(order_id AS CHAR)", "reason")
+                .eq("status", "status")
+                .keyword("number", "CAST(order_id AS CHAR)", "reason")
                 .select(db, "*", "id DESC", this::view);
     }
 
@@ -137,7 +138,7 @@ public class AftersalesService {
                 body.has("exceptionReason") ? Input.text(body, "exceptionReason", 1, 200) : null;
         Set<Long> seen = new HashSet<>();
         for (JsonNode item : items) {
-            Input.strict(item, "lineId", "quantity");
+            Input.strict(item, "lineId", "quantity", "unshippedQuantity");
             long lineId = Input.integer(item, "lineId", 1, 9007199254740991L);
             Input.integer(item, "quantity", 1, 999);
             Input.require(seen.add(lineId), "商品行不能重复");
@@ -180,7 +181,7 @@ public class AftersalesService {
                                 return old;
                             }
                             ObjectNode order = orders.owned(orderId, null);
-                            if (!"paid".equals(s(order, "payment_state")))
+                            if (!in(s(order, "payment_state"), "paid", "partially_refunded"))
                                 throw conflict("订单尚未实际付款，不能退款");
                             JsonNode snapshot = parse(s(order, "snapshot"));
                             if (!snapshot.has("afterSalesDays")
@@ -222,6 +223,30 @@ public class AftersalesService {
                                                         - l(line, "shipped_qty")
                                                         - l(line, "refunded_unshipped")
                                                         - l(line, "held_unshipped"));
+                                if (item.has("unshippedQuantity"))
+                                    unshipped =
+                                            Input.integer(item, "unshippedQuantity", 0, quantity);
+                                long remainingUnshipped =
+                                        l(line, "quantity")
+                                                - l(line, "shipped_qty")
+                                                - l(line, "refunded_unshipped")
+                                                - l(line, "held_unshipped");
+                                long remainingShipped =
+                                        l(line, "shipped_qty")
+                                                - l(line, "refunded_qty")
+                                                + l(line, "refunded_unshipped")
+                                                - l(line, "refund_held")
+                                                + l(line, "held_unshipped");
+                                if (unshipped > remainingUnshipped
+                                        || quantity - unshipped > remainingShipped)
+                                    throw conflict("未提货退款或已发货退货数量超出对应范围");
+                                if (db.one(
+                                                "SELECT pl.id FROM pickup_lines pl JOIN pickup_orders po ON po.id=pl.pickup_id AND po.is_deleted=0 WHERE pl.line_id=? AND pl.lot_id IS NULL AND pl.is_deleted=0 AND po.status IN ('review','approved') LIMIT 1",
+                                                lineId)
+                                        != null) throw conflict("请先取消该商品的未发货配送单，再申请退款");
+                                long storageQuantity =
+                                        new com.jianyanji.storage.StorageService(db, access)
+                                                .holdRefund(line, unshipped, actor);
                                 if (db.update(
                                                 "UPDATE order_lines SET refund_held=refund_held+?,held_unshipped=held_unshipped+?,"
                                                         + STAMP
@@ -247,13 +272,25 @@ public class AftersalesService {
                                                 "unshippedQuantity",
                                                 unshipped,
                                                 "returnQuantity",
-                                                quantity - unshipped));
+                                                quantity - unshipped,
+                                                "storageQuantity",
+                                                storageQuantity));
                                 goods =
                                         Math.addExact(
                                                 goods,
                                                 Math.multiplyExact(
                                                         l(line, "unit_cents"), quantity));
                             }
+                            ObjectNode delivery =
+                                    db.one(
+                                            "SELECT * FROM pickup_orders WHERE purchase_order_id=? AND is_deleted=0 LIMIT 1",
+                                            orderId);
+                            if (shipping > 0 && delivery != null)
+                                throw conflict("本单运费归提货单管理，请在提货单取消或由财务单独退运费，避免重复退款");
+                            long deliveryFeeRefunded =
+                                    delivery != null && b(delivery, "fee_refunded")
+                                            ? l(delivery, "fee_cents")
+                                            : 0;
                             ObjectNode held =
                                     db.one(
                                             "SELECT COALESCE(SUM(shipping_cents),0) AS shipping,COALESCE(SUM(total_cents),0) AS total "
@@ -261,7 +298,7 @@ public class AftersalesService {
                                             orderId);
                             if (shipping + l(held, "shipping") > l(order, "shipping_cents")
                                     || goods + shipping + l(held, "total")
-                                            > l(order, "total_cents"))
+                                            > l(order, "total_cents") - deliveryFeeRefunded)
                                 throw conflict("退款金额不能超过原订单剩余额度");
                             long refundId =
                                     db.insert(
@@ -300,7 +337,7 @@ public class AftersalesService {
     }
 
     public ObjectNode review(long id, JsonNode body) {
-        Input.strict(body, "approve", "identityDecision", "reason");
+        Input.strict(body, "approve", "identityDecision", "reason", "giftDecision", "giftItems");
         boolean approve = Input.bool(body, "approve");
         Input.require(
                 body.has("identityDecision")
@@ -308,17 +345,93 @@ public class AftersalesService {
                                 || (body.get("identityDecision").isTextual()
                                         && in(s(body, "identityDecision"), "retain", "revoke"))),
                 "身份结论必须为 retain、revoke 或 null");
-        String decision = has(body, "identityDecision") ? s(body, "identityDecision") : null,
-                reason = Input.reason(body);
+        String decision = null, reason = Input.reason(body);
         long actor = access.actor();
         db.tx(
                 () -> {
                     ObjectNode refund = getRefund(id);
                     if (!"requested".equals(s(refund, "status"))) throw conflict("该售后已审核");
-                    if (approve && "package".equals(s(refund, "kind")) && decision == null)
-                        throw conflict("产品包部分退款须记录身份保留或撤销结论");
-                    if (approve && "package".equals(s(refund, "kind")) && "revoke".equals(decision))
-                        membership.assertRefundRevocable(orders.owned(l(refund, "order_id"), null));
+                    if (approve
+                            && db.one(
+                                            "SELECT id FROM order_lines WHERE order_id=? AND is_gift=1 AND is_deleted=0 LIMIT 1",
+                                            l(refund, "order_id"))
+                                    != null) {
+                        String giftDecision = Input.text(body, "giftDecision", 1, 2000);
+                        ArrayNode giftItems = Input.array(body, "giftItems", 0, 50);
+                        ArrayNode refundLines = (ArrayNode) parse(s(refund, "lines"));
+                        java.util.Set<Long> selectedGiftIds = new java.util.HashSet<>();
+                        for (JsonNode selectedLine : refundLines)
+                            selectedGiftIds.add(l(selectedLine, "lineId"));
+                        for (JsonNode gift : giftItems) {
+                            Input.strict(gift, "lineId", "quantity");
+                            long giftId = Input.integer(gift, "lineId", 1, 9007199254740991L),
+                                    qty = Input.integer(gift, "quantity", 1, 999);
+                            Input.require(selectedGiftIds.add(giftId), "赠品行已在售后中，不能重复添加");
+                            ObjectNode line =
+                                    db.one(
+                                            "SELECT * FROM order_lines WHERE id=? AND order_id=? AND is_gift=1 AND is_deleted=0",
+                                            giftId,
+                                            l(refund, "order_id"));
+                            if (line == null
+                                    || l(line, "unit_cents") != 0
+                                    || qty
+                                            > l(line, "quantity")
+                                                    - l(line, "refunded_qty")
+                                                    - l(line, "refund_held"))
+                                throw conflict("赠品不属于原订单或应退数量超出剩余额度");
+                            long unshipped =
+                                    Math.min(
+                                            qty,
+                                            l(line, "quantity")
+                                                    - l(line, "shipped_qty")
+                                                    - l(line, "refunded_unshipped")
+                                                    - l(line, "held_unshipped"));
+                            long storageQuantity =
+                                    new com.jianyanji.storage.StorageService(db, access)
+                                            .holdRefund(line, unshipped, actor);
+                            if (db.update(
+                                            "UPDATE order_lines SET refund_held=refund_held+?,held_unshipped=held_unshipped+?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND quantity-refunded_qty-refund_held>=? AND is_deleted=0",
+                                            qty,
+                                            unshipped,
+                                            actor,
+                                            giftId,
+                                            qty)
+                                    != 1) throw conflict("赠品可退数量已变化");
+                            refundLines.add(
+                                    obj(
+                                            "lineId",
+                                            giftId,
+                                            "skuId",
+                                            l(line, "sku_id"),
+                                            "quantity",
+                                            qty,
+                                            "unitCents",
+                                            0,
+                                            "principalCents",
+                                            0,
+                                            "unshippedQuantity",
+                                            unshipped,
+                                            "returnQuantity",
+                                            qty - unshipped,
+                                            "storageQuantity",
+                                            storageQuantity));
+                        }
+                        db.update(
+                                "UPDATE refunds SET `lines`=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                                stringify(refundLines),
+                                actor,
+                                id);
+                        ObjectNode policy = (ObjectNode) parse(s(refund, "policy_snapshot"));
+                        policy.put("giftDecision", giftDecision);
+                        db.update(
+                                "UPDATE refunds SET policy_snapshot=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                                stringify(policy),
+                                actor,
+                                id);
+                    }
+                    if (!approve)
+                        new com.jianyanji.storage.StorageService(db, access)
+                                .refund(refund, false, actor);
                     if (!approve)
                         for (JsonNode line : list(parse(s(refund, "lines")))) {
                             if (db.update(
@@ -471,11 +584,18 @@ public class AftersalesService {
         List<JsonNode> lines = list(parse(s(current, "lines")));
         requireInspection(current);
         assertRefundRevocableIfNeeded(current, order);
-        if ("points".equals(s(order, "payment_method")))
+        if ("points".equals(s(order, "payment_method")) && l(current, "total_cents") > 0)
             wallet.restoreOrderPoints(
                     l(order, "id"), l(current, "id"), l(current, "total_cents"), actor, requestId);
         for (JsonNode line : lines) {
             long quantity = l(line, "quantity"), unshipped = l(line, "unshippedQuantity");
+            if (unshipped > 0
+                    && db.update(
+                                    "UPDATE skus SET stock=stock+?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                                    unshipped,
+                                    actor,
+                                    l(line, "skuId"))
+                            != 1) throw conflict("未出库退款货品无法恢复可售库存，请核实原规格");
             if (db.update(
                             "UPDATE order_lines SET refund_held=refund_held-?,held_unshipped=held_unshipped-?,refunded_qty=refunded_qty+?,refunded_unshipped=refunded_unshipped+?,"
                                     + STAMP
@@ -503,14 +623,8 @@ public class AftersalesService {
                                 "SELECT id FROM order_lines WHERE order_id=? AND quantity>refunded_qty AND is_deleted=0 LIMIT 1",
                                 l(order, "id"))
                         == null;
-        if ("package".equals(s(order, "kind")))
-            membership.applyPackageRefundIdentity(
-                    order,
-                    full,
-                    has(current, "identity_decision") ? s(current, "identity_decision") : null,
-                    actor,
-                    s(current, "reason"));
-        else if ("offline".equals(s(order, "payment_method"))) {
+        new com.jianyanji.storage.StorageService(db, access).refund(current, true, actor);
+        if ("offline".equals(s(order, "payment_method")) && !"package".equals(s(order, "kind"))) {
             long refunded =
                     l(
                             db.one(
@@ -540,19 +654,8 @@ public class AftersalesService {
 
     /** 实际退款前按累计原货款判定全退；全退即使误选保留也必须先具备可撤销资格及团队接管计划。 */
     private void assertRefundRevocableIfNeeded(ObjectNode refund, ObjectNode order) {
-        if (!"package".equals(s(order, "kind"))) return;
-        if ("revoke".equals(s(refund, "identity_decision"))) {
-            membership.assertRefundRevocable(order);
-            return;
-        }
-        long completed =
-                l(
-                        db.one(
-                                "SELECT COALESCE(SUM(total_cents),0) AS total FROM refunds WHERE order_id=? AND status='success' AND is_deleted=0",
-                                l(order, "id")),
-                        "total");
-        if (Math.addExact(completed, l(refund, "total_cents")) >= l(order, "total_cents"))
-            membership.assertRefundRevocable(order);
+        // 退款只处理原货款、库存与奖励；资格关闭由独立授权入口办理。
+
     }
 
     private ObjectNode originalPayment(ObjectNode order) {

@@ -190,12 +190,12 @@ class CatalogServiceTest {
     }
 
     @Test
-    void fixedRolePriceIgnoresLegacyManualPricesAndExpiredAgentUsesRetail() {
+    void independentRolePricesAndExpiredAgentUsesRetail() {
         CatalogService service = new CatalogService(mock(Db.class), mock(Access.class));
         ObjectNode sku = obj("retail_cents", 10000, "store_cents", null, "principal_cents", 6000);
         assertEquals(Long.valueOf(10000), service.rolePrice(sku, null));
-        assertEquals(Long.valueOf(7000), service.rolePrice(sku, obj("identity", "C")));
-        assertEquals(Long.valueOf(3500), service.rolePrice(sku, obj("identity", "B")));
+        assertNull(service.rolePrice(sku, obj("identity", "C")));
+        assertEquals(Long.valueOf(6000), service.rolePrice(sku, obj("identity", "B")));
         assertEquals(
                 Long.valueOf(10000),
                 service.rolePrice(
@@ -206,7 +206,16 @@ class CatalogServiceTest {
     @Test
     void fractionsAndWelfareHaveOneAuthoritativePrice() {
         CatalogService service = new CatalogService(mock(Db.class), mock(Access.class));
-        ObjectNode regular = obj("product_type", "regular", "retail_cents", 10001);
+        ObjectNode regular =
+                obj(
+                        "product_type",
+                        "regular",
+                        "retail_cents",
+                        10001,
+                        "store_cents",
+                        7001,
+                        "principal_cents",
+                        3500);
         assertEquals(Long.valueOf(10001), service.rolePrice(regular, null));
         assertEquals(Long.valueOf(7001), service.rolePrice(regular, obj("identity", "C")));
         assertEquals(Long.valueOf(3500), service.rolePrice(regular, obj("identity", "B")));
@@ -217,6 +226,7 @@ class CatalogServiceTest {
         }
         welfare.putNull("welfare_cents");
         assertNull(service.rolePrice(welfare, obj("identity", "C")));
+        regular.putNull("principal_cents");
         regular.putNull("retail_cents");
         assertNull(service.rolePrice(regular, obj("identity", "B")));
         regular.put("retail_cents", -1);
@@ -228,7 +238,7 @@ class CatalogServiceTest {
     @Test
     void publicStockExcludesReservationsAndDoesNotLeakAgentPrices() {
         Db db = mock(Db.class);
-        when(db.list("SELECT * FROM skus WHERE product_id=? AND is_deleted=0 ORDER BY id", 1L))
+        when(db.list(contains("FROM skus s WHERE product_id=?"), eq(1L)))
                 .thenReturn(
                         Collections.singletonList(
                                 obj(
@@ -284,7 +294,7 @@ class CatalogServiceTest {
                         "companyName",
                         "只有户名",
                         "bankName",
-                        "",
+                        "只有银行没有账号",
                         "bankAccount",
                         "",
                         "transferNotes",

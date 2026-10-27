@@ -58,7 +58,7 @@ const wallet = ref<Wallet | null>(null),
 const form = ref({
   userId: "",
   amount: "",
-  sourceChannel: "bank",
+  sourceChannel: "wechat_company",
   accountRef: "",
   externalTransactionId: "",
   receivedAt: "",
@@ -144,7 +144,7 @@ function openReceipt() {
   form.value = {
     userId: userId.value,
     amount: "",
-    sourceChannel: "bank",
+    sourceChannel: "wechat_company",
     accountRef: "",
     externalTransactionId: "",
     receivedAt: "",
@@ -170,7 +170,7 @@ async function confirmReceipt() {
     if (!form.value.verified)
       throw new Error("请先确认公司真实到账、收款人和原流水");
     if (!/^[1-9]\d*$/.test(form.value.userId))
-      throw new Error("请输入有效的代理用户编号");
+      throw new Error("请输入有效的客户用户编号");
     await api("/admin/receipts", {
       method: "POST",
       body: {
@@ -224,7 +224,7 @@ const pointLotColumns = [
   { title: "操作", key: "c3", width: 200 },
 ];
 const receiptColumns = [
-  { title: "原收款 / 代理", key: "c0", width: 220 },
+  { title: "原收款 / 客户", key: "c0", width: 220 },
   { title: "用途", key: "c1", width: 160 },
   { title: "到账 / 已退现金", key: "c2", width: 160 },
   { title: "原流水 / 账户", key: "c3", width: 160 },
@@ -245,7 +245,7 @@ const receiptColumns = [
     </Teleport>
     <p class="admin-business-note">
       仅登记已核实的真实到账。1 元对应 1
-      积分，不赠送、不过期。普通货款请到“普通订单收款”，产品包款请到入驻申请核款；两类货款均不发积分。
+      积分，不赠送、不过期。普通商品、产品包和运费全部由客户扣积分支付，充值不会自动开通身份。
     </p>
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <div class="wallet-workspace">
@@ -253,11 +253,11 @@ const receiptColumns = [
         <a-card size="small" class="account-query" aria-label="钱包与收款查询">
           <h3>查账与收款追溯</h3>
           <p class="muted">
-            填写代理编号可查看积分钱包，也可按原收款编号或流水追查。
+            填写客户编号可查看积分钱包，也可按原收款编号或流水追查。
           </p>
           <AdminForm class="query-fields" @submit="run(refresh)">
             <label
-              >按代理编号追查<a-input-number
+              >按客户编号追查<a-input-number
                 class="number-field"
                 string-mode
                 :precision="0"
@@ -434,7 +434,7 @@ const receiptColumns = [
       <AdminForm class="fields receipt-form" @submit="confirmReceipt">
         <h3>核实订货到账并发积分</h3>
         <label
-          >代理用户编号<a-input-number
+          >客户用户编号<a-input-number
             class="number-field"
             string-mode
             :precision="0"

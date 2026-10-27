@@ -55,13 +55,22 @@ class OrderServiceTest {
         query.put("status", "paid");
         when(db.one("SELECT COUNT(*) AS total FROM orders WHERE is_deleted=0 AND status=?", "paid"))
                 .thenReturn(obj("total", 221));
-        when(db.list("SELECT * FROM orders WHERE is_deleted=0 AND status=? ORDER BY id DESC LIMIT ? OFFSET ?", "paid", 20, 200))
+        when(db.list(
+                        "SELECT * FROM orders WHERE is_deleted=0 AND status=? ORDER BY id DESC LIMIT ? OFFSET ?",
+                        "paid",
+                        20,
+                        200))
                 .thenReturn(Collections.singletonList(obj("id", 21, "snapshot", "{}")));
         ObjectNode result = service.adminPage(query);
         assertEquals(221, result.path("total").asInt());
         assertEquals(21, result.path("items").get(0).path("id").asInt());
         assertTrue(result.path("items").get(0).path("snapshot").isObject());
-        verify(db).list("SELECT * FROM orders WHERE is_deleted=0 AND status=? ORDER BY id DESC LIMIT ? OFFSET ?", "paid", 20, 200);
+        verify(db)
+                .list(
+                        "SELECT * FROM orders WHERE is_deleted=0 AND status=? ORDER BY id DESC LIMIT ? OFFSET ?",
+                        "paid",
+                        20,
+                        200);
     }
 
     @Test
@@ -225,9 +234,10 @@ class OrderServiceTest {
         ObjectNode quote =
                 service.buildQuote(
                         obj("id", 2, "identity", "C"), 4, arr(obj("skuId", 3, "quantity", 2)));
-        assertEquals(15000, quote.path("totalCents").asInt());
+        assertEquals(16000, quote.path("totalCents").asInt());
+        assertEquals(0, quote.path("shippingCents").asInt());
         assertEquals(9, quote.path("principalId").asInt());
-        assertEquals(3500, quote.path("lines").get(0).path("principalCents").asInt());
+        assertEquals(6000, quote.path("lines").get(0).path("principalCents").asInt());
         assertEquals(7, quote.path("afterSalesDays").asInt());
         assertEquals("旧地址", quote.path("address").path("detail").asText());
     }

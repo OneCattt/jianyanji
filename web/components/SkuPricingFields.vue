@@ -1,24 +1,19 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import AdminSelect from "./AdminSelect.vue";
 const props = defineProps<{
   productType: "regular" | "welfare";
   retail: string;
   welfare: string;
+  store?: string;
+  principal?: string;
 }>();
 const emit = defineEmits<{
   "update:productType": [value: "regular" | "welfare"];
   "update:retail": [value: string];
   "update:welfare": [value: string];
+  "update:store": [value: string];
+  "update:principal": [value: string];
 }>();
-const preview = computed(() => {
-  if (!/^\d+(\.\d{1,2})?$/.test(props.retail)) return "填写零售价后显示身份价";
-  const [yuan, fraction = ""] = props.retail.split(".");
-  const cents = Number(yuan) * 100 + Number(fraction.padEnd(2, "0"));
-  const price = (percent: number) =>
-    (Math.floor((cents * percent + 50) / 100) / 100).toFixed(2);
-  return `店主 ¥${price(70)} · 主理人 ¥${price(35)}（保存后以服务端核价为准）`;
-});
 </script>
 <template>
   <label
@@ -48,11 +43,27 @@ const preview = computed(() => {
       pattern="[0-9]+([.][0-9]{1,2})?"
       placeholder="暂不可购买"
   /></label>
+  <template v-if="productType === 'regular'">
+    <label
+      >2980店主价（元）<a-input
+        :value="store"
+        @update:value="emit('update:store', $event)"
+        inputmode="decimal"
+        placeholder="未配置则该档不可购买"
+    /></label>
+    <label
+      >19800店主价（元）<a-input
+        :value="principal"
+        @update:value="emit('update:principal', $event)"
+        inputmode="decimal"
+        placeholder="未配置则该档不可购买"
+    /></label>
+  </template>
   <p class="field-help">
     {{
       productType === "welfare"
         ? "各身份同价；不产生零售佣金或主理人订货收益。"
-        : preview
+        : "三档价格独立设置，按当前有效身份计价。"
     }}
   </p>
 </template>

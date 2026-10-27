@@ -100,7 +100,7 @@ public final class J {
                 "identity",
                 role,
                 "identityName",
-                "B".equals(role) ? "调肤主理人" : "C".equals(role) ? "调肤店主" : "游客");
+                "B".equals(role) ? "19800店主" : "C".equals(role) ? "2980店主" : "普通顾客");
     }
 
     public static ObjectNode publicStaff(ObjectNode row) {

@@ -6,10 +6,10 @@ import static com.jianyanji.common.J.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
-import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.BusinessException;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
+import com.jianyanji.common.PageQuery;
 import com.jianyanji.orders.OrderService;
 import com.jianyanji.payments.PaymentService;
 import java.time.Instant;
@@ -18,7 +18,6 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -36,10 +35,11 @@ public class WalletService {
 
     /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
     public ObjectNode adminPage(java.util.Map<String, String> query) {
-        for (String key : new String[]{"userId", "receiptId"})
+        for (String key : new String[] {"userId", "receiptId"})
             if (query.containsKey(key) && !query.get(key).isEmpty()) pathId(query.get(key));
         return new PageQuery(query, "FROM company_receipts WHERE is_deleted=0")
-                .eq("userId", "user_id").eq("receiptId", "id")
+                .eq("userId", "user_id")
+                .eq("receiptId", "id")
                 .eq("externalTransactionId", "external_transaction_id")
                 .select(db, "*", "id DESC", row -> row);
     }
@@ -62,10 +62,14 @@ public class WalletService {
 
     /** 小程序钱包及个人页汇总，不读取来源批次和明细。金额单位为分或百分之一积分。 */
     public ObjectNode summary(long userId) {
-        ObjectNode result = db.one(
-                "SELECT COALESCE(SUM(remaining_cents),0) AS balanceCents,COALESCE(SUM(held_cents),0) AS heldCents,COALESCE(SUM(remaining_cents-held_cents),0) AS availableCents FROM wallet_lots WHERE user_id=? AND is_deleted=0", userId);
-        result.setAll(db.one(
-                "SELECT COALESCE(SUM(CASE WHEN kind='credit' THEN delta_cents ELSE 0 END),0) AS creditedCents,COALESCE(SUM(CASE WHEN kind='spend' THEN -delta_cents ELSE 0 END),0) AS spentCents FROM wallet_ledger WHERE user_id=? AND is_deleted=0", userId));
+        ObjectNode result =
+                db.one(
+                        "SELECT COALESCE(SUM(remaining_cents),0) AS balanceCents,COALESCE(SUM(held_cents),0) AS heldCents,COALESCE(SUM(remaining_cents-held_cents),0) AS availableCents FROM wallet_lots WHERE user_id=? AND is_deleted=0",
+                        userId);
+        result.setAll(
+                db.one(
+                        "SELECT COALESCE(SUM(CASE WHEN kind='credit' THEN delta_cents ELSE 0 END),0) AS creditedCents,COALESCE(SUM(CASE WHEN kind='spend' THEN -delta_cents ELSE 0 END),0) AS spentCents FROM wallet_ledger WHERE user_id=? AND is_deleted=0",
+                        userId));
         result.set("transfer", companyTransfer());
         return result;
     }
@@ -93,10 +97,12 @@ public class WalletService {
                                 userId)));
         result.set(
                 "ledger",
-                includeLedger ? json(
-                        db.list(
-                                "SELECT l.*,o.number AS order_number,r.external_transaction_id FROM wallet_ledger l JOIN company_receipts r ON r.id=l.receipt_id AND r.is_deleted=0 LEFT JOIN orders o ON o.id=l.order_id AND o.is_deleted=0 WHERE l.user_id=? AND l.is_deleted=0 ORDER BY l.id DESC LIMIT 200",
-                                userId)) : arr());
+                includeLedger
+                        ? json(
+                                db.list(
+                                        "SELECT l.*,o.number AS order_number,r.external_transaction_id FROM wallet_ledger l JOIN company_receipts r ON r.id=l.receipt_id AND r.is_deleted=0 LEFT JOIN orders o ON o.id=l.order_id AND o.is_deleted=0 WHERE l.user_id=? AND l.is_deleted=0 ORDER BY l.id DESC LIMIT 200",
+                                        userId))
+                        : arr());
         return result;
     }
 
@@ -104,14 +110,35 @@ public class WalletService {
     public ObjectNode ledgerPage(long userId, java.util.Map<String, String> query) {
         java.util.Map<String, String> filters = new java.util.HashMap<>(query);
         filters.put("userId", String.valueOf(userId));
-        return new PageQuery(filters, "FROM wallet_ledger l JOIN company_receipts r ON r.id=l.receipt_id AND r.is_deleted=0 LEFT JOIN orders o ON o.id=l.order_id AND o.is_deleted=0 WHERE l.is_deleted=0")
+        return new PageQuery(
+                        filters,
+                        "FROM wallet_ledger l JOIN company_receipts r ON r.id=l.receipt_id AND r.is_deleted=0 LEFT JOIN orders o ON o.id=l.order_id AND o.is_deleted=0 WHERE l.is_deleted=0")
                 .eq("userId", "l.user_id")
-                .select(db, "l.*,o.number AS order_number,r.external_transaction_id", "l.id DESC", row -> row);
+                .select(
+                        db,
+                        "l.*,o.number AS order_number,r.external_transaction_id",
+                        "l.id DESC",
+                        row -> row);
     }
 
     /** 公司转款说明，仅完整配置公司名称、开户行和账号时标记可用。 */
     public ObjectNode companyTransfer() {
         JsonNode content = db.setting("content");
+        if (!s(content, "customerService").isEmpty()
+                && (s(content, "bankName").isEmpty() || s(content, "bankAccount").isEmpty()))
+            return obj(
+                    "configured",
+                    true,
+                    "companyName",
+                    s(content, "companyName"),
+                    "bankName",
+                    "",
+                    "bankAccount",
+                    "",
+                    "transferNotes",
+                    s(content, "transferNotes"),
+                    "customerService",
+                    s(content, "customerService"));
         if (s(content, "companyName").isEmpty()
                 || s(content, "bankName").isEmpty()
                 || s(content, "bankAccount").isEmpty())
@@ -125,7 +152,7 @@ public class WalletService {
                     "bankAccount",
                     "",
                     "transferNotes",
-                    "公司收款资料尚未配置，请联系品牌方核实",
+                    "请联系总部微信充值，核款到账后增加积分",
                     "customerService",
                     s(content, "customerService"));
         return obj(
@@ -205,7 +232,6 @@ public class WalletService {
                 != null) throw conflict("RECEIPT_ALREADY_USED", "该原收款流水已登记，不得跨订单或用途重复使用");
         if (!"order".equals(s(v, "purpose")) && has(v, "orderId")) throw conflict("仅普通订单货款可指定订单编号");
         if ("points".equals(s(v, "purpose"))) {
-            requireAgent(userId);
             if (has(v, "onboardingId")) throw conflict("订货款不能绑定入驻用途");
         } else if ("order".equals(s(v, "purpose"))) {
             if (!has(v, "orderId") || has(v, "onboardingId"))
@@ -370,7 +396,7 @@ public class WalletService {
                     ObjectNode order = orders.owned(orderId, userId);
                     if ("points".equals(s(order, "payment_method"))
                             && "paid".equals(s(order, "payment_state"))) return orders.view(order);
-                    if (!"goods".equals(s(order, "kind"))) throw conflict("产品包仅支持线下付款，不支持订货积分抵付");
+                    if ("package".equals(s(order, "kind"))) payments.assertPackagePayable(order);
                     if (!"pending".equals(s(order, "status"))
                             || !Arrays.asList("unpaid", "failed")
                                     .contains(s(order, "payment_state")))
@@ -382,56 +408,10 @@ public class WalletService {
                     if (!Instant.parse(s(order, "expires_at")).isAfter(Instant.now()))
                         throw conflict("待付款订单已过期");
                     orders.assertRelationsCurrent(order);
-                    requireAgent(userId);
+
                     payments.assertNoUnresolved(userId, 0);
-                    List<ObjectNode> lots =
-                            db.list(
-                                    "SELECT * FROM wallet_lots WHERE user_id=? AND is_deleted=0 AND remaining_cents>held_cents ORDER BY id",
-                                    userId);
-                    long available = 0;
-                    for (ObjectNode lot : lots)
-                        available += l(lot, "remaining_cents") - l(lot, "held_cents");
-                    long amount = l(order, "total_cents");
-                    if (available < amount)
-                        throw conflict(
-                                "POINTS_INSUFFICIENT",
-                                "积分不足，还差 "
-                                        + String.format(
-                                                Locale.ROOT, "%.2f", (amount - available) / 100.0)
-                                        + " 积分，请线下充值核款后订货，或改为整单线下付款");
-                    long left = amount;
-                    for (ObjectNode lot : lots) {
-                        if (left == 0) break;
-                        long n = Math.min(left, l(lot, "remaining_cents") - l(lot, "held_cents"));
-                        if (db.update(
-                                        "UPDATE wallet_lots SET remaining_cents=remaining_cents-?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND remaining_cents-held_cents>=? AND is_deleted=0",
-                                        n,
-                                        userId,
-                                        l(lot, "id"),
-                                        n)
-                                != 1) throw conflict("可用积分已变化，请重试");
-                        db.insert(
-                                "INSERT INTO wallet_spend_allocations(order_id,user_id,lot_id,receipt_id,spent_cents,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?)",
-                                orderId,
-                                userId,
-                                l(lot, "id"),
-                                l(lot, "receipt_id"),
-                                n,
-                                userId,
-                                userId);
-                        ledger(
-                                userId,
-                                l(lot, "receipt_id"),
-                                l(lot, "id"),
-                                orderId,
-                                "spend",
-                                -n,
-                                s(order, "number"),
-                                "spend:" + orderId + ":" + l(lot, "id"),
-                                "整单积分订货付款",
-                                userId);
-                        left -= n;
-                    }
+                    new PointsService(db)
+                            .spend(userId, orderId, null, l(order, "total_cents"), userId);
                     payments.settlePaid(order, "points", "points:" + orderId);
                     access.audit("order.pay_points", "order", orderId, "按原收款批次扣积分支付整单");
                     return orders.view(orders.owned(orderId, userId));
@@ -446,6 +426,20 @@ public class WalletService {
             long receiptId =
                     db.tx(
                             () -> {
+                                ObjectNode previous =
+                                        db.one(
+                                                "SELECT * FROM company_receipts WHERE source_channel=? AND account_ref=? AND external_transaction_id=? AND is_deleted=0",
+                                                s(v, "sourceChannel"),
+                                                s(v, "accountRef"),
+                                                s(v, "externalTransactionId"));
+                                if (previous != null) {
+                                    if (l(previous, "user_id") != l(v, "userId")
+                                            || l(previous, "amount_cents") != l(v, "amountCents")
+                                            || !"points".equals(s(previous, "purpose")))
+                                        throw conflict(
+                                                "RECEIPT_ALREADY_USED", "原收款流水已用于其他金额、用户或用途");
+                                    return l(previous, "id");
+                                }
                                 long value = registerReceipt(v, actor);
                                 access.audit(
                                         "receipt.confirm",

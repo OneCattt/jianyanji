@@ -21,6 +21,8 @@ import {
   RefreshCw,
   Plus,
 } from "lucide-vue-next";
+import StorageOperations from "./StorageOperations.vue";
+import CommerceConfiguration from "./CommerceConfiguration.vue";
 import OrderOperations from "./OrderOperations.vue";
 import PaymentOperations from "./PaymentOperations.vue";
 import AfterSalesOperations from "./AfterSalesOperations.vue";
@@ -83,6 +85,22 @@ const menuExpanded = ref(false);
 const selectedAudit = ref<Audit | null>(null);
 const navigation = [
   {
+    key: "storage",
+    label: "寄存与提货",
+    icon: Truck,
+    group: "交易与履约",
+    permission: "orders:manage",
+    description: "查看寄存台账、审核提货、管理到期与物流。",
+  },
+  {
+    key: "commerce",
+    label: "套餐与提醒配置",
+    icon: Package,
+    group: "品牌经营",
+    permission: "catalog:manage",
+    description: "配置活动买赠套餐与寄存消息提醒。",
+  },
+  {
     key: "posts",
     label: "品牌种草内容",
     icon: BookOpen,
@@ -127,7 +145,7 @@ const navigation = [
     icon: Users,
     group: "品牌经营",
     permission: "onboarding:manage",
-    description: "配置入驻产品包，核实到账后激活身份并安排交付。",
+    description: "配置固定权益包，客户扣积分购买后开通身份并安排交付。",
   },
   {
     key: "orders",
@@ -155,11 +173,11 @@ const navigation = [
   },
   {
     key: "receipts",
-    label: "普通订单收款",
+    label: "积分支付记录",
     icon: Banknote,
     group: "资金与奖励",
     permission: "finance:manage",
-    description: "核实普通商品线下到账，登记原订单收款；货款不发积分。",
+    description: "查询普通商品和权益包的积分扣款记录；充值在积分管理核款。",
   },
   {
     key: "orderrefunds",
@@ -167,7 +185,7 @@ const navigation = [
     icon: RotateCcw,
     group: "资金与奖励",
     permission: "finance:manage",
-    description: "登记商品及产品包实际线下退款，办理原积分退款。",
+    description: "办理商品原积分退款，并查询历史线下退款记录。",
   },
   {
     key: "wallet",
@@ -857,6 +875,8 @@ async function changePage(value: number) {
           :disabled="busy"
           @change="changePage"
         />
+        <StorageOperations v-if="section === 'storage'" :staff="me" />
+        <CommerceConfiguration v-if="section === 'commerce'" :staff="me" />
         <OrderOperations
           v-if="section === 'shipping'"
           :key="'shipping:' + refreshKey"

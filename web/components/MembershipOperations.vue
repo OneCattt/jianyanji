@@ -27,7 +27,12 @@ interface Package {
   agreement: string;
   rightsImage: string;
   active: boolean;
-  lines: { skuId: number; quantity: number; unitCents: number }[];
+  lines: {
+    skuId: number;
+    quantity: number;
+    unitCents: number;
+    isGift?: boolean;
+  }[];
 }
 interface PackageSku {
   id: number;
@@ -68,7 +73,7 @@ interface Application {
 type PackageForm = Omit<Package, "amountCents" | "valueCents" | "lines"> & {
   amount: string;
   value: string;
-  lines: { skuId: number; quantity: number; unit: string }[];
+  lines: { skuId: number; quantity: number; unit: string; isGift?: boolean }[];
 };
 const dialog = ref<"packages" | "receipt" | null>(null);
 const packageDraft = ref<PackageForm[]>([]);
@@ -90,11 +95,12 @@ const receipt = ref({
   verified: false,
 });
 const states: Record<string, string> = {
-  submitted: "待核实到账",
+  submitted: "待积分支付",
   approved: "身份已激活",
   rejected: "已驳回",
   revoked: "本次身份已撤销",
 };
+const packageLineKey=(line:Package["lines"][number])=>line.skuId+":"+Boolean(line.isGift);
 const orderStates: Record<string, string> = {
   paid: "待发货",
   shipped: "已发货",
@@ -119,7 +125,7 @@ function lineSubtotal(line: PackageForm["lines"][number]): number | null {
   )
     return null;
   try {
-    return cents(line.unit) * line.quantity;
+    return (line.isGift ? 0 : cents(line.unit)) * line.quantity;
   } catch {
     return null;
   }
@@ -148,7 +154,13 @@ function differenceLabel(difference: number | null): string {
 }
 function skuChoices(p: PackageForm, index: number) {
   const selected = new Set(
-    p.lines.filter((_, i) => i !== index).map((l) => l.skuId),
+    p.lines
+      .filter(
+        (line, i) =>
+          i !== index &&
+          Boolean(line.isGift) === Boolean(p.lines[index].isGift),
+      )
+      .map((l) => l.skuId),
   );
   return packageSkus.value.map((sku) => ({
     value: sku.id,
@@ -200,6 +212,7 @@ async function load() {
             skuId: l.skuId,
             quantity: l.quantity,
             unit: money(l.unitCents),
+            isGift: Boolean(l.isGift),
           })),
         };
       })
@@ -224,17 +237,18 @@ async function save() {
         )
       )
         throw new Error("请选择商品规格，数量须为 1～999 的整数");
-      const selected = new Set<number>();
+      const selected = new Set<string>();
       const packageLines = lines.map((line) => {
         if (!packageSkus.value.some((sku) => sku.id === line.skuId))
           throw new Error("所选商品规格已不可用，请重新选择");
-        if (selected.has(line.skuId))
+        if (selected.has(line.skuId + ":" + Boolean(line.isGift)))
           throw new Error("同一产品包不能重复选择同一规格");
-        selected.add(line.skuId);
+        selected.add(line.skuId + ":" + Boolean(line.isGift));
         return {
           skuId: line.skuId,
           quantity: line.quantity,
-          unitCents: cents(line.unit),
+          unitCents: line.isGift ? 0 : cents(line.unit),
+          isGift: Boolean(line.isGift),
         };
       });
       const amountCents = cents(amount);
@@ -531,7 +545,7 @@ const packageLineColumns = [
         <a-table
           :columns="packageLineColumns"
           :data-source="selected.package_snapshot.lines"
-          row-key="skuId"
+          :row-key="packageLineKey"
           :pagination="false"
           :scroll="{ x: 460 }"
           size="small"
@@ -552,11 +566,7 @@ const packageLineColumns = [
         <a-button
           html-type="button"
           type="primary"
-          v-if="
-            selected.status === 'submitted' &&
-            !selected.receipt &&
-            props.permissions.includes('finance:manage')
-          "
+          v-if="false"
           :disabled="busy"
           @click="openApplicationDialog('receipt')"
         >
@@ -678,6 +688,7 @@ const packageLineColumns = [
           <p class="muted">
             各商品分摊货款合计须等于产品包货款，用于交付与后续部分退款。
           </p>
+          <p>固定货品不可调换；客户须扣积分购买，充值本身不开通身份。</p>
           <div v-for="(line, i) in p.lines" :key="i" class="package-line">
             <label class="field package-line-product"
               >商品与规格<AdminSelect
@@ -730,6 +741,13 @@ const packageLineColumns = [
                 required
                 :disabled="busy"
             /></label>
+            <label
+              ><a-checkbox
+                v-model:checked="line.isGift"
+                @change="line.isGift && (line.unit = '0.00')"
+                >套餐赠品（0元，不凑包邮门槛）</a-checkbox
+              ></label
+            >
             <div class="package-line-footer">
               <span class="package-line-subtotal"
                 >小计

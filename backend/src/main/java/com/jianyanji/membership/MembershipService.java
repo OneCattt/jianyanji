@@ -10,9 +10,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.Access;
-import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
+import com.jianyanji.common.PageQuery;
 import com.jianyanji.orders.OrderService;
 import com.jianyanji.wallet.WalletService;
 import java.util.HashSet;
@@ -39,8 +39,11 @@ public class MembershipService {
 
     /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
     public ObjectNode adminPage(java.util.Map<String, String> query) {
-        return new PageQuery(query, "FROM onboardings o JOIN users u ON u.id=o.user_id AND u.is_deleted=0 WHERE o.is_deleted=0")
-                .eq("status", "o.status").eq("identity", "o.target_identity")
+        return new PageQuery(
+                        query,
+                        "FROM onboardings o JOIN users u ON u.id=o.user_id AND u.is_deleted=0 WHERE o.is_deleted=0")
+                .eq("status", "o.status")
+                .eq("identity", "o.target_identity")
                 .keyword("CAST(o.id AS CHAR)", "CAST(o.user_id AS CHAR)", "u.nickname")
                 .select(db, "o.*,u.nickname", "o.id DESC", this::applicationView);
     }
@@ -145,16 +148,27 @@ public class MembershipService {
                     "权益图片须为本站素材或HTTPS地址");
             item.put("rightsImage", image);
             ArrayNode sourceLines = Input.array(p, "lines", 1, 50), lines = arr();
-            Set<Long> skus = new HashSet<>();
+            Set<String> skus = new HashSet<>();
             long sum = 0;
             for (JsonNode line : sourceLines) {
-                Input.strict(line, "skuId", "quantity", "unitCents");
+                Input.strict(line, "skuId", "quantity", "unitCents", "isGift");
                 long skuId = entity(line, "skuId"),
                         quantity = Input.integer(line, "quantity", 1, 999);
-                long cents = Input.integer(line, "unitCents", 1, 100000000);
-                Input.require(skus.add(skuId), "产品包规格不可重复");
+                boolean gift = line.has("isGift") && Input.bool(line, "isGift");
+                long cents = Input.integer(line, "unitCents", gift ? 0 : 1, 100000000);
+                Input.require(!gift || cents == 0, "赠品分摊价格须为0");
+                Input.require(skus.add(skuId + ":" + gift), "产品包规格不可重复");
                 sum += quantity * cents;
-                lines.add(obj("skuId", skuId, "quantity", quantity, "unitCents", cents));
+                lines.add(
+                        obj(
+                                "skuId",
+                                skuId,
+                                "quantity",
+                                quantity,
+                                "unitCents",
+                                cents,
+                                "isGift",
+                                gift));
             }
             Input.require(sum == amount, "产品包各商品分摊货款之和须等于产品包货款");
             item.set("lines", lines);
@@ -329,6 +343,9 @@ public class MembershipService {
                 "relationshipsConfirmed",
                 "conditionsMet",
                 "agreementAccepted",
+                "deliveryMode",
+                "shipQuantities",
+                "storedItems",
                 "requestKey");
         String target = choice(raw, "targetIdentity", "B", "C"),
                 requestKey = Input.text(raw, "requestKey", 12, 100);
@@ -366,6 +383,26 @@ public class MembershipService {
                                                 old.get("requested_inviter_id"), inviterId)
                                         || l(snap.get("address"), "id") != addressId)
                                     throw conflict("申请编号已用于其他内容");
+                                JsonNode requested = raw.get("shipQuantities");
+                                if (requested != null) {
+                                    Input.require(
+                                            requested.isArray()
+                                                    && requested.size()
+                                                            == snap.path("lines").size(),
+                                            "重复申请的固定商品明细已变化");
+                                    for (int i = 0; i < requested.size(); i++)
+                                        if (!requested.get(i).isIntegralNumber()
+                                                || requested.get(i).asLong()
+                                                        != snap.path("lines")
+                                                                .get(i)
+                                                                .path("shipQuantity")
+                                                                .asLong(
+                                                                        l(
+                                                                                snap.path("lines")
+                                                                                        .get(i),
+                                                                                "quantity")))
+                                            throw conflict("申请编号已用于其他发货/寄存选择");
+                                }
                                 return l(old, "id");
                             }
                             ObjectNode current =
@@ -402,6 +439,12 @@ public class MembershipService {
                             if (!supported) throw conflict("该地址暂不支持配送，请联系品牌方");
                             long rewardCents = initialRelation != null ? 0 : rewardAmount(target);
                             ObjectNode snapshot = p.deepCopy();
+                            String deliveryMode =
+                                    raw.has("deliveryMode")
+                                            ? choice(raw, "deliveryMode", "ship", "store")
+                                            : "ship";
+                            snapshot.put("deliveryMode", deliveryMode);
+                            snapshot.put("businessVersion", "points-storage-v3");
                             snapshot.setAll(
                                     obj(
                                             "lines",
@@ -430,6 +473,39 @@ public class MembershipService {
                                             s(policy, "policy"),
                                             "agreementAcceptedAt",
                                             now()));
+                            JsonNode selectedQuantities = raw.get("shipQuantities");
+                            if (selectedQuantities != null)
+                                Input.require(
+                                        selectedQuantities.isArray()
+                                                && selectedQuantities.size()
+                                                        == snapshot.path("lines").size(),
+                                        "产品包发货数量须对应固定配置");
+                            int packageIndex = 0;
+                            for (JsonNode packageLine : snapshot.path("lines")) {
+                                ((ObjectNode) packageLine)
+                                        .put(
+                                                "shipQuantity",
+                                                "store".equals(deliveryMode)
+                                                        ? 0
+                                                        : l(packageLine, "quantity"));
+                                if (selectedQuantities != null) {
+                                    JsonNode n = selectedQuantities.get(packageIndex);
+                                    Input.require(
+                                            n.isIntegralNumber()
+                                                    && n.canConvertToLong()
+                                                    && n.asLong() >= 0
+                                                    && n.asLong() <= l(packageLine, "quantity"),
+                                            "产品包本次发货数量超出固定数量");
+                                    ((ObjectNode) packageLine).put("shipQuantity", n.asLong());
+                                }
+                                packageIndex++;
+                                if (l(packageLine, "shipQuantity") < l(packageLine, "quantity")
+                                        && !b(packageLine, "storageEnabled"))
+                                    throw conflict("产品包存在不支持寄存的商品，请选择全部发货或联系总部调整配置");
+                            }
+                            snapshot.put("goodsCents", l(p, "amountCents"));
+                            new com.jianyanji.storage.StorageService(db, access)
+                                    .quoteCombined(snapshot, raw, current);
                             long value =
                                     db.insert(
                                             "INSERT INTO onboardings(user_id,target_identity,package_snapshot,requested_inviter_id,reward_cents,after_sales_days,request_key,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?)",
@@ -745,6 +821,11 @@ public class MembershipService {
         if (minutes < 1 || minutes > 10080) throw conflict("请先配置有效待付款时长");
         ObjectNode snapshot = ((ObjectNode) p).deepCopy();
         snapshot.setAll(obj("goodsCents", amount, "shippingCents", 0, "totalCents", amount));
+        new com.jianyanji.storage.StorageService(db, access)
+                .quoteCombined(
+                        snapshot,
+                        p,
+                        db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", l(a, "user_id")));
         long oid =
                 db.insert(
                         "INSERT INTO orders(number,user_id,kind,status,payment_state,total_cents,goods_cents,shipping_cents,snapshot,expires_at,request_key,create_user_id,update_user_id) VALUES(?,?,'package','pending','unpaid',?,?,0,?,?,?,?,?)",
@@ -767,11 +848,13 @@ public class MembershipService {
                             qty)
                     != 1) throw conflict("产品包可用库存不足，请联系品牌方");
             db.insert(
-                    "INSERT INTO order_lines(order_id,sku_id,quantity,unit_cents,principal_cents,create_user_id,update_user_id) VALUES(?,?,?,?,NULL,?,?)",
+                    "INSERT INTO order_lines(order_id,sku_id,quantity,unit_cents,principal_cents,storage_qty,is_gift,create_user_id,update_user_id) VALUES(?,?,?,?,NULL,?,?,?,?)",
                     oid,
                     l(line, "skuId"),
                     qty,
                     l(line, "unitCents"),
+                    qty - line.path("shipQuantity").asLong(qty),
+                    b(line, "isGift") ? 1 : 0,
                     actor,
                     actor);
         }
@@ -780,6 +863,8 @@ public class MembershipService {
                 oid,
                 actor,
                 l(a, "id"));
+        if (!snapshot.has("storedItems")) snapshot.set("storedItems", arr());
+        new com.jianyanji.storage.StorageService(db, access).reserveCombined(oid, snapshot, actor);
         return oid;
     }
 
@@ -898,7 +983,7 @@ public class MembershipService {
         for (JsonNode line : list(p.get("lines"))) {
             ObjectNode sku =
                     db.one(
-                            "SELECT s.id,s.name AS skuName,s.unit,s.stock,s.reserved,s.active,p.id AS productId,p.name,p.image,p.active AS pa,c.active AS ca FROM skus s JOIN products p ON p.id=s.product_id AND p.is_deleted=0 JOIN categories c ON c.id=p.category_id AND c.is_deleted=0 WHERE s.id=? AND s.is_deleted=0",
+                            "SELECT s.id,s.name AS skuName,s.unit,s.stock,s.reserved,s.storage_enabled,s.storage_exclusion,s.active,p.id AS productId,p.name,p.image,p.active AS pa,c.active AS ca FROM skus s JOIN products p ON p.id=s.product_id AND p.is_deleted=0 JOIN categories c ON c.id=p.category_id AND c.is_deleted=0 WHERE s.id=? AND s.is_deleted=0",
                             l(line, "skuId"));
             if (sku == null || !b(sku, "active") || !b(sku, "pa") || !b(sku, "ca"))
                 throw conflict("产品包商品已停售，请品牌方重新配置");
@@ -910,6 +995,11 @@ public class MembershipService {
                             l(line, "quantity"),
                             "unitCents",
                             l(line, "unitCents"),
+                            "isGift",
+                            b(line, "isGift"),
+                            "lineKey",l(line,"skuId")+":"+b(line,"isGift"),
+                            "storageEnabled",
+                            b(sku, "storage_enabled") && "none".equals(s(sku, "storage_exclusion")),
                             "principalCents",
                             null,
                             "productId",

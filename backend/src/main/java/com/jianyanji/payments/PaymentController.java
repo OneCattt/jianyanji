@@ -48,7 +48,8 @@ public class PaymentController {
     @PostMapping("/api/admin/orders/{id}/receipt")
     public Object confirmReceipt(@PathVariable long id, @RequestBody JsonNode body) {
         long actor = l(access.staff("finance:manage"), "id");
-        return payments.confirmOfflineReceipt(Input.id(id), body, actor);
+        throw com.jianyanji.common.BusinessException.conflict(
+                "POINTS_ONLY", "请先登记充值积分，再由客户扣积分购买，禁止直接核销货款");
     }
 
     @PostMapping("/api/orders/{id}/payment/query")

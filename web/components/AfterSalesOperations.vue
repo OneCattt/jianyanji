@@ -137,6 +137,7 @@ async function create() {
       .map(([lineId, quantity]) => ({
         lineId: Number(lineId),
         quantity: Number(quantity),
+        ...(returnShipped.value ? { unshippedQuantity: 0 } : {}),
       }));
     if (
       items.some((item) => {
@@ -172,7 +173,11 @@ async function create() {
     exceptionReason.value = "";
   }, "售后申请已登记，尚未退款");
 }
-function open(r: any, key: string) {
+const returnShipped = ref(false);
+const giftReturns = ref<
+  { lineId: number; quantity: number; available: number; skuId: number }[]
+>([]);
+async function open(r: any, key: string) {
   error.value = "";
   selected.value = r;
   action.value = key;
@@ -184,6 +189,29 @@ function open(r: any, key: string) {
   inspection.value = "";
   restock.value = false;
   decision.value = "retain";
+  giftReturns.value = [];
+  if (key === "approve") {
+    try {
+      const response = await api<{ order: any }>(
+        `/admin/orders/${r.order_id}/payment`,
+      );
+      giftReturns.value = response.order.lines
+        .filter(
+          (line: any) =>
+            line.is_gift &&
+            !r.lines.some((existing: any) => existing.lineId === line.id),
+        )
+        .map((line: any) => ({
+          lineId: line.id,
+          skuId: line.sku_id,
+          quantity: 0,
+          available: line.quantity - line.refunded_qty - line.refund_held,
+        }));
+    } catch (e) {
+      error.value = (e as Error).message;
+      action.value = "";
+    }
+  }
 }
 function refundMethod(refund: any): string | undefined {
   return orders.value.find((order) => order.id === refund.order_id)
@@ -246,8 +274,11 @@ async function submit() {
       body = {
         ...body,
         approve: action.value === "approve",
-        identityDecision:
-          selected.value.kind === "package" ? decision.value : null,
+        identityDecision: null,
+        giftDecision: reason.value,
+        giftItems: giftReturns.value
+          .filter((line) => line.quantity > 0)
+          .map((line) => ({ lineId: line.lineId, quantity: line.quantity })),
       };
     }
     if (action.value === "inspect")
@@ -582,6 +613,9 @@ const actionNames: Record<string, string> = {
       </template>
       <template v-else>
         <AdminForm class="form-grid setup-form" @submit="create">
+          <a-checkbox v-model:checked="returnShipped"
+            >本次退回已发出的货品（不取消未提寄存数量）</a-checkbox
+          >
           <label class="field wide-field"
             >搜索已付款订单<a-input
               v-model:value="orderQuery"
@@ -693,21 +727,22 @@ const actionNames: Record<string, string> = {
             money(selected.total_cents)
           }}</a-descriptions-item>
         </a-descriptions>
-        <template
-          v-if="
-            ['approve', 'reject'].includes(action) &&
-            selected.kind === 'package'
-          "
-          ><label class="field"
-            >产品包部分退款后身份<AdminSelect
-              v-model="decision"
-              :disabled="busy"
-            >
-              <option value="retain">仍满足入驻条件，保留</option>
-              <option value="revoke">不再满足条件，撤销该次身份</option>
-            </AdminSelect></label
-          ></template
-        ><template v-if="action === 'inspect'"
+        <p v-if="['approve', 'reject'].includes(action)">
+          退款不自动关闭身份。涉及买赠套餐时，请在处理原因中明确应取消或收回的赠品及数量，已发赠品须核验退回。
+        </p>
+        <label
+          v-for="gift in action === 'approve' ? giftReturns : []"
+          :key="gift.lineId"
+          class="field"
+          >赠品规格 #{{ gift.skuId }} 应退数量（剩余{{
+            gift.available
+          }}）<a-input-number
+            v-model:value="gift.quantity"
+            :min="0"
+            :max="gift.available"
+            :precision="0"
+        /></label>
+        <template v-if="action === 'inspect'"
           ><label class="field"
             >实际退货收到时间<AdminDatePicker
               v-model="paidAt"

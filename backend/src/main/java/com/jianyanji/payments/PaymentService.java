@@ -116,6 +116,8 @@ public class PaymentService {
                 actor);
         if ("package".equals(s(current, "kind")))
             membership.activatePaid(orders.owned(orderId, null), actor);
+        new com.jianyanji.storage.StorageService(db, access)
+                .paid(orders.owned(orderId, null), actor);
         return obj("alreadyPaid", false, "order", orders.owned(orderId, null));
     }
 
@@ -128,19 +130,26 @@ public class PaymentService {
                 != null) throw conflict("PAYMENT_UNRESOLVED", "存在历史线上交易待人工核实，请联系品牌方处理，不能重复收款");
     }
 
+    /** 权益包扣积分前校验申请、邀请、协议和归属。 */
+    public void assertPackagePayable(ObjectNode order) {
+        membership.assertOrderPayable(order);
+    }
+
     public ObjectNode capabilities() {
         return obj(
                 "wechatAvailable",
                 false,
                 "offlineAvailable",
+                false,
+                "pointsAvailable",
                 true,
                 "message",
-                "首期货款均线下支付，请按订单说明付款并等待财务核款");
+                "全部客户使用积分支付，积分不足请联系总部微信充值");
     }
 
     /** 首期统一拒绝外部支付动作，避免已有商户配置意外启用线上交易。 */
     public static void requireOnlinePayment() {
-        throw new BusinessException(409, "ONLINE_PAYMENT_DISABLED", "首期仅支持线下交易，请联系品牌方核实收退款");
+        throw new BusinessException(409, "ONLINE_PAYMENT_DISABLED", "线上支付未开放，请联系总部充值后使用积分支付");
     }
 
     /** 普通货款收款、库存结算和凭据同事务提交，原流水不得跨订单或用途复用。 */

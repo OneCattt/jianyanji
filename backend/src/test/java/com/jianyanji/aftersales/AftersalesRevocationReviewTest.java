@@ -11,10 +11,10 @@ import com.jianyanji.membership.MembershipService;
 import com.jianyanji.orders.OrderService;
 import org.junit.jupiter.api.Test;
 
-/** 撤销产品包资格前校验团队接管计划，禁止审核后才发现不能撤销。 */
+/** 退款审核不再操作身份；身份关闭和团队交接从独立入口办理。 */
 class AftersalesRevocationReviewTest {
     @Test
-    void revocationCannotBeApprovedWithoutRequiredHandoverPlan() {
+    void refundApprovalDoesNotCloseIdentityOrRequireTeamHandover() {
         Db db = mock(Db.class);
         Access access = mock(Access.class);
         MembershipService membership = mock(MembershipService.class);
@@ -36,8 +36,7 @@ class AftersalesRevocationReviewTest {
         doThrow(BusinessException.conflict("请先安排团队接管"))
                 .when(membership)
                 .assertRefundRevocable(order);
-        assertThrows(
-                BusinessException.class,
+        assertDoesNotThrow(
                 () ->
                         service.review(
                                 11,
@@ -48,8 +47,8 @@ class AftersalesRevocationReviewTest {
                                         "revoke",
                                         "reason",
                                         "退回产品包")));
-        verify(membership).assertRefundRevocable(order);
-        assertFalse(
+        verifyNoInteractions(membership);
+        assertTrue(
                 mockingDetails(db).getInvocations().stream()
                         .anyMatch(i -> i.getMethod().getName().equals("update")));
     }

@@ -175,16 +175,14 @@ class AftersalesServiceTest {
     }
 
     @Test
-    void partialPackagePointsRefundRestoresPointsAndReversesRewardsWithIdentityDecision() {
+    void partialPackagePointsRefundRestoresPointsAndReversesRewardsWithoutClosingIdentity() {
         order.put("payment_method", "points");
         order.put("kind", "package");
         when(db.one(startsWith("SELECT id FROM order_lines"), anyLong())).thenReturn(obj("id", 32));
         service.finishRefund(refund, 7, "request-test");
-        verify(db).assertTransaction();
+        verify(db, atLeastOnce()).assertTransaction();
         verify(wallet).restoreOrderPoints(21, 11, 300, 7, "request-test");
-        verify(membership)
-                .applyPackageRefundIdentity(
-                        eq(order), eq(false), eq("retain"), eq(7L), eq("原申请依据"));
+        verifyNoInteractions(membership);
         verify(rewards).reconcileReversals(21, 7, "request-test");
         verify(orders).refreshFulfillment(21);
     }

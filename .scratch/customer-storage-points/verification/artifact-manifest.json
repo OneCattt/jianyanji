@@ -1,0 +1,61 @@
+{
+  "recordedAt": "2026-10-27T18:54:01.167962+08:00",
+  "baseCommit": "348369cc8186dab940620b8f304c1c95f784a843",
+  "sourceState": "包含此前未提交及未跟踪改动；baseCommit不是本次已发布提交",
+  "deployment": "本次未部署，未上传小程序",
+  "storageMysqlReport": {
+    "name": "com.jianyanji.storage.StorageMysqlTest",
+    "tests": "21",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "3.564"
+  },
+  "jarMigrationsMatchSource": {
+    "V12__customer_points_storage.sql": true,
+    "V13__storage_logical_unique_keys.sql": true,
+    "V14__independent_price_initial_values.sql": true
+  },
+  "artifacts": [
+    {
+      "path": "backend/target/jianyanji-api-0.1.0.jar",
+      "sha256": "2beb50dfcf79587f53e89d0dba4c774cc4715887d5e51a768d08992eb9961c50",
+      "bytes": 49709415
+    },
+    {
+      "path": "dist/index.html",
+      "sha256": "3a5c0b740a67b1eb026cfe27d0190d7306e809abbf1c64c24ab7b244c9cf1e67",
+      "bytes": 689
+    },
+    {
+      "path": "dist/assets/index-3v8aDShj.js",
+      "sha256": "3b2d3b8dabd5c26b643cbcb50bc4207f828676bd38386b199e15ecc2aaca5832",
+      "bytes": 1429876
+    },
+    {
+      "path": "dist/assets/index-BDAelatt.css",
+      "sha256": "78a4f7f730c728872fbf267a23c421c96598968cf70be7d009c3185dd391231f",
+      "bytes": 59928
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V12__customer_points_storage.sql",
+      "sha256": "76ae35a5e19edbd98c4e881c0995f6dfbcfa42bc53489b4c4f0fc583f6d684d9",
+      "bytes": 11091
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V13__storage_logical_unique_keys.sql",
+      "sha256": "a8a2c057c03992696f195578f3f7c98e4e2194594c968fedbc9e74479471171e",
+      "bytes": 2364
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V14__independent_price_initial_values.sql",
+      "sha256": "d3e3b92387eabd8baea9be3d8a413c91ae9fc54bd61a115551a10e9a7b322eb3",
+      "bytes": 661
+    }
+  ],
+  "httpReports": {
+    "http-smoke.json": "2026-10-27T09:39:20.763Z",
+    "http-purchase.json": "2026-10-27T09:41:11.486Z"
+  },
+  "scopeNote": "HTTP与构建为上窗口留存证据；本窗口重跑小程序运行测试、扩大静态回归及类型检查。未重跑完整构建。；2026-10-27发布阶段另行重新构建，实际发布哈希以后续deployment-result.json为准。"
+}

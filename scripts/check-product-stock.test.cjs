@@ -75,6 +75,8 @@ const product = () => ({
       name: "30ml",
       unit: "瓶",
       retailCents: 10000,
+      storeCents: 7000,
+      principalCents: 3500,
       productType: "regular",
       welfareCents: null,
       stock: 10,
@@ -89,6 +91,7 @@ test("只修改商品资料时不提交库存，避免旧编辑页覆盖销售�
   await component.edit(product());
   component.form.value.name = "新的商品名称";
   await component.saveProduct();
+  assert.equal(component.error.value, "");
   assert.equal(calls.length, 1);
   const sku = calls[0].body.skus[0];
   assert.equal(Object.hasOwn(sku, "stock"), false);
@@ -100,6 +103,7 @@ test("主动调整已有规格库存时提交新值和编辑前原值", async ()
   await component.edit(product());
   component.form.value.skus[0].stock = 12;
   await component.saveProduct();
+  assert.equal(component.error.value, "");
   assert.equal(calls[0].body.skus[0].stock, 12);
   assert.equal(calls[0].body.skus[0].expectedStock, 10);
 });

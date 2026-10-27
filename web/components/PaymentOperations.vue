@@ -18,6 +18,8 @@ interface OrderLine {
   shipped_qty: number;
   refunded_unshipped: number;
   held_unshipped: number;
+  storage_remaining?: number;
+  pickup_held?: number;
   remaining?: number;
   received_qty: number;
   refund_held: number;
@@ -164,19 +166,8 @@ const canShip = computed(
     ["paid", "partially_refunded"].includes(selected.value.payment_state) &&
     ["paid", "awaiting_shipment", "shipped"].includes(selected.value.status),
 );
-const canCollect = computed(() => {
-  const order = selected.value;
-  return (
-    props.canFinance &&
-    order &&
-    order.kind === "goods" &&
-    (order.payment_method === null ||
-      ["", "offline"].includes(order.payment_method)) &&
-    order.status === "pending" &&
-    ["unpaid", "failed"].includes(order.payment_state) &&
-    !payment.value?.receipt
-  );
-});
+const canCollect = computed(() => false);
+
 const methodNames: Record<string, string> = {
   offline: "线下付款",
   points: "积分订货",
@@ -184,7 +175,12 @@ const methodNames: Record<string, string> = {
 };
 const money = (v: number) => (v / 100).toFixed(2);
 const remaining = (l: OrderLine) =>
-  l.quantity - l.shipped_qty - l.refunded_unshipped - l.held_unshipped;
+  l.quantity -
+  l.shipped_qty -
+  l.refunded_unshipped -
+  l.held_unshipped -
+  (l.storage_remaining || 0) -
+  (l.pickup_held || 0);
 const name = (l: OrderLine) =>
   selected.value?.snapshot.lines.find((s) => s.skuId === l.sku_id)?.name ||
   `商品规格 ${l.sku_id}`;
@@ -447,12 +443,12 @@ function statusColor(value: string) {
       <header class="section-heading">
         <div>
           <h3>
-            {{ props.financeOnly ? "普通订单线下收款" : "收款与履约订单" }}
+            {{ props.financeOnly ? "订单积分支付记录" : "收款与履约订单" }}
           </h3>
           <p>
             {{
               props.financeOnly
-                ? "按原订单核实公司实际到账；普通货款不发积分，产品包在入驻页核款。"
+                ? "全部客户使用积分购买；私域充值请在积分管理核实到账。"
                 : "核对线下收款或积分扣款结果，登记品牌仓发货与物流纠正。"
             }}
           </p>
@@ -554,11 +550,9 @@ function statusColor(value: string) {
             payment.receipt.paid_at
           }}
         </p>
-        <p v-else>
-          尚无已确认的收款或积分扣款记录。公司核实真实到账后才能发货。
-        </p>
+        <p v-else>尚无积分扣款记录；客户足额积分支付后才可履约。</p>
         <p v-if="selected.kind === 'package'">
-          产品包请在“产品包与入驻”中核款。
+          产品包由客户扣积分购买后开通身份。
         </p>
         <a-button
           v-if="canCollect"
@@ -566,7 +560,7 @@ function statusColor(value: string) {
           :disabled="busy"
           @click="openReceipt"
         >
-          登记普通订单线下收款
+          登记订单积分支付记录
         </a-button>
       </section>
       <template v-if="!props.financeOnly">
@@ -579,9 +573,7 @@ function statusColor(value: string) {
             @click="openShipment"
             >登记品牌仓发货</a-button
           >
-          <p v-else>
-            当前订单不允许新增发货；未核款订单须先由财务核实实际到账。
-          </p>
+          <p v-else>当前订单不允许新增发货；未付款订单须先由客户扣积分支付。</p>
         </section>
         <section class="detail-section">
           <h4>包裹与收货记录</h4>
@@ -663,7 +655,7 @@ function statusColor(value: string) {
     </a-card>
     <AdminDialog
       v-if="selected && dialog"
-      :title="dialog === 'ship' ? '登记品牌仓发货' : '登记普通订单线下收款'"
+      :title="dialog === 'ship' ? '登记品牌仓发货' : '登记订单积分支付记录'"
       :busy="busy"
       :wide="dialog === 'ship'"
       @close="!busy && (dialog = '')"

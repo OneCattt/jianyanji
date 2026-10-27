@@ -8,9 +8,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.catalog.CatalogService;
 import com.jianyanji.common.Access;
-import com.jianyanji.common.PageQuery;
 import com.jianyanji.common.Db;
 import com.jianyanji.common.Input;
+import com.jianyanji.common.PageQuery;
 import com.jianyanji.payments.PaymentService;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -39,10 +39,19 @@ public class OrderService {
     /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
     public ObjectNode adminPage(java.util.Map<String, String> query) {
         expire();
-        return new PageQuery(query, "FROM orders WHERE is_deleted=0"
-                + ("true".equals(query.get("paidOnly")) ? " AND payment_state IN ('paid','partially_refunded')" : ""))
-                .eq("status", "status").eq("paymentState", "payment_state").eq("kind", "kind")
-                .keyword("number", "CAST(id AS CHAR)", "CAST(user_id AS CHAR)",
+        return new PageQuery(
+                        query,
+                        "FROM orders WHERE is_deleted=0"
+                                + ("true".equals(query.get("paidOnly"))
+                                        ? " AND payment_state IN ('paid','partially_refunded')"
+                                        : ""))
+                .eq("status", "status")
+                .eq("paymentState", "payment_state")
+                .eq("kind", "kind")
+                .keyword(
+                        "number",
+                        "CAST(id AS CHAR)",
+                        "CAST(user_id AS CHAR)",
                         "JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.address.recipient'))",
                         "JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.address.phone'))")
                 .select(db, "*", "id DESC", this::view);
@@ -93,17 +102,23 @@ public class OrderService {
                 "lines",
                 json(
                         db.list(
-                                "SELECT * FROM order_lines WHERE order_id=? AND is_deleted=0 ORDER BY id",
+                                "SELECT ol.*,(SELECT COALESCE(SUM(remaining_qty),0) FROM storage_lots l WHERE l.line_id=ol.id AND l.is_deleted=0) AS storage_remaining,(SELECT COALESCE(SUM(pl.quantity),0) FROM pickup_lines pl JOIN pickup_orders po ON po.id=pl.pickup_id AND po.is_deleted=0 WHERE pl.line_id=ol.id AND pl.lot_id IS NULL AND pl.is_deleted=0 AND po.status IN ('review','approved')) AS pickup_held FROM order_lines ol WHERE order_id=? AND ol.is_deleted=0 ORDER BY id",
                                 l(order, "id"))));
         ArrayNode shipments = arr();
         for (ObjectNode shipment :
                 db.list(
-                        "SELECT id,carrier,tracking,`lines`,shipped_at,received_at FROM shipments WHERE order_id=? AND is_deleted=0 ORDER BY id",
+                        "SELECT id,carrier,tracking,`lines`,shipped_at,received_at,pickup_id FROM shipments WHERE order_id=? AND is_deleted=0 ORDER BY id",
                         l(order, "id"))) {
             shipment.set("lines", parse(s(shipment, "lines")));
             shipments.add(shipment);
         }
         result.set("shipments", shipments);
+        result.set(
+                "pickups",
+                json(
+                        db.list(
+                                "SELECT DISTINCT p.id,p.number,p.status FROM pickup_orders p JOIN pickup_lines pl ON pl.pickup_id=p.id AND pl.is_deleted=0 JOIN order_lines ol ON ol.id=pl.line_id AND ol.is_deleted=0 WHERE ol.order_id=? AND p.is_deleted=0 ORDER BY p.id",
+                                l(order, "id"))));
         return result;
     }
 
@@ -137,6 +152,8 @@ public class OrderService {
                             throw conflict("STOCK_RESERVATION_MISMATCH", "库存占用记录不一致，请联系品牌方处理");
                         }
                     }
+                    new com.jianyanji.storage.StorageService(db, access)
+                            .releaseUnpaid(l(current, "id"), actor);
                     db.update(
                             "UPDATE orders SET status='closed',update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0 AND status='pending'",
                             actor,
@@ -165,13 +182,16 @@ public class OrderService {
     /** 本人列表仅清理本人的过期订单；无过期项时直接返回，不获取全局业务写锁。 */
     public void expireForUser(long userId) {
         String expiredAt = now();
-        String condition = " FROM orders WHERE user_id=? AND status='pending'"
-                + " AND payment_state IN ('unpaid','failed') AND expires_at<? AND is_deleted=0";
+        String condition =
+                " FROM orders WHERE user_id=? AND status='pending'"
+                        + " AND payment_state IN ('unpaid','failed') AND expires_at<? AND is_deleted=0";
         if (db.one("SELECT id" + condition + " LIMIT 1", userId, expiredAt) == null) return;
-        db.tx(() -> {
-            // 获取写锁后重新查询，沿用 release 的状态复核及库存释放规则。
-            for (ObjectNode order : db.list("SELECT *" + condition, userId, expiredAt)) release(order);
-        });
+        db.tx(
+                () -> {
+                    // 获取写锁后重新查询，沿用 release 的状态复核及库存释放规则。
+                    for (ObjectNode order : db.list("SELECT *" + condition, userId, expiredAt))
+                        release(order);
+                });
     }
 
     /** 与 Node 每三十秒清理行为一致，无微信商户配置时仍释放明确未支付的占用。 */
@@ -285,7 +305,7 @@ public class OrderService {
         // 购物车保留已下架或已逻辑删除商品，以 available=false 展示，不能过滤掉失效购物项。
         for (ObjectNode row :
                 db.list(
-                        "SELECT c.id,c.sku_id AS skuId,c.quantity,c.selected,p.name,p.image,s.name AS skuName,s.unit,s.stock-s.reserved AS stock,s.retail_cents,s.product_type,s.welfare_cents,s.active,p.active AS product_active,p.is_deleted AS product_deleted,s.is_deleted AS sku_deleted,ct.active AS category_active,ct.is_deleted AS category_deleted FROM cart_items c JOIN skus s ON s.id=c.sku_id JOIN products p ON p.id=s.product_id JOIN categories ct ON ct.id=p.category_id WHERE c.user_id=? AND c.is_deleted=0 ORDER BY c.id",
+                        "SELECT c.id,c.sku_id AS skuId,c.quantity,c.selected,p.name,p.image,s.name AS skuName,s.unit,s.stock-s.reserved AS stock,s.retail_cents,s.store_cents,s.principal_cents,s.product_type,s.welfare_cents,s.active,p.active AS product_active,p.is_deleted AS product_deleted,s.is_deleted AS sku_deleted,ct.active AS category_active,ct.is_deleted AS category_deleted FROM cart_items c JOIN skus s ON s.id=c.sku_id JOIN products p ON p.id=s.product_id JOIN categories ct ON ct.id=p.category_id WHERE c.user_id=? AND c.is_deleted=0 ORDER BY c.id",
                         l(user, "id"))) {
             Long price = catalog.rolePrice(row, user);
             items.add(
@@ -328,16 +348,24 @@ public class OrderService {
     /** 整袋汇总包含未展示分页；totalKinds 为全部种类数，allSelected 仅在非空且全部勾选时为 true。 */
     public ObjectNode cartSummary(JsonNode user) {
         String identity = effectiveIdentity(user);
-        int percent = "B".equals(identity) ? 35 : "C".equals(identity) ? 70 : 100;
-        String price = "CASE WHEN s.product_type='welfare' THEN s.welfare_cents ELSE FLOOR((s.retail_cents*"
-                + percent + "+50)/100) END";
-        ObjectNode result = db.one(
-                "SELECT COUNT(*) AS totalKinds,COALESCE(SUM(c.selected=1),0) AS kinds,"
-                        + "COALESCE(SUM(CASE WHEN c.selected=1 THEN c.quantity ELSE 0 END),0) AS pieces,"
-                        + "COALESCE(SUM(CASE WHEN c.selected=1 THEN (" + price + ")*c.quantity ELSE 0 END),0) AS totalCents"
-                        + " FROM cart_items c JOIN skus s ON s.id=c.sku_id WHERE c.user_id=? AND c.is_deleted=0",
-                l(user, "id"));
-        result.put("allSelected", l(result, "totalKinds") > 0 && l(result, "totalKinds") == l(result, "kinds"));
+        String field =
+                "B".equals(identity)
+                        ? "s.principal_cents"
+                        : "C".equals(identity) ? "s.store_cents" : "s.retail_cents";
+        String price =
+                "CASE WHEN s.product_type='welfare' THEN s.welfare_cents ELSE " + field + " END";
+        ObjectNode result =
+                db.one(
+                        "SELECT COUNT(*) AS totalKinds,COALESCE(SUM(c.selected=1),0) AS kinds,"
+                                + "COALESCE(SUM(CASE WHEN c.selected=1 THEN c.quantity ELSE 0 END),0) AS pieces,"
+                                + "COALESCE(SUM(CASE WHEN c.selected=1 THEN ("
+                                + price
+                                + ")*c.quantity ELSE 0 END),0) AS totalCents"
+                                + " FROM cart_items c JOIN skus s ON s.id=c.sku_id WHERE c.user_id=? AND c.is_deleted=0",
+                        l(user, "id"));
+        result.put(
+                "allSelected",
+                l(result, "totalKinds") > 0 && l(result, "totalKinds") == l(result, "kinds"));
         return result;
     }
 
@@ -346,16 +374,18 @@ public class OrderService {
         Input.strict(body, "selected", "skuId");
         boolean selected = Input.bool(body, "selected");
         Long skuId = body.has("skuId") ? Input.integer(body, "skuId", 1, 9007199254740991L) : null;
-        return db.tx(() -> {
-            String sql = "UPDATE cart_items SET selected=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3)"
-                    + " WHERE user_id=? AND is_deleted=0";
-            if (skuId == null) {
-                db.update(sql, selected ? 1 : 0, userId, userId);
-            } else {
-                db.update(sql + " AND sku_id=?", selected ? 1 : 0, userId, userId, skuId);
-            }
-            return obj("ok", true);
-        });
+        return db.tx(
+                () -> {
+                    String sql =
+                            "UPDATE cart_items SET selected=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3)"
+                                    + " WHERE user_id=? AND is_deleted=0";
+                    if (skuId == null) {
+                        db.update(sql, selected ? 1 : 0, userId, userId);
+                    } else {
+                        db.update(sql + " AND sku_id=?", selected ? 1 : 0, userId, userId, skuId);
+                    }
+                    return obj("ok", true);
+                });
     }
 
     public ObjectNode saveCart(long skuId, JsonNode body, JsonNode user) {
@@ -440,11 +470,14 @@ public class OrderService {
                     || !b(sku, "active")
                     || !b(sku, "product_active")
                     || !b(sku, "category_active")) throw conflict("商品或规格已停售，请重新选择");
-            Long price = catalog.rolePrice(sku, user);
+            Long price =
+                    item.has("offerUnitCents")
+                            ? l(item, "offerUnitCents")
+                            : catalog.rolePrice(sku, user);
             if (price == null) throw conflict("当前身份价格尚未配置");
             long quantity = l(item, "quantity");
             if (l(sku, "stock") - l(sku, "reserved") < quantity) throw conflict("商品库存不足");
-            Long principalPrice = catalog.priceForIdentity(sku, "B");
+            Long principalPrice = b(item, "isGift") ? 0 : catalog.priceForIdentity(sku, "B");
             if ("C".equals(identity) && principalPrice == null) throw conflict("商品主理人价格无效，暂不能订货");
             lines.add(
                     obj(
@@ -462,10 +495,18 @@ public class OrderService {
                             sku.get("image"),
                             "quantity",
                             quantity,
+                            "shipQuantity",
+                            item.has("shipQuantity") ? l(item, "shipQuantity") : quantity,
+                            "storageEnabled",
+                            b(sku, "storage_enabled") && "none".equals(s(sku, "storage_exclusion")),
+                            "isGift",
+                            b(item, "isGift"),
+                            "bundleKey",
+                            s(item, "bundleKey"),
                             "productType",
                             catalog.productType(sku),
                             "priceRule",
-                            "v2-fixed-role",
+                            "v3-independent-points",
                             "retailCents",
                             sku.get("retail_cents"),
                             "welfareCents",
@@ -476,10 +517,17 @@ public class OrderService {
                             principalPrice,
                             "version",
                             sku.get("version")));
+            long shipQuantity = item.has("shipQuantity") ? l(item, "shipQuantity") : quantity;
+            Input.require(shipQuantity >= 0 && shipQuantity <= quantity, "本次发货数量超出购买数量");
+            if (shipQuantity < quantity
+                    && !(b(sku, "storage_enabled") && "none".equals(s(sku, "storage_exclusion"))))
+                throw conflict("该商品不支持寄存");
             goodsCents += price * quantity;
         }
         if (goodsCents > 100000000) throw conflict("订单金额超出允许范围");
         return obj(
+                "bundleName",
+                items.size() > 0 ? s(items.get(0), "bundleName") : "",
                 "afterSalesDays",
                 aftersales.get("days"),
                 "afterSalesPolicy",
@@ -495,9 +543,9 @@ public class OrderService {
                 "goodsCents",
                 goodsCents,
                 "shippingCents",
-                shipping.get("feeCents"),
+                0,
                 "totalCents",
-                goodsCents + l(shipping, "feeCents"),
+                goodsCents,
                 "shippingInstructions",
                 shipping.get("instructions"),
                 "pendingMinutes",
@@ -513,13 +561,45 @@ public class OrderService {
         snapshot.put("salesConfirmed", true);
     }
 
+    /** 套餐仅允许客户选择每项发货数量，不接受客户传商品或价格。 */
+    private void applyOfferShipping(JsonNode items, JsonNode input) {
+        if (!input.has("offerShipQuantities")) return;
+        Input.require(input.has("offerId"), "只有活动套餐允许提供套餐发货数量");
+        JsonNode quantities = input.get("offerShipQuantities");
+        Input.require(quantities.isArray() && quantities.size() == items.size(), "套餐发货明细与原固定配置不一致");
+        for (int i = 0; i < items.size(); i++) {
+            JsonNode n = quantities.get(i);
+            Input.require(
+                    n.isIntegralNumber()
+                            && n.canConvertToLong()
+                            && n.asLong() >= 0
+                            && n.asLong() <= l(items.get(i), "quantity"),
+                    "套餐本次发货数量超出购买数量");
+            ((ObjectNode) items.get(i)).put("shipQuantity", n.asLong());
+        }
+    }
+
     public ObjectNode quote(JsonNode body, JsonNode user) {
         expire();
         ObjectNode value = OrderInput.checkout(body);
         return db.tx(
                 () -> {
-                    ObjectNode snapshot =
-                            buildQuote(user, l(value, "addressId"), value.get("items"));
+                    JsonNode selected =
+                            value.has("offerId")
+                                    ? new com.jianyanji.catalog.OfferService(db, access)
+                                            .items(
+                                                    l(value, "offerId"),
+                                                    l(value, "offerQuantity"),
+                                                    s(value, "offerDelivery"))
+                                    : value.get("items");
+                    applyOfferShipping(selected, value);
+                    ObjectNode snapshot = buildQuote(user, l(value, "addressId"), selected);
+                    for (String field :
+                            new String[] {
+                                "offerId", "offerQuantity", "offerDelivery", "offerShipQuantities"
+                            }) if (value.has(field)) snapshot.set(field, value.get(field));
+                    new com.jianyanji.storage.StorageService(db, access)
+                            .quoteCombined(snapshot, value, user);
                     attachSales(snapshot, value);
                     long userId = l(user, "id");
                     long quoteId =
@@ -532,6 +612,10 @@ public class OrderService {
                                     userId);
                     ObjectNode result = obj("id", quoteId);
                     result.setAll(snapshot);
+                    long available = new com.jianyanji.wallet.PointsService(db).available(userId);
+                    result.put("availableCents", available);
+                    result.put(
+                            "shortfallCents", Math.max(0, l(snapshot, "totalCents") - available));
                     return result;
                 });
     }
@@ -569,9 +653,30 @@ public class OrderService {
                                                 "skuId",
                                                 line.get("skuId"),
                                                 "quantity",
-                                                line.get("quantity")));
+                                                line.get("quantity"),
+                                                "shipQuantity",
+                                                line.path("shipQuantity")
+                                                        .asLong(l(line, "quantity"))));
+                            if (original.has("offerId"))
+                                items =
+                                        new com.jianyanji.catalog.OfferService(db, access)
+                                                .items(
+                                                        l(original, "offerId"),
+                                                        l(original, "offerQuantity"),
+                                                        s(original, "offerDelivery"));
+                            applyOfferShipping(items, original);
                             ObjectNode latest =
                                     buildQuote(user, l(original.path("address"), "id"), items);
+                            for (String field :
+                                    new String[] {
+                                        "offerId",
+                                        "offerQuantity",
+                                        "offerDelivery",
+                                        "offerShipQuantities"
+                                    })
+                                if (original.has(field)) latest.set(field, original.get(field));
+                            new com.jianyanji.storage.StorageService(db, access)
+                                    .quoteCombined(latest, original, user);
                             if (has(original, "salesAgent"))
                                 attachSales(
                                         latest,
@@ -616,7 +721,7 @@ public class OrderService {
                                             userId);
                             for (JsonNode line : latest.withArray("lines"))
                                 db.insert(
-                                        "INSERT INTO order_lines(order_id,sku_id,quantity,unit_cents,principal_cents,product_type,retail_cents,price_rule,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                                        "INSERT INTO order_lines(order_id,sku_id,quantity,unit_cents,principal_cents,product_type,retail_cents,price_rule,storage_qty,is_gift,bundle_key,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                         orderId,
                                         l(line, "skuId"),
                                         l(line, "quantity"),
@@ -629,8 +734,13 @@ public class OrderService {
                                                 ? null
                                                 : l(line, "retailCents"),
                                         s(line, "priceRule"),
+                                        l(line, "quantity") - l(line, "shipQuantity"),
+                                        b(line, "isGift") ? 1 : 0,
+                                        s(line, "bundleKey"),
                                         userId,
                                         userId);
+                            new com.jianyanji.storage.StorageService(db, access)
+                                    .reserveCombined(orderId, latest, userId);
                             // 建单成功后移除本人本单商品；与订单共用事务，失败时一并回滚。
                             db.update(
                                     "UPDATE cart_items SET is_deleted=1,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE user_id=? AND is_deleted=0 AND sku_id IN (SELECT sku_id FROM order_lines WHERE order_id=? AND is_deleted=0)",

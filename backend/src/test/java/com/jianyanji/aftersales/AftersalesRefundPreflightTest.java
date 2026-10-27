@@ -40,7 +40,15 @@ class AftersalesRefundPreflightTest {
         membership = mock(MembershipService.class);
         channel = mock(WechatPayClient.class);
         wallet = mock(WalletService.class);
-        service = new AftersalesService(db, access, orders, wallet, membership, null, channel);
+        service =
+                new AftersalesService(
+                        db,
+                        access,
+                        orders,
+                        wallet,
+                        membership,
+                        mock(com.jianyanji.rewards.RewardService.class),
+                        channel);
         doAnswer(i -> ((Supplier<?>) i.getArgument(0)).get()).when(db).tx(any(Supplier.class));
         doAnswer(
                         i -> {
@@ -100,10 +108,9 @@ class AftersalesRefundPreflightTest {
     }
 
     @Test
-    void fullOfflineRefundWithRetainCannotRecordPaidProof() {
+    void fullOfflineRefundRetainsIdentity() {
         order.put("payment_method", "offline");
-        assertThrows(
-                BusinessException.class,
+        assertDoesNotThrow(
                 () ->
                         service.offline(
                                 11,
@@ -118,29 +125,27 @@ class AftersalesRefundPreflightTest {
                                         true,
                                         "reason",
                                         "退款")));
-        verify(membership).assertRefundRevocable(order);
-        assertNoWrite();
+        verifyNoInteractions(membership);
     }
 
     @Test
-    void fullLocalPointsRefundCannotRestoreFundsBeforeRevocationCheck() {
+    void pointsRefundDoesNotInvokeIdentityRevocation() {
         order.put("payment_method", "points");
-        assertThrows(BusinessException.class, () -> service.points(11, obj("reason", "退积分")));
-        verify(membership).assertRefundRevocable(order);
-        verifyNoInteractions(wallet);
-        assertNoWrite();
+        assertDoesNotThrow(() -> service.points(11, obj("reason", "退积分")));
+        verifyNoInteractions(membership);
+        verify(wallet)
+                .restoreOrderPoints(eq(21L), eq(11L), eq(300L), anyLong(), nullable(String.class));
     }
 
     @Test
-    void partialOfflineRefundWithExplicitRevokeChecksBeforeRecordingPayment() {
+    void legacyIdentityDecisionDoesNotCloseIdentityOnRefund() {
         refund.put("identity_decision", "revoke");
         order.put("payment_method", "offline");
         when(db.one(
                         startsWith("SELECT COALESCE(SUM(total_cents),0) AS total FROM refunds"),
                         eq(21L)))
                 .thenReturn(obj("total", 0));
-        assertThrows(
-                BusinessException.class,
+        assertDoesNotThrow(
                 () ->
                         service.offline(
                                 11,
@@ -155,9 +160,8 @@ class AftersalesRefundPreflightTest {
                                         true,
                                         "reason",
                                         "部分退货撤销身份")));
-        verify(membership).assertRefundRevocable(order);
+        verifyNoInteractions(membership);
         verify(channel, never()).refund(any());
-        assertNoWrite();
     }
 
     private void assertNoWrite() {

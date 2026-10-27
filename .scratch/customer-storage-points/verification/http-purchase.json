@@ -1,0 +1,195 @@
+{
+  "time": "2026-10-27T09:41:11.486Z",
+  "environment": "isolated local MySQL, packaged Java 8 JAR",
+  "userId": 166,
+  "orderId": 89,
+  "pickupId": 56,
+  "quoteGoodsCents": 30000,
+  "finalLot": {
+    "id": 945,
+    "user_id": 166,
+    "order_id": 89,
+    "line_id": 957,
+    "sku_id": 81,
+    "total_qty": 3,
+    "remaining_qty": 1,
+    "held_qty": 0,
+    "refund_held_qty": 0,
+    "shipped_qty": 2,
+    "refunded_qty": 0,
+    "unit_cents": 10000,
+    "starts_on": "2026-10-27",
+    "expires_on": "2027-10-27",
+    "update_user_id": 1,
+    "create_user_id": 166,
+    "create_time": "2026-10-27T09:41:11.428Z",
+    "update_time": "2026-10-27T09:41:11.460Z",
+    "is_deleted": 0,
+    "available_qty": 1,
+    "name": "寄存测试商品",
+    "sku_name": "标准装",
+    "unit": "瓶",
+    "order_number": "JY202610273d3f395efe8a421b",
+    "source_kind": "goods",
+    "package_name": "普通商品订单",
+    "is_gift": 0,
+    "purchased_qty": 3,
+    "total_shipped_qty": 2,
+    "received_qty": 2,
+    "nickname": "微信用户",
+    "expired": false
+  },
+  "wallet": {
+    "balanceCents": 20000,
+    "heldCents": 0,
+    "availableCents": 20000,
+    "creditedCents": 50000,
+    "spentCents": 30000,
+    "lots": [
+      {
+        "id": 77,
+        "user_id": 166,
+        "receipt_id": 77,
+        "issued_cents": 50000,
+        "remaining_cents": 20000,
+        "held_cents": 0,
+        "update_user_id": 166,
+        "create_user_id": 1,
+        "create_time": "2026-10-27T09:41:11.398Z",
+        "update_time": "2026-10-27T09:41:11.425Z",
+        "is_deleted": 0,
+        "source_channel": "wechat_company",
+        "account_ref": "隔离测试总部微信",
+        "external_transaction_id": "http-receipt-1793094071377",
+        "amount_cents": 50000,
+        "cash_refunded_cents": 0,
+        "cash_held_cents": 0
+      }
+    ],
+    "ledger": [
+      {
+        "id": 183,
+        "user_id": 166,
+        "receipt_id": 77,
+        "lot_id": 77,
+        "order_id": 89,
+        "kind": "spend",
+        "delta_cents": -30000,
+        "reference": "订单#89",
+        "idempotency_key": "spend:89:77",
+        "reason": "足额积分支付",
+        "update_user_id": 166,
+        "create_user_id": 166,
+        "create_time": "2026-10-27T09:41:11.426Z",
+        "update_time": "2026-10-27T09:41:11.426Z",
+        "is_deleted": 0,
+        "order_number": "JY202610273d3f395efe8a421b",
+        "external_transaction_id": "http-receipt-1793094071377"
+      },
+      {
+        "id": 182,
+        "user_id": 166,
+        "receipt_id": 77,
+        "lot_id": 77,
+        "order_id": null,
+        "kind": "credit",
+        "delta_cents": 50000,
+        "reference": "77",
+        "idempotency_key": "receipt:77",
+        "reason": "积分寄存HTTP演练",
+        "update_user_id": 1,
+        "create_user_id": 1,
+        "create_time": "2026-10-27T09:41:11.398Z",
+        "update_time": "2026-10-27T09:41:11.398Z",
+        "is_deleted": 0,
+        "order_number": null,
+        "external_transaction_id": "http-receipt-1793094071377"
+      }
+    ],
+    "transfer": {
+      "configured": false,
+      "companyName": "",
+      "bankName": "",
+      "bankAccount": "",
+      "transferNotes": "请联系总部微信充值，核款到账后增加积分",
+      "customerService": ""
+    }
+  },
+  "results": [
+    {
+      "name": "顾客HTTP登录",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "保存测试地址",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "总部登记测试积分",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "按行全寄存报价",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "创建待支付订单",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "积分支付并入寄存",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "重复支付幂等",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "查询本人寄存",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "提取两件",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "审核通过",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "仓库登记模拟物流",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "确认模拟收货",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "重复收货幂等",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "核对剩余寄存",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "核对积分扣款",
+      "status": 200,
+      "pass": true
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "time": "2026-10-27T09:39:20.763Z",
+  "environment": "isolated local MySQL, Java 8 packaged JAR",
+  "results": [
+    {
+      "name": "匿名不能读取本人寄存",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "name": "匿名不能读取后台寄存",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "name": "后台分页台账",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "后台提货记录",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "直接现金核款入口关闭",
+      "status": 409,
+      "pass": true
+    },
+    {
+      "name": "HTTP导出返回真实xlsx",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "普通顾客登录",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "积分支付能力",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "普通顾客可查积分钱包",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "本人接口忽略伪造用户编号",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "顾客不能读取后台",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "name": "顾客不能读取他人提货",
+      "status": 404,
+      "pass": true
+    },
+    {
+      "name": "仓库可查寄存",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "仓库不可退积分运费",
+      "status": 403,
+      "pass": true
+    },
+    {
+      "name": "仓库不可修改身份",
+      "status": 403,
+      "pass": true
+    }
+  ]
+}
