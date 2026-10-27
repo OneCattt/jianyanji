@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 # 统一商品入口与配置排版
 
@@ -7,3 +7,5 @@ Status: ready-for-agent
 ## Comments
 
 2026-10-27：商品选择与配置布局已实施，类型检查、完整前端构建、JDK 8 Maven verify、真实隔离 MySQL、打包 JAR 的 HTTP 验证和浏览器检查通过。用户已授权直接提交并部署后端及后台管理前端，发布执行中。
+
+2026-10-27 20:08：`2c25832` 已提交、推送并完成后端/管理后台部署，备份及目标服务/产物核验完成，无迁移。代码实施与部署已完成，状态 ready-for-human 仅保留运营使用生产账号的真实业务验收；本地网络公网 HTTPS 连接重置未消除。交付和恢复记录见 docs/development/admin-product-search-delivery.md。
