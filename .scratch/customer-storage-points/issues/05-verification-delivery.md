@@ -8,3 +8,4 @@ Status: ready-for-human
 - 2026-10-27：开始实施。
 - 2026-10-27 收尾：已整理 docs/development/customer-storage-points-delivery.md：V12～V14迁移、V14价格影响、备份、上线步骤、验收与应用/数据回退条件。归档HTTP两组各15项、MySQL21项及JAR/dist哈希；未部署、未上传小程序。
 - 交付记录：[迁移与验收清单](../../../docs/development/customer-storage-points-delivery.md)。本地实施结束，目标环境和业务验收待执行。
+- 2026-10-27 19:01 发布：后端及管理前端已按 `2b6e504` 部署，V12～V14成功、原业务记录数/资金汇总一致；小程序未上传，真实业务验收继续待办。详见 [发布证据](../verification/deployment-result.json)。

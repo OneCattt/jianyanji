@@ -1,0 +1,71 @@
+{
+  "commit": "2b6e504ccf90993781917683b6a80ac806ca233c",
+  "release": "/opt/jianyanji/releases/storage-2b6e504",
+  "backup": "/var/backups/jianyanji/20261027T190115+0800-storage-2b6e504",
+  "publishedAt": "2026-10-27T19:01:31.806519+08:00",
+  "migrations": [
+    12,
+    13,
+    14
+  ],
+  "previousMigrationsUnchanged": true,
+  "businessRowsPreserved": true,
+  "financialTotalsPreserved": true,
+  "newTablesEmpty": true,
+  "v14PricesVerified": true,
+  "files": {
+    "backend/jianyanji-api-0.1.0.jar": "2beb50dfcf79587f53e89d0dba4c774cc4715887d5e51a768d08992eb9961c50",
+    "dist/assets/index-3v8aDShj.js": "3b2d3b8dabd5c26b643cbcb50bc4207f828676bd38386b199e15ecc2aaca5832",
+    "dist/assets/index-BDAelatt.css": "78a4f7f730c728872fbf267a23c421c96598968cf70be7d009c3185dd391231f",
+    "dist/brand/app-icon.png": "60d9c1b6091b14e950a8bceab0601dbe7f08cd3400b4cd2f151b7552ffac9615",
+    "dist/brand/app-icon.svg": "e06f5104361b1a0f2972af5fd683778554600c8b55e06542e51f861b2b3a0d43",
+    "dist/brand/logo-horizontal-red.svg": "cfe315e54330cb0cb4cde5af9110c9a46f610f9af06b7087e060011500386c8d",
+    "dist/index.html": "3a5c0b740a67b1eb026cfe27d0190d7306e809abbf1c64c24ab7b244c9cf1e67"
+  },
+  "servicesActive": true,
+  "httpsArtifactHashesVerified": true,
+  "apiPaused": false,
+  "checks": [
+    {
+      "path": "/api/mini/storage",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/storage",
+      "status": 401
+    },
+    {
+      "path": "/api/pickups/1",
+      "status": 401
+    },
+    {
+      "path": "/api/wallet",
+      "status": 401
+    },
+    {
+      "path": "/api/offers",
+      "status": 200
+    }
+  ],
+  "devAuth": false,
+  "wechatConfigured": true,
+  "miniprogramPublished": false,
+  "gitRemote": "https://github.com/OneCattt/jianyanji",
+  "branch": "main",
+  "pushedCommit": "2b6e504ccf90993781917683b6a80ac806ca233c",
+  "publicHttpsFromLocalNetwork": "连接重置，curl退出码35；服务器内真实域名HTTPS验证通过",
+  "authenticatedAdminAcceptance": "服务器及本地没有保留可用管理员凭据，未重置账号或创建新权限，登录后生产业务验收待执行",
+  "configChanges": false,
+  "pricePrecheck": {
+    "regularSkus": 30,
+    "storePriceChanges": 0,
+    "principalPriceChanges": 0
+  },
+  "pendingBusinessAcceptance": [
+    "真实财务核款与退款",
+    "真实仓库发货/签收",
+    "奖励月结与身份操作",
+    "微信授权消息和真机"
+  ],
+  "backupVerification": "mysqldump成功、gzip完整性通过；未向生产回灌，也未执行恢复演练"
+}

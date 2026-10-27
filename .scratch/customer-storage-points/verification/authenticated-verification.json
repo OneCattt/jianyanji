@@ -1,0 +1,7 @@
+{
+  "environment": "production local HTTP authenticated admin read checks",
+  "businessWrites": false,
+  "checks": [],
+  "unavailableReason": "服务器未保留可用的管理员初始化凭据",
+  "successful": false
+}
