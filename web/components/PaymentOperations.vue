@@ -457,9 +457,9 @@ function statusColor(value: string) {
       </header>
       <AdminForm class="filters" @submit="act(load)">
         <label class="field"
-          >订单编号 / 用户编号<a-input
+          >搜索订单 / 商品<a-input
             v-model:value="query"
-            placeholder="输入订单号或用户编号"
+            placeholder="商品名称、规格、订单号或用户编号"
             :disabled="busy" /></label
         ><label class="field"
           >履约状态<AdminSelect v-model="status" :disabled="busy">

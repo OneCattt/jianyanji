@@ -636,7 +636,7 @@ function statusColor(value: string) {
             >搜索订单 / 购买者<a-input
               v-model:value="search"
               type="search"
-              placeholder="订单号、用户 ID、收货人或电话"
+              placeholder="商品名称、规格、订单号或购买者"
               :disabled="loading || saving" /></label
           ><label class="field"
             >订单状态<AdminSelect
@@ -721,7 +721,7 @@ function statusColor(value: string) {
       :busy="saving"
       @close="!saving && (editingShipping = false)"
     >
-      <AdminForm class="shipping-form" @submit="saveShipping">
+      <AdminForm class="shipping-form config-form" @submit="saveShipping">
         <p v-if="!shippingConfigured">
           配送尚未配置，请完整填写后保存。未配置时购买端无法下单。
         </p>

@@ -53,7 +53,9 @@ public class OrderService {
                         "CAST(id AS CHAR)",
                         "CAST(user_id AS CHAR)",
                         "JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.address.recipient'))",
-                        "JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.address.phone'))")
+                        "JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.address.phone'))",
+                        "JSON_EXTRACT(snapshot,'$.lines[*].name')",
+                        "JSON_EXTRACT(snapshot,'$.lines[*].skuName')")
                 .select(db, "*", "id DESC", this::view);
     }
 

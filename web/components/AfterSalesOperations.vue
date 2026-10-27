@@ -419,7 +419,7 @@ const actionNames: Record<string, string> = {
         <label class="field"
           >搜索售后 / 原订单<a-input
             v-model:value="refundQuery"
-            placeholder="售后编号、原订单 ID 或受理原因"
+            placeholder="商品名称、规格、售后编号或受理原因"
             :disabled="busy"
         /></label>
         <label class="field"
@@ -619,7 +619,7 @@ const actionNames: Record<string, string> = {
           <label class="field wide-field"
             >搜索已付款订单<a-input
               v-model:value="orderQuery"
-              placeholder="订单号、用户编号、收货人或电话"
+              placeholder="商品名称、规格、订单号或购买者"
               :disabled="busy"
           /></label>
           <label class="field wide-field"

@@ -51,7 +51,7 @@ public class AftersalesService {
     public ObjectNode adminPage(java.util.Map<String, String> query) {
         return new PageQuery(query, "FROM refunds WHERE is_deleted=0")
                 .eq("status", "status")
-                .keyword("number", "CAST(order_id AS CHAR)", "reason")
+                .keyword("number", "CAST(order_id AS CHAR)", "reason", "(SELECT CONCAT(JSON_EXTRACT(o.snapshot,'$.lines[*].name'),JSON_EXTRACT(o.snapshot,'$.lines[*].skuName')) FROM orders o WHERE o.id=refunds.order_id AND o.is_deleted=0)")
                 .select(db, "*", "id DESC", this::view);
     }
 

@@ -7,6 +7,7 @@ import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
+import AdminProductSelect from "./AdminProductSelect.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
 const props = withDefaults(defineProps<{ permissions?: string[] }>(), {
@@ -33,12 +34,6 @@ interface Package {
     unitCents: number;
     isGift?: boolean;
   }[];
-}
-interface PackageSku {
-  id: number;
-  productName: string;
-  skuName: string;
-  unit: string;
 }
 interface Order {
   id: number;
@@ -77,7 +72,6 @@ type PackageForm = Omit<Package, "amountCents" | "valueCents" | "lines"> & {
 };
 const dialog = ref<"packages" | "receipt" | null>(null);
 const packageDraft = ref<PackageForm[]>([]);
-const packageSkus = ref<PackageSku[]>([]);
 const packages = ref<PackageForm[]>([]),
   selected = ref<Application | null>(null),
   busy = ref(false),
@@ -100,7 +94,8 @@ const states: Record<string, string> = {
   rejected: "已驳回",
   revoked: "本次身份已撤销",
 };
-const packageLineKey=(line:Package["lines"][number])=>line.skuId+":"+Boolean(line.isGift);
+const packageLineKey = (line: Package["lines"][number]) =>
+  line.skuId + ":" + Boolean(line.isGift);
 const orderStates: Record<string, string> = {
   paid: "待发货",
   shipped: "已发货",
@@ -152,21 +147,13 @@ function differenceLabel(difference: number | null): string {
   if (difference === 0) return "已配平";
   return `${difference > 0 ? "还差" : "超出"} ¥${money(Math.abs(difference))}`;
 }
-function skuChoices(p: PackageForm, index: number) {
-  const selected = new Set(
-    p.lines
-      .filter(
-        (line, i) =>
-          i !== index &&
-          Boolean(line.isGift) === Boolean(p.lines[index].isGift),
-      )
-      .map((l) => l.skuId),
-  );
-  return packageSkus.value.map((sku) => ({
-    value: sku.id,
-    label: `${sku.productName} · ${sku.skuName}（${sku.unit}）`,
-    disabled: selected.has(sku.id),
-  }));
+function selectedSkuIds(p: PackageForm, index: number) {
+  return p.lines
+    .filter(
+      (line, i) =>
+        i !== index && Boolean(line.isGift) === Boolean(p.lines[index].isGift),
+    )
+    .map((line) => line.skuId);
 }
 function defaults(): PackageForm[] {
   return (["C", "B"] as const).map((targetIdentity) => ({
@@ -239,8 +226,6 @@ async function save() {
         throw new Error("请选择商品规格，数量须为 1～999 的整数");
       const selected = new Set<string>();
       const packageLines = lines.map((line) => {
-        if (!packageSkus.value.some((sku) => sku.id === line.skuId))
-          throw new Error("所选商品规格已不可用，请重新选择");
         if (selected.has(line.skuId + ":" + Boolean(line.isGift)))
           throw new Error("同一产品包不能重复选择同一规格");
         selected.add(line.skuId + ":" + Boolean(line.isGift));
@@ -278,7 +263,6 @@ async function save() {
 }
 async function openPackages() {
   await run(async () => {
-    packageSkus.value = await api<PackageSku[]>("/admin/membership-skus");
     packageDraft.value = packages.value.map((p) => ({
       ...p,
       lines: p.lines.map((line) => ({ ...line })),
@@ -609,15 +593,17 @@ const packageLineColumns = [
       wide
       @close="closeDialog"
     >
-      <AdminForm class="settings" @submit="save">
-        <fieldset
-          class="package-fields"
+      <AdminForm class="settings config-form" @submit="save">
+        <section
+          class="package-fields config-section"
           v-for="p in packageDraft"
           :key="p.targetIdentity"
         >
-          <legend>
-            {{ p.targetIdentity === "B" ? "调肤主理人" : "调肤店主" }}
-          </legend>
+          <h3>
+            {{
+              p.targetIdentity === "B" ? "19800 店主产品包" : "2980 店主产品包"
+            }}
+          </h3>
           <div class="grid">
             <label class="field"
               >产品包名称<a-input
@@ -691,38 +677,12 @@ const packageLineColumns = [
           <p>固定货品不可调换；客户须扣积分购买，充值本身不开通身份。</p>
           <div v-for="(line, i) in p.lines" :key="i" class="package-line">
             <label class="field package-line-product"
-              >商品与规格<AdminSelect
+              >商品与规格<AdminProductSelect
                 v-model="line.skuId"
+                :disabled-ids="selectedSkuIds(p, i)"
                 :aria-label="`${p.targetIdentity === 'C' ? '店主' : '主理人'}产品包第${i + 1}项商品与规格`"
                 required
-                :disabled="busy"
-              >
-                <option :value="0" disabled>
-                  {{
-                    packageSkus.length
-                      ? "搜索商品名或规格名"
-                      : "暂无在售规格，请先在商品管理中上架"
-                  }}
-                </option>
-                <option
-                  v-if="
-                    line.skuId &&
-                    !packageSkus.some((sku) => sku.id === line.skuId)
-                  "
-                  :value="line.skuId"
-                  disabled
-                >
-                  原商品规格已不可用，请重新选择
-                </option>
-                <option
-                  v-for="choice in skuChoices(p, i)"
-                  :key="choice.value"
-                  :value="choice.value"
-                  :disabled="choice.disabled"
-                >
-                  {{ choice.label }}
-                </option>
-              </AdminSelect></label
+                :disabled="busy" /></label
             ><label class="field"
               >数量<a-input-number
                 type="number"
@@ -796,31 +756,33 @@ const packageLineColumns = [
               </dd>
             </div>
           </dl>
-        </fieldset>
-        <label class="field"
-          >修改原因<a-input
-            v-model:value="reason"
-            :maxlength="200"
-            required
-            :disabled="busy"
-        /></label>
-        <div class="dialog-actions wide">
-          <a-button
-            html-type="button"
-            :disabled="busy || uploadingImage"
-            @click="closeDialog"
-          >
-            取消
-          </a-button>
-          <a-button
-            html-type="submit"
-            type="primary"
-            :disabled="busy || uploadingImage"
-            :loading="busy || listLoading"
-          >
-            保存两类产品包
-          </a-button>
-        </div>
+        </section>
+        <footer class="config-save-bar">
+          <label class="field"
+            >修改原因<a-input
+              v-model:value="reason"
+              :maxlength="200"
+              required
+              :disabled="busy"
+          /></label>
+          <div class="dialog-actions wide">
+            <a-button
+              html-type="button"
+              :disabled="busy || uploadingImage"
+              @click="closeDialog"
+            >
+              取消
+            </a-button>
+            <a-button
+              html-type="submit"
+              type="primary"
+              :disabled="busy || uploadingImage"
+              :loading="busy || listLoading"
+            >
+              保存两类产品包
+            </a-button>
+          </div>
+        </footer>
       </AdminForm>
     </AdminDialog>
     <AdminDialog
@@ -952,7 +914,7 @@ p {
 }
 .settings {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 20px;
 }
@@ -963,16 +925,15 @@ p {
 .package-fields {
   min-width: 0;
   margin: 0;
-  padding: 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: 6px;
+  padding: 24px 0;
+  border: 0;
+  border-radius: 0;
 }
-.package-fields > legend {
-  width: auto;
-  padding: 0 6px;
-  margin-bottom: 0;
-  font-size: 14px;
-  font-weight: 600;
+.package-fields + .package-fields {
+  border-top: 1px solid var(--admin-border);
+}
+.package-fields > h3 {
+  margin-bottom: 20px;
 }
 .grid {
   display: grid;

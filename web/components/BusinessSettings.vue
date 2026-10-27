@@ -401,12 +401,11 @@ const productColumns = [
           编辑品牌资料
         </a-button>
       </Teleport>
-      <div class="content-layout content-sections">
-        <a-card
-          size="small"
+      <div class="content-layout config-surface">
+        <section
           v-for="group in contentGroups"
           :key="group.title"
-          class="content-group"
+          class="content-group config-section"
         >
           <header class="panel-heading">
             <div>
@@ -426,7 +425,7 @@ const productColumns = [
               />
             </div>
           </div>
-        </a-card>
+        </section>
       </div>
       <AdminDialog
         v-if="editingContent"
@@ -435,16 +434,15 @@ const productColumns = [
         wide
         @close="editingContent = false"
       >
-        <AdminForm class="content-layout" @submit="saveContent">
+        <AdminForm class="content-layout config-form" @submit="saveContent">
           <fieldset
-            class="form-controls content-sections"
+            class="form-controls"
             :disabled="busy || loading || !loaded"
           >
-            <a-card
-              size="small"
+            <section
               v-for="group in contentGroups"
               :key="group.title"
-              class="content-group"
+              class="content-group config-section"
             >
               <header class="panel-heading">
                 <div>
@@ -503,9 +501,9 @@ const productColumns = [
                   />
                 </label>
               </div>
-            </a-card>
+            </section>
           </fieldset>
-          <footer class="surface save-bar">
+          <footer class="config-save-bar">
             <label
               >修改原因<a-input
                 v-model:value="reason"
@@ -645,9 +643,9 @@ const productColumns = [
         wide
         @close="editing = false"
       >
-        <AdminForm class="surface product-editor" @submit="saveProduct">
+        <AdminForm class="product-editor config-form" @submit="saveProduct">
           <fieldset class="form-controls" :disabled="busy || loading">
-            <section class="editor-section">
+            <section class="editor-section config-section">
               <h4>基本信息</h4>
               <div class="field-grid">
                 <label
@@ -697,7 +695,7 @@ const productColumns = [
                 }}</span>
               </div>
             </section>
-            <section class="editor-section">
+            <section class="editor-section config-section">
               <h4>商品图片</h4>
               <div class="field-grid">
                 <ImageUploader
@@ -721,7 +719,7 @@ const productColumns = [
                 />
               </div>
             </section>
-            <section class="editor-section">
+            <section class="editor-section config-section">
               <div class="panel-heading">
                 <div>
                   <h4>
@@ -749,8 +747,8 @@ const productColumns = [
                 </a-button>
               </div>
               <div class="sku-list">
-                <fieldset v-for="(s, i) in form.skus" :key="i" class="sku-card">
-                  <legend>规格 {{ i + 1 }}</legend>
+                <section v-for="(s, i) in form.skus" :key="i" class="sku-row">
+                  <h5>规格 {{ i + 1 }}</h5>
                   <div class="sku-form">
                     <label
                       >名称<a-input v-model:value="s.name" required
@@ -815,11 +813,11 @@ const productColumns = [
                       移除规格
                     </a-button>
                   </div>
-                </fieldset>
+                </section>
               </div>
             </section>
           </fieldset>
-          <footer class="save-bar editor-save">
+          <footer class="config-save-bar">
             <label
               >修改原因<a-input
                 v-model:value="reason"
@@ -1089,7 +1087,21 @@ const productColumns = [
   gap: 16px;
 }
 .editor-section {
-  padding: 20px;
+  padding: 24px 0;
+}
+.sku-row {
+  padding: 20px 0;
+  border-top: 1px solid var(--admin-border);
+  min-width: 0;
+}
+.sku-row h5 {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--admin-muted);
+}
+.sku-row:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 .content-group .panel-heading,
 .editor-section > h4 {
@@ -1254,8 +1266,18 @@ const productColumns = [
 }
 .sku-form {
   display: grid;
-  grid-template-columns: 1.4fr 0.6fr repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+.sku-form :deep(.field-help) {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.sku-form > label:has(.ant-checkbox-wrapper) {
+  align-self: end;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
 }
 .sku-footer {
   margin-top: 12px;
@@ -1420,7 +1442,7 @@ const productColumns = [
   }
   .business-settings .content-group,
   .editor-section {
-    padding: 16px;
+    padding: 20px 0;
   }
 }
 

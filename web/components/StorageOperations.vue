@@ -5,6 +5,8 @@ const ARadioGroup = AntRadio.Group,
   ARadioButton = AntRadio.Button;
 import { api, type Staff } from "../client";
 import { useAdminList } from "../useAdminList";
+import AdminForm from "./AdminForm.vue";
+import AdminProductSelect from "./AdminProductSelect.vue";
 import AdminDialog from "./AdminDialog.vue";
 import FeedbackToast from "./FeedbackToast.vue";
 interface Row {
@@ -59,7 +61,7 @@ const props = defineProps<{ staff: Staff }>();
 const sourceKind = ref("");
 const tab = ref("lots"),
   userId = ref(""),
-  skuId = ref(""),
+  skuId = ref(0),
   from = ref(""),
   to = ref(""),
   expiring = ref(false),
@@ -72,13 +74,13 @@ const reason = ref(""),
   expiry = ref(""),
   carrier = ref(""),
   tracking = ref(""),
-  lineId = ref(""),
+  lineId = ref(0),
   quantity = ref(1),
   identity = ref("D"),
   principal = ref(""),
   evidence = ref(""),
   addressId = ref(""),
-  manualItems = ref(""),
+  manualItems = ref<{ lotId: number; quantity: number }[]>([]),
   actionKey = ref(crypto.randomUUID());
 const canOperate = computed(() =>
   props.staff.permissions.includes("orders:manage"),
@@ -110,7 +112,7 @@ const states: Record<string, string> = {
 const filters = () => ({
   kind: tab.value === "lots" ? sourceKind.value : "",
   userId: userId.value,
-  skuId: tab.value === "lots" ? skuId.value : "",
+  skuId: tab.value === "lots" && skuId.value ? String(skuId.value) : "",
   from: tab.value === "lots" ? from.value : "",
   to: tab.value === "lots" ? to.value : "",
   expiring: tab.value === "lots" && expiring.value ? "true" : "",
@@ -129,6 +131,9 @@ async function reload() {
 }
 onMounted(reload);
 function open(kind: string, row?: Row) {
+  lineId.value = 0;
+  manualItems.value = [{ lotId: 0, quantity: 1 }];
+  quantity.value = 1;
   operation.value = kind;
   selected.value = row || null;
   reason.value = "";
@@ -159,6 +164,19 @@ async function act(work: () => Promise<unknown>) {
 }
 function submit() {
   return act(async () => {
+    if (operation.value === "import" && !lineId.value)
+      throw new Error("请选择原订单商品");
+    if (
+      operation.value === "manual" &&
+      (!manualItems.value.length ||
+        manualItems.value.some(
+          (item) =>
+            !item.lotId ||
+            !Number.isInteger(item.quantity) ||
+            item.quantity < 1,
+        ))
+    )
+      throw new Error("请选择寄存商品并填写有效数量");
     const id = selected.value?.id;
     switch (operation.value) {
       case "approve":
@@ -226,10 +244,7 @@ function submit() {
           body: {
             userId: Number(userId.value),
             addressId: Number(addressId.value),
-            storedItems: manualItems.value.split(",").map((pair) => {
-              const [lot, qty] = pair.trim().split(":");
-              return { lotId: Number(lot), quantity: Number(qty) };
-            }),
+            storedItems: manualItems.value.map((item) => ({ ...item })),
             reason: reason.value,
             requestKey: actionKey.value,
           },
@@ -319,7 +334,12 @@ const columns = computed(() =>
               { value: 'goods', label: '普通商品 / 活动套餐' },
               { value: 'package', label: '店主权益包' },
             ]" /></label
-        ><label>商品规格ID<a-input v-model:value="skuId" /></label
+        ><label class="storage-product-filter"
+          >商品与规格<AdminProductSelect
+            v-model="skuId"
+            include-inactive
+            placeholder="搜索商品，筛选寄存记录"
+            aria-label="寄存商品筛选" /></label
         ><label>寄存起日<input v-model="from" type="date" /></label
         ><label>寄存止日<input v-model="to" type="date" /></label
         ><a-checkbox v-model:checked="expiring"
@@ -500,7 +520,7 @@ const columns = computed(() =>
         </p>
         <p>{{ selected?.review_reason }}</p></template
       >
-      <form v-else class="storage-form" @submit.prevent="submit">
+      <AdminForm v-else class="storage-form config-form" @submit="submit">
         <label v-if="operation === 'extend'"
           >新到期日<input v-model="expiry" type="date" required
         /></label>
@@ -510,7 +530,16 @@ const columns = computed(() =>
         ></template>
         <template v-if="operation === 'import'"
           ><label
-            >原订单商品明细ID<a-input v-model:value="lineId" required /></label
+            >原订单商品<AdminProductSelect
+              v-model="lineId"
+              kind="orderLine"
+              :user-id="userId"
+              :disabled="busy"
+              required
+              placeholder="搜索商品名称、规格或原订单号"
+              @select="
+                quantity = Math.min(quantity, $event.quantity || 1)
+              " /></label
           ><label
             >转换寄存数量<a-input-number
               v-model:value="quantity"
@@ -523,15 +552,48 @@ const columns = computed(() =>
         >
         <template v-if="operation === 'manual'"
           ><label
-            >该用户收货地址ID<a-input
-              v-model:value="addressId"
-              required /></label
-          ><label
-            >寄存批次及数量<a-input
-              v-model:value="manualItems"
-              placeholder="例如 12:2,15:1"
-              required
+            >该用户收货地址ID<a-input v-model:value="addressId" required
           /></label>
+          <div
+            v-for="(item, i) in manualItems"
+            :key="i"
+            class="storage-item-row"
+          >
+            <label
+              >寄存商品<AdminProductSelect
+                v-model="item.lotId"
+                kind="lot"
+                :user-id="userId"
+                :disabled="busy"
+                :disabled-ids="
+                  manualItems
+                    .filter((_, index) => index !== i)
+                    .map((row) => row.lotId)
+                "
+                required
+                placeholder="搜索该用户的商品或来源订单"
+            /></label>
+            <label
+              >提货数量<a-input-number
+                v-model:value="item.quantity"
+                :min="1"
+                :precision="0"
+                required
+                :disabled="busy"
+            /></label>
+            <a-button
+              type="text"
+              danger
+              :disabled="busy"
+              @click="manualItems.splice(i, 1)"
+              >移除</a-button
+            >
+          </div>
+          <a-button
+            :disabled="busy || manualItems.length >= 100"
+            @click="manualItems.push({ lotId: 0, quantity: 1 })"
+            >添加寄存商品</a-button
+          >
           <p>用于过期寄存等人工办理；仍须扣足额运费积分并审核。</p></template
         >
         <template v-if="operation === 'identity'"
@@ -560,7 +622,7 @@ const columns = computed(() =>
         ><a-button type="primary" html-type="submit" :loading="busy"
           >确认办理</a-button
         >
-      </form>
+      </AdminForm>
     </AdminDialog>
   </section>
 </template>
@@ -576,6 +638,24 @@ const columns = computed(() =>
   display: grid;
   gap: 6px;
   max-width: 180px;
+}
+.storage-filters .storage-product-filter {
+  width: 300px;
+  max-width: 100%;
+}
+.storage-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px auto;
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 650px) {
+  .storage-item-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .storage-item-row > label:first-child {
+    grid-column: 1 / -1;
+  }
 }
 .storage-form {
   display: grid;

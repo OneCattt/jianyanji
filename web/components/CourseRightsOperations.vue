@@ -71,57 +71,60 @@ async function save() {
       维护各身份实际权益、课程介绍和联系指引。公开展示权益对比，本人权益按当前有效身份显示。
     </p>
     <AdminForm
-      class="module-editor course-editor"
+      class="module-editor course-editor config-surface config-form"
       :disabled="busy"
       v-if="loaded"
       @submit="save"
-      ><a-card
+      ><section
         v-for="role in roles"
         :key="role.id"
-        :title="role.name"
-        size="small"
-        class="course-card"
+        class="course-section config-section"
       >
-        <div class="confirmation-field">
-          <a-checkbox v-model:checked="rights[role.id].enabled"
-            >启用展示</a-checkbox
-          >
+        <h3>{{ role.name }}</h3>
+        <div class="config-fields">
+          <div class="confirmation-field">
+            <a-checkbox v-model:checked="rights[role.id].enabled"
+              >启用展示</a-checkbox
+            >
+          </div>
+          <label
+            >标题<a-input
+              v-model:value="rights[role.id].title"
+              :required="rights[role.id].enabled"
+              :maxlength="100" /></label
+          ><label
+            >课程介绍<a-textarea
+              v-model:value="rights[role.id].introduction"
+              :required="rights[role.id].enabled"
+              :maxlength="2000" /></label
+          ><label
+            >成长权益（每行一项，最多20项）<a-textarea
+              v-model:value="benefits[role.id]"
+              :required="rights[role.id].enabled" /></label
+          ><label
+            >联系 / 报名联系方式<a-input
+              v-model:value="rights[role.id].contact"
+              :required="rights[role.id].enabled"
+              :maxlength="300" /></label
+          ><label
+            >联系与报名指引<a-textarea
+              v-model:value="rights[role.id].enrollmentGuide"
+              :required="rights[role.id].enabled"
+              :maxlength="2000"
+            />
+          </label>
         </div>
+      </section>
+      <footer class="config-save-bar">
         <label
-          >标题<a-input
-            v-model:value="rights[role.id].title"
-            :required="rights[role.id].enabled"
-            :maxlength="100" /></label
-        ><label
-          >课程介绍<a-textarea
-            v-model:value="rights[role.id].introduction"
-            :required="rights[role.id].enabled"
-            :maxlength="2000" /></label
-        ><label
-          >成长权益（每行一项，最多20项）<a-textarea
-            v-model:value="benefits[role.id]"
-            :required="rights[role.id].enabled" /></label
-        ><label
-          >联系 / 报名联系方式<a-input
-            v-model:value="rights[role.id].contact"
-            :required="rights[role.id].enabled"
-            :maxlength="300" /></label
-        ><label
-          >联系与报名指引<a-textarea
-            v-model:value="rights[role.id].enrollmentGuide"
-            :required="rights[role.id].enabled"
-            :maxlength="2000"
-          />
-        </label>
-      </a-card>
-      <label
-        >修改原因<a-input
-          v-model:value="reason"
-          required
-          :maxlength="200" /></label
-      ><a-button html-type="submit" type="primary" :disabled="busy">
-        {{ busy ? "保存中…" : "保存权益" }}
-      </a-button></AdminForm
+          >修改原因<a-input
+            v-model:value="reason"
+            required
+            :maxlength="200" /></label
+        ><a-button html-type="submit" type="primary" :disabled="busy">
+          {{ busy ? "保存中…" : "保存权益" }}
+        </a-button>
+      </footer></AdminForm
     >
   </section>
 </template>
@@ -164,18 +167,18 @@ async function save() {
   gap: 8px;
   align-items: center;
 }
-.course-card :deep(.ant-card-body) {
+.course-section > .config-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
-.course-card :deep(.ant-card-body) > label {
+.course-section > .config-fields > label {
   display: grid;
   gap: 6px;
   min-width: 0;
 }
 @media (max-width: 650px) {
-  .course-card :deep(.ant-card-body) {
+  .course-section > .config-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { api, type Staff } from "../client";
+import AdminForm from "./AdminForm.vue";
+import AdminProductSelect from "./AdminProductSelect.vue";
 import FeedbackToast from "./FeedbackToast.vue";
 interface OfferLine {
   skuId: number;
@@ -24,6 +26,9 @@ interface Reminders {
   rejectedFields: Record<string, string>;
 }
 const props = defineProps<{ staff: Staff }>();
+const activeTab = ref("offers");
+const loaded = ref(false);
+const reminderReason = ref("");
 const offers = ref<Offer[]>([]),
   reminders = ref<Reminders | null>(null),
   reason = ref(""),
@@ -36,6 +41,7 @@ const offers = ref<Offer[]>([]),
 onMounted(async () => {
   try {
     offers.value = (await api<{ offers: Offer[] }>("/admin/offers")).offers;
+    loaded.value = true;
     if (props.staff.permissions.includes("orders:manage")) {
       reminders.value = await api<Reminders>(
         "/admin/storage-reminder-settings",
@@ -49,17 +55,19 @@ onMounted(async () => {
   }
 });
 async function save(kind: string) {
-  if (busy.value) return;
+  if (busy.value || !loaded.value) return;
   busy.value = true;
   error.value = "";
   notice.value = "";
   try {
-    if (kind === "offers")
+    if (kind === "offers") {
+      if (offers.value.some((o) => o.lines.some((line) => !line.skuId)))
+        throw new Error("请先选择每项明细的商品与规格");
       await api("/admin/offers", {
         method: "PUT",
         body: { offers: offers.value, reason: reason.value },
       });
-    else
+    } else
       await api("/admin/storage-reminder-settings", {
         method: "PUT",
         body: {
@@ -67,7 +75,7 @@ async function save(kind: string) {
           days: days.value.split(",").map(Number),
           expiryFields: JSON.parse(expiryFields.value),
           rejectedFields: JSON.parse(rejectedFields.value),
-          reason: reason.value,
+          reason: reminderReason.value,
         },
       });
     notice.value = "配置已保存，仅影响后续业务";
@@ -79,161 +87,299 @@ async function save(kind: string) {
 }
 </script>
 <template>
-  <section class="panel commerce-config">
+  <section class="commerce-config config-surface">
     <FeedbackToast
       :error="error"
       :notice="notice"
       @dismiss-error="error = ''"
       @dismiss-notice="notice = ''"
     />
-    <h2>活动与买赠套餐</h2>
-    <p>
-      固定商品和价格，不允许顾客换货；赠品单价为0，明细分摊合计须等于套餐售价。
-    </p>
-    <fieldset v-for="offer in offers" :key="offer.id">
-      <legend>套餐 {{ offer.id }}</legend>
-      <div class="config-grid">
-        <label>名称<a-input v-model:value="offer.name" /></label
-        ><label
-          >套餐售价（元）<a-input-number
-            :value="offer.amountCents / 100"
-            :min="0.01"
-            :precision="2"
-            @update:value="
-              offer.amountCents = Math.round(Number($event) * 100)
-            " /></label
-        ><label
-          ><a-checkbox v-model:checked="offer.active"
-            >在小程序展示</a-checkbox
-          ></label
+    <a-tabs v-model:active-key="activeTab">
+      <a-tab-pane key="offers" tab="活动与买赠套餐">
+        <AdminForm class="config-form" @submit="save('offers')">
+          <header class="config-section-heading">
+            <p class="config-help">
+              设置固定商品和价格；赠品单价为 0，商品分摊合计须等于套餐售价。
+            </p>
+            <a-button
+              :disabled="busy || !loaded"
+              @click="
+                offers.push({
+                  id: Math.max(0, ...offers.map((o) => o.id)) + 1,
+                  name: '',
+                  amountCents: 0,
+                  active: false,
+                  lines: [],
+                })
+              "
+              >新增套餐</a-button
+            >
+          </header>
+          <p v-if="!loaded" class="config-help">
+            {{ error ? "配置读取失败，请刷新重试" : "正在读取套餐…" }}
+          </p>
+          <p v-else-if="!offers.length" class="config-empty">
+            暂无活动套餐，点击“新增套餐”开始配置。
+          </p>
+          <section
+            v-for="(offer, offerIndex) in offers"
+            :key="offer.id"
+            class="config-section offer-section"
+          >
+            <header class="config-section-heading">
+              <h3>{{ offer.name || `未命名套餐 ${offerIndex + 1}` }}</h3>
+              <a-button
+                type="text"
+                danger
+                :disabled="busy"
+                @click="offers = offers.filter((o) => o.id !== offer.id)"
+                >移除套餐</a-button
+              >
+            </header>
+            <div class="config-fields offer-basics">
+              <label
+                >套餐名称<a-input
+                  v-model:value="offer.name"
+                  required
+                  :maxlength="80"
+                  :disabled="busy"
+                  placeholder="填写顾客看到的套餐名称"
+              /></label>
+              <label
+                >套餐售价（元）<a-input-number
+                  :value="offer.amountCents / 100"
+                  :min="0.01"
+                  :precision="2"
+                  required
+                  :disabled="busy"
+                  @update:value="
+                    offer.amountCents = Math.round(Number($event) * 100)
+                  "
+              /></label>
+              <div class="config-check">
+                <a-checkbox v-model:checked="offer.active" :disabled="busy"
+                  >在小程序展示</a-checkbox
+                >
+              </div>
+            </div>
+            <div
+              v-for="(line, index) in offer.lines"
+              :key="index"
+              class="offer-line"
+            >
+              <label class="offer-product"
+                >商品与规格<AdminProductSelect
+                  v-model="line.skuId"
+                  :aria-label="`套餐${offerIndex + 1}第${index + 1}项商品与规格`"
+                  required
+                  :disabled="busy"
+              /></label>
+              <label
+                >数量<a-input-number
+                  v-model:value="line.quantity"
+                  :min="1"
+                  :max="999"
+                  :precision="0"
+                  required
+                  :disabled="busy"
+              /></label>
+              <label
+                >分摊单价（元）<a-input-number
+                  :value="line.unitCents / 100"
+                  :min="0"
+                  :precision="2"
+                  required
+                  :disabled="busy || line.isGift"
+                  @update:value="
+                    line.unitCents = Math.round(Number($event) * 100)
+                  "
+              /></label>
+              <div class="config-check">
+                <a-checkbox
+                  v-model:checked="line.isGift"
+                  :disabled="busy"
+                  @change="line.isGift && (line.unitCents = 0)"
+                  >赠品</a-checkbox
+                >
+              </div>
+              <a-button
+                type="text"
+                danger
+                :disabled="busy"
+                @click="offer.lines.splice(index, 1)"
+                >移除</a-button
+              >
+            </div>
+            <div class="offer-summary">
+              <a-button
+                :disabled="busy"
+                @click="
+                  offer.lines.push({
+                    skuId: 0,
+                    quantity: 1,
+                    unitCents: 0,
+                    isGift: false,
+                  })
+                "
+                >添加商品</a-button
+              >
+              <span
+                :class="{
+                  'allocation-warning':
+                    offer.lines.reduce(
+                      (sum, line) => sum + line.quantity * line.unitCents,
+                      0,
+                    ) !== offer.amountCents,
+                }"
+                >已分摊 ¥{{
+                  (
+                    offer.lines.reduce(
+                      (sum, line) => sum + line.quantity * line.unitCents,
+                      0,
+                    ) / 100
+                  ).toFixed(2)
+                }}
+                / 售价 ¥{{ (offer.amountCents / 100).toFixed(2) }}</span
+              >
+            </div>
+          </section>
+          <footer class="config-save-bar">
+            <label
+              >变更原因<a-input
+                v-model:value="reason"
+                required
+                :maxlength="200"
+                :disabled="busy"
+                placeholder="说明本次套餐调整"
+            /></label>
+            <a-button
+              html-type="submit"
+              type="primary"
+              :loading="busy"
+              :disabled="!loaded"
+              >保存套餐</a-button
+            >
+          </footer>
+        </AdminForm>
+      </a-tab-pane>
+      <a-tab-pane
+        v-if="staff.permissions.includes('orders:manage')"
+        key="reminders"
+        tab="寄存消息提醒"
+      >
+        <AdminForm
+          v-if="reminders"
+          class="config-form"
+          @submit="save('reminders')"
         >
-      </div>
-      <div
-        v-for="(line, index) in offer.lines"
-        :key="index"
-        class="config-grid"
-      >
-        <label
-          >商品规格ID<a-input-number
-            v-model:value="line.skuId"
-            :min="1"
-            :precision="0" /></label
-        ><label
-          >数量<a-input-number
-            v-model:value="line.quantity"
-            :min="1"
-            :precision="0" /></label
-        ><label
-          >分摊单价（元）<a-input-number
-            :value="line.unitCents / 100"
-            :min="0"
-            :precision="2"
-            :disabled="line.isGift"
-            @update:value="
-              line.unitCents = Math.round(Number($event) * 100)
-            " /></label
-        ><label
-          ><a-checkbox
-            v-model:checked="line.isGift"
-            @change="line.isGift && (line.unitCents = 0)"
-            >赠品</a-checkbox
-          ></label
-        ><a-button @click="offer.lines.splice(index, 1)">移除此明细</a-button>
-      </div>
-      <a-button
-        @click="
-          offer.lines.push({
-            skuId: 1,
-            quantity: 1,
-            unitCents: 0,
-            isGift: false,
-          })
-        "
-        >添加商品</a-button
-      ><a-button @click="offers = offers.filter((o) => o.id !== offer.id)"
-        >移除套餐配置</a-button
-      >
-    </fieldset>
-    <a-button
-      @click="
-        offers.push({
-          id: Math.max(0, ...offers.map((o) => o.id)) + 1,
-          name: '',
-          amountCents: 0,
-          active: false,
-          lines: [],
-        })
-      "
-      >新增套餐</a-button
-    ><label class="reason"
-      >配置变更原因<a-textarea
-        v-model:value="reason"
-        :maxlength="2000" /></label
-    ><a-button type="primary" :loading="busy" @click="save('offers')"
-      >保存套餐</a-button
-    >
-    <template v-if="reminders"
-      ><h2>寄存消息提醒</h2>
-      <div class="config-grid">
-        <label
-          ><a-checkbox v-model:checked="reminders.enabled"
-            >启用自动到期提醒</a-checkbox
-          ></label
-        ><label>到期前天数（逗号分隔）<a-input v-model:value="days" /></label
-        ><label
-          >到期提醒模板ID<a-input
-            v-model:value="reminders.expiryTemplateId" /></label
-        ><label
-          >驳回提醒模板ID<a-input v-model:value="reminders.rejectedTemplateId"
-        /></label>
-      </div>
-      <label class="reason"
-        >到期模板字段映射<a-textarea
-          v-model:value="expiryFields"
-          placeholder='例如 {"thing1":"title","time2":"expiresOn"}，须对应实际模板' /></label
-      ><label class="reason"
-        >驳回模板字段映射<a-textarea
-          v-model:value="rejectedFields"
-          placeholder='例如 {"thing1":"body"}，须对应实际模板'
-      /></label>
-      <p>
-        未取得用户授权或未配置微信模板时，站内消息仍可查询；实际发送结果在“寄存与提货
-        → 到期与消息”查看。
-      </p>
-      <a-button type="primary" :loading="busy" @click="save('reminders')"
-        >保存提醒配置</a-button
-      ></template
-    >
+          <p class="config-help">
+            设置到期提醒和提货驳回提醒，实际发送结果可在“寄存与提货 →
+            到期与消息”查看。
+          </p>
+          <section class="config-section">
+            <h3>提醒规则</h3>
+            <a-checkbox v-model:checked="reminders.enabled" :disabled="busy"
+              >启用自动到期提醒</a-checkbox
+            >
+            <div class="config-fields">
+              <label
+                >到期前天数<a-input
+                  v-model:value="days"
+                  :disabled="busy"
+                  placeholder="例如 30,7"
+              /></label>
+              <label
+                >到期提醒模板 ID<a-input
+                  v-model:value="reminders.expiryTemplateId"
+                  :disabled="busy"
+              /></label>
+              <label
+                >驳回提醒模板 ID<a-input
+                  v-model:value="reminders.rejectedTemplateId"
+                  :disabled="busy"
+              /></label>
+            </div>
+          </section>
+          <section class="config-section">
+            <h3>微信模板字段</h3>
+            <div class="config-fields">
+              <label
+                >到期模板字段映射<a-textarea
+                  v-model:value="expiryFields"
+                  :rows="4"
+                  :disabled="busy"
+                  placeholder='例如 {"thing1":"title","time2":"expiresOn"}'
+              /></label>
+              <label
+                >驳回模板字段映射<a-textarea
+                  v-model:value="rejectedFields"
+                  :rows="4"
+                  :disabled="busy"
+                  placeholder='例如 {"thing1":"body"}'
+              /></label>
+            </div>
+            <p class="config-help">
+              字段须对应实际微信模板；未取得授权或未配置模板时，用户仍可查看站内消息。
+            </p>
+          </section>
+          <footer class="config-save-bar">
+            <label
+              >变更原因<a-input
+                v-model:value="reminderReason"
+                required
+                :maxlength="200"
+                :disabled="busy"
+                placeholder="说明本次提醒规则调整"
+            /></label>
+            <a-button html-type="submit" type="primary" :loading="busy"
+              >保存提醒配置</a-button
+            >
+          </footer>
+        </AdminForm>
+      </a-tab-pane>
+    </a-tabs>
   </section>
 </template>
 <style scoped>
-.commerce-config h2 {
-  margin: 24px 0 12px;
+.offer-basics {
+  grid-template-columns: minmax(220px, 1fr) 170px minmax(150px, 0.6fr);
 }
-.commerce-config fieldset {
-  border: 1px solid var(--border, #ddd);
-  border-radius: 10px;
-  padding: 16px;
-  margin: 16px 0;
-}
-.config-grid {
-  display: flex;
-  align-items: end;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-.config-grid label,
-.reason {
+.offer-line {
   display: grid;
-  gap: 6px;
+  grid-template-columns: minmax(240px, 1fr) 90px 150px auto auto;
+  gap: 12px;
+  align-items: end;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--admin-border);
 }
-.reason {
-  margin: 16px 0;
-  max-width: 640px;
+.offer-summary {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  font-size: 13px;
+  color: var(--admin-muted);
 }
-.commerce-config button {
-  min-height: 36px;
-  margin-right: 8px;
+.allocation-warning {
+  color: var(--admin-accent);
+}
+@media (max-width: 1100px) {
+  .offer-line {
+    grid-template-columns: minmax(200px, 1fr) 90px 140px;
+  }
+  .offer-basics {
+    grid-template-columns: minmax(180px, 1fr) 150px;
+  }
+}
+@media (max-width: 650px) {
+  .offer-basics,
+  .offer-line {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .offer-product {
+    grid-column: 1 / -1;
+  }
 }
 </style>

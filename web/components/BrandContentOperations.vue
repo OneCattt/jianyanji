@@ -7,6 +7,7 @@ import ImageUploader from "./ImageUploader.vue";
 import ImageListUploader from "./ImageListUploader.vue";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
+import AdminProductSelect from "./AdminProductSelect.vue";
 import AdminSelect from "./AdminSelect.vue";
 
 const busy = ref(false),
@@ -34,8 +35,7 @@ const empty = (): PostInput => ({
   productIds: [],
   reason: "",
 });
-const form = ref<PostInput>(empty()),
-  products = ref("");
+const form = ref<PostInput>(empty());
 const action = ref<{ post: BrandPost; kind: string } | null>(null),
   actionReason = ref("");
 async function load() {
@@ -57,11 +57,10 @@ function edit(post?: BrandPost) {
         imageUrls: [...post.imageUrls],
         videoUrl: post.video_url,
         durationSeconds: post.duration_seconds,
-        productIds: post.productIds,
+        productIds: [...post.productIds],
         reason: "",
       }
     : empty();
-  products.value = form.value.productIds.join(",");
   editing.value = true;
   error.value = "";
 }
@@ -76,23 +75,12 @@ async function save() {
     error.value = "视频时长须为 1 至 180 秒的整数";
     return;
   }
-  const productIds = products.value.trim()
-    ? products.value
-        .split(/[,，\s]+/)
-        .filter(Boolean)
-        .map(Number)
-    : [];
-  if (productIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
-    error.value = "关联商品编号须为正整数";
-    return;
-  }
   busy.value = true;
   error.value = "";
   notice.value = "";
   try {
     await contentApi.save(selectedId.value, {
       ...form.value,
-      productIds,
       videoUrl: form.value.type === "video" ? form.value.videoUrl : "",
       durationSeconds:
         form.value.type === "video" ? Number(form.value.durationSeconds) : 0,
@@ -322,7 +310,12 @@ const postColumns = [
         </p></template
       >
       <label
-        >关联商品编号（逗号分隔，最多10个）<a-input v-model:value="products"
+        >关联商品（最多 10 个）<AdminProductSelect
+          v-model="form.productIds"
+          kind="product"
+          multiple
+          :disabled="busy || uploading"
+          aria-label="内容关联商品"
       /></label>
       <label
         >修改原因<a-input v-model:value="form.reason" required :maxlength="200"

@@ -732,7 +732,7 @@ const debtColumns = [
       :busy="busy"
       @close="closeDialog"
     >
-      <AdminForm @submit="saveSettings" class="form-grid">
+      <AdminForm @submit="saveSettings" class="form-grid config-form">
         <p>
           店主邀请店主：双方各 500 元；主理人直邀店主：1,000
           元。主理人包及未确认政策关闭。
