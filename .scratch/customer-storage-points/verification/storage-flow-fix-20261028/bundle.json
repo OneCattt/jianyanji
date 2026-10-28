@@ -1,0 +1,16 @@
+{
+  "commit": "a01f2d7d8fa6176322facfa968ea3dce313e0285",
+  "archive": "artifacts/jianyanji-admin-search-a01f2d7.tar.gz",
+  "archiveSha256": "8965f33fb16a1c1413840078c1a9591366f8b24d4793b76e53df92229ccb0de7",
+  "files": {
+    "backend/jianyanji-api-0.1.0.jar": "ff0a3ab3f19ddc2f27fd1fe283a6ef247ed631cada36c222d28ee60317881347",
+    "dist/assets/index-BiCeLIap.css": "08d594223eff6ff1821b69869cfcbbbe93b5052f5c4d5a048fa2f11ad14dfe01",
+    "dist/assets/index-CdIR7AqA.js": "7cdd54b4be7189519c1a5010f43c4da1ed6fa203b4cb8dc2733517b25f51dd10",
+    "dist/brand/app-icon.png": "60d9c1b6091b14e950a8bceab0601dbe7f08cd3400b4cd2f151b7552ffac9615",
+    "dist/brand/app-icon.svg": "e06f5104361b1a0f2972af5fd683778554600c8b55e06542e51f861b2b3a0d43",
+    "dist/brand/logo-horizontal-red.svg": "cfe315e54330cb0cb4cde5af9110c9a46f610f9af06b7087e060011500386c8d",
+    "dist/index.html": "599830f459f8ad0bceb9df59c6eedb9902ae8487d1611c692b47eb56dd62dcd3"
+  },
+  "migrationCount": 14,
+  "sourceArchiveSha256": "92a5c842ef867cfb60d57bdaad660b838e43fc3447c1337817f0f10a7d4ad2ec"
+}

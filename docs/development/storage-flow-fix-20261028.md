@@ -22,20 +22,27 @@
 
 ## 验证证据
 
-验证代码为当前未提交工作区，未对应到新的发布提交或生产构建产物。保留了既有小程序未提交改动；工作区中同时出现的套餐浏览/确认页面拆分也参与了兼容回归。
+后端及管理端最终发布提交为 `a01f2d7d8fa6176322facfa968ea3dce313e0285`，包含寄存修复提交 `f578b4a065664e4a416e961e7b5cb413c786de06` 和并行套餐图片接口改动。发布构建从该提交的干净源码导出，未混入工作区未提交代码。小程序回归使用本地工作区，包含既有未提交改动及并行的套餐浏览/确认页面拆分；这些小程序代码没有随本次发布提交或上传。
 
 - 修复前 `node --test miniprogram/tests/storage-flow.test.cjs` 的5个行为场景均能复现失败；修复后覆盖旧报价提交、报价乱序、返回保留数量及选择回填/清空。
 - 修复前独立 MySQL 的2个新增场景失败；修复后验证全寄存→申请→发货→签收留仓的状态、分页及角标，以及取消混合配送后新货仍能实际发货、重复取消不重复释放。
-- 显式使用 JDK 8 执行后端测试：202项，192项通过、0失败、10项其他专用数据库测试跳过。其中 `StorageMysqlTest` 的23项均连接本机独立 MySQL 执行，0跳过，包含原积分来源、重复退运费、退款、库存及并发回归。
+- 显式使用 JDK 8，从最终提交干净源码执行 Maven verify：202项，192项通过、0失败、10项其他专用数据库测试跳过。其中 `StorageMysqlTest` 的23项均连接本机独立 MySQL 执行，0跳过，包含原积分来源、重复退运费、退款、库存及并发回归；`MiniListTest` 的11项通过。
 - 前端运行与展示回归：136项通过，0失败。最后的小幅修改另重跑46项定向用例，均通过；覆盖实际小程序页面、模板展示及后台组件的有效配送占用和取消后发货入口。
-- `npm run typecheck` 通过。
+- 最终提交干净源码的管理端11项组件回归、`npm run typecheck` 及 Vite 管理端生产构建通过。构建仍提示主 JS 包较大（约1.44MB）。
 - `npm run check:miniprogram` 通过：31个WXML、34个WXSS、43个JS、34个JSON，26个注册页面；无编译失败、未注册页面或缺失文件。
-- `git diff --check` 通过。没有执行完整管理端生产构建。
+- 最终打包 JAR 连接本机隔离库的 HTTP 检查通过：套餐接口200、2条明细均具备图片及明细键，受保护接口未登录返回401；未写入业务数据，见[打包验证](../../.scratch/customer-storage-points/verification/storage-flow-fix-20261028/packaged-http.json)。
+- `git diff --check` 通过。
 
-原始日志保存在 `.scratch/customer-storage-points/verification/storage-flow-fix-20261028/`。MySQL 验证仅使用本机 `java_rewards_test_storagefix_20261028` 隔离库，不使用生产账户、实际库存或真实物流。
+汇总见[构建验证摘要](../../.scratch/customer-storage-points/verification/storage-flow-fix-20261028/build-summary.json)。本地原始日志保存在 `.scratch/customer-storage-points/verification/storage-flow-fix-20261028/`；最终构建日志保存在 `artifacts/storage-fix-a01f2d7/`。MySQL 验证仅使用本机 `java_rewards_test_storagefix_20261028` 隔离库，不使用生产账户、实际库存或真实物流。
 
 ## 发布及验收边界
 
-本次修复尚未提交、推送或部署，小程序未上传发布。没有新增数据库迁移、修改生产配置或操作生产数据；现有业务记录及成交快照未重算。
+后端及管理端已提交、推送至 `origin/main`，于 **2026-10-28 12:10:48（上海时间）**发布。实际应用版本为 `a01f2d7`，发布目录为 `/opt/jianyanji/releases/admin-search-a01f2d7`（沿用既有脚本目录命名）。发布包 SHA-256 为 `8965f33fb16a1c1413840078c1a9591366f8b24d4793b76e53df92229ccb0de7`，JAR SHA-256 为 `ff0a3ab3f19ddc2f27fd1fe283a6ef247ed631cada36c222d28ee60317881347`；前端 HTML、JS、CSS 及 JAR 与实际部署文件逐项核对一致。证据见[产物清单](../../.scratch/customer-storage-points/verification/storage-flow-fix-20261028/bundle.json)、[发布结果](../../.scratch/customer-storage-points/verification/storage-flow-fix-20261028/deployment-result.json)及[部署后核验](../../.scratch/customer-storage-points/verification/storage-flow-fix-20261028/production-postcheck.json)。后续发布记录提交仅修改文档和证据，不改变本次应用构建版本。
+
+部署后 systemd 服务及 Nginx 正常，API 临时暂停标记已解除，开发认证关闭。服务器本机通过 HTTPS 校验后台入口与静态文件、套餐接口及受保护接口；线上套餐2条明细的图片字段及明细键校验通过。**本机直连公网 HTTPS 探测出现 curl 35 连接重置、状态000，外网访问链路尚未验收通过**；服务器本机 HTTPS 成功不能代替外网及实际登录业务验收。
+
+没有新增数据库迁移，既有 V1～V14 保持不变；没有生产配置变化或生产业务测试写入，部署前后业务记录数与资金汇总一致。现有业务记录及成交快照未重算。备份位于 `/var/backups/jianyanji/20261028T121039+0800-admin-search-a01f2d7`。本次无数据库结构变化，应用可使用该备份恢复原 JAR 与前端并重启服务；回退时需短暂停止业务写入并重新核对服务。部署后产生的正常业务数据应保留，不应为应用回退整库覆盖生产数据；如发生数据问题，须先保全当前数据并单独制定恢复方案。
+
+小程序相关修复及套餐图片展示仍保留本地未提交、未上传、未发布；后端返回图片不表示微信端新展示已经上线。
 
 部署后端、管理端并发布匹配的小程序版本后，仍需真机验收：全寄存及部分寄存购买、选址往返、跨订单合并提货、后台审核发货、整包签收、取消后的新货配送和退款联动。真实总部核款、物流及微信订阅消息送达不属于本次本地验证结果。

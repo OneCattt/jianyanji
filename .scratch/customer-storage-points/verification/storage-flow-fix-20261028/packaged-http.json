@@ -1,0 +1,33 @@
+{
+  "commit": "a01f2d7d8fa6176322facfa968ea3dce313e0285",
+  "checks": [
+    {
+      "path": "/api/offers",
+      "status": 200
+    },
+    {
+      "path": "/api/mini/orders?tab=5",
+      "status": 401
+    },
+    {
+      "path": "/api/mini/storage",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/orders?page=1",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/pickups",
+      "status": 401
+    },
+    {
+      "path": "/api/pickups/1",
+      "status": 401
+    }
+  ],
+  "offerImageContract": true,
+  "offerLineCount": 2,
+  "businessWrites": false,
+  "environment": "本机隔离MySQL及最终打包JAR"
+}

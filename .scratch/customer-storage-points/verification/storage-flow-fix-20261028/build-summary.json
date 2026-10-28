@@ -1,0 +1,46 @@
+{
+  "commit": "a01f2d7d8fa6176322facfa968ea3dce313e0285",
+  "source": "git archive of committed source; local miniprogram changes excluded",
+  "java": "Corretto 1.8.0_452",
+  "mavenVerify": {
+    "passed": true,
+    "tests": 202,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 10,
+    "selectedSuites": {
+      "com.jianyanji.storage.StorageMysqlTest": {
+        "tests": 23,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "com.jianyanji.mobile.MiniListTest": {
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "adminComponentRegression": {
+    "tests": 11,
+    "failures": 0
+  },
+  "adminTypecheck": true,
+  "adminProductionBuild": true,
+  "buildWarning": "主JS包约1.44MB",
+  "mysqlEnvironment": "本机独立 java_rewards_test_storagefix_20261028；无生产业务写入",
+  "localUncommittedMiniprogram": {
+    "runtimeAndDisplayChecks": 136,
+    "finalTargetedChecks": 46,
+    "nativeSourceCheckPassed": true,
+    "published": false
+  },
+  "externalHttpsProbe": {
+    "passed": false,
+    "curlExitCode": 35,
+    "httpStatus": "000",
+    "reason": "本机直连公网连接重置；服务器本机HTTPS核验通过"
+  }
+}
