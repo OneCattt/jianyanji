@@ -74,6 +74,30 @@ class OrderServiceTest {
     }
 
     @Test
+    void fulfillmentFilterIsAppliedBeforeCountingAndReadingHistoricalPages() {
+        java.util.Map<String, String> query = new java.util.HashMap<>();
+        query.put("page", "2");
+        query.put("pageSize", "2");
+        query.put("fulfillment", "stored");
+        String from = "FROM orders WHERE is_deleted=0 AND " + OrderFulfillment.adminCondition("stored");
+        when(db.one("SELECT COUNT(*) AS total " + from)).thenReturn(obj("total", 3));
+        when(db.list("SELECT * " + from + " ORDER BY id DESC LIMIT ? OFFSET ?", 2, 2))
+                .thenReturn(Collections.singletonList(obj("id", 21, "snapshot", "{}")));
+        ObjectNode result = service.adminPage(query);
+        assertEquals(3, result.path("total").asInt());
+        assertEquals(1, result.path("items").size());
+        assertEquals(21, result.path("items").get(0).path("id").asInt());
+        verify(db).list("SELECT * " + from + " ORDER BY id DESC LIMIT ? OFFSET ?", 2, 2);
+    }
+
+    @Test
+    void invalidFulfillmentFilterFailsBeforeReadingOrExpiringOrders() {
+        assertEquals(400, assertThrows(BusinessException.class,
+                () -> service.adminPage(Collections.singletonMap("fulfillment", "paid OR 1=1"))).getStatus());
+        verifyNoInteractions(db);
+    }
+
+    @Test
     void unpaidOrdersMustReconfirmIdentityOrPrincipalChangesWhilePaidSnapshotsStayFrozen() {
         ObjectNode order =
                 obj(

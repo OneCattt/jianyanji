@@ -46,6 +46,7 @@ function setup(
           return {
             ...vue,
             onMounted() {},
+            useId: () => "isolated-component-test",
             onBeforeUnmount(fn) {
               cleanup.push(fn);
             },
@@ -560,4 +561,38 @@ test("配送审核和取消沿用原接口，跨订单商品完整保留，不�
   await first;
   assert.equal(p.state.allowedActions.value.length, 0);
   p.stop();
+});
+
+test("订单分类按履约查询并包含寄存，财务查询保留原状态契约", () => {
+  const p = setup("PaymentOperations", { financeOnly: false });
+  assert.deepEqual(plain(p.state.statusTabs.value.map((item) => item.key)), [
+    "",
+    "pending",
+    "awaiting_shipment",
+    "shipped",
+    "stored",
+    "completed",
+    "refunded",
+    "closed",
+  ]);
+  p.state.status.value = "stored";
+  p.state.query.value = "精华";
+  assert.deepEqual(plain(p.state.listFilters()), {
+    q: "精华",
+    status: "",
+    fulfillment: "stored",
+    kind: "",
+  });
+  p.state.status.value = "awaiting_shipment";
+  assert.equal(p.state.listFilters().fulfillment, "awaiting_shipment");
+  p.stop();
+  const finance = setup("PaymentOperations", { financeOnly: true });
+  finance.state.status.value = "paid";
+  assert.deepEqual(plain(finance.state.listFilters()), {
+    q: "",
+    status: "paid",
+    fulfillment: "",
+    kind: "goods",
+  });
+  finance.stop();
 });

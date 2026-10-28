@@ -40,10 +40,12 @@ public class OrderService {
 
     /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
     public ObjectNode adminPage(java.util.Map<String, String> query) {
+        String fulfillment = OrderFulfillment.adminCondition(query.get("fulfillment"));
         expire();
         return new PageQuery(
                         query,
                         "FROM orders WHERE is_deleted=0"
+                                + (fulfillment.isEmpty() ? "" : " AND " + fulfillment)
                                 + ("true".equals(query.get("paidOnly"))
                                         ? " AND payment_state IN ('paid','partially_refunded')"
                                         : ""))

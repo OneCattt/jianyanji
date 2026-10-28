@@ -223,6 +223,68 @@ class StorageMysqlTest {
         assertEquals(0, l(lists.orderCounts(user), "shipped"));
     }
 
+    /** 真实分页与卡片状态共用一套分组口径，搜索词隔离本次新增数据。 */
+    private ObjectNode adminPage(String prefix, String state, int page, int size) {
+        Map<String, String> query = new HashMap<>();
+        query.put("q", prefix);
+        query.put("fulfillment", state);
+        query.put("page", String.valueOf(page));
+        query.put("pageSize", String.valueOf(size));
+        return orders.adminPage(query);
+    }
+
+    /** 只为独立测试夹具设置唯一订单号，不修改库存、余额或业务状态。 */
+    private void tagOrder(long orderId, String number) {
+        db.tx(() -> db.update("UPDATE orders SET number=?,update_user_id=1,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0", number, orderId));
+    }
+
+    @Test
+    void adminTabsMatchReviewShippingStorageAndCountBeforePagination() {
+        credit(1000000, id());
+        String prefix = "admin-stage-" + id();
+        long first = l(purchase(3, 0), "id");
+        long second = l(purchase(2, 0), "id");
+        long third = l(purchase(1, 0), "id");
+        tagOrder(first, prefix + "-1");
+        tagOrder(second, prefix + "-2");
+        tagOrder(third, prefix + "-3");
+        ObjectNode page1 = adminPage(prefix, "stored", 1, 2);
+        ObjectNode page2 = adminPage(prefix, "stored", 2, 2);
+        assertEquals(3, l(page1, "total"));
+        assertEquals(3, l(page2, "total"));
+        assertEquals(2, page1.path("items").size());
+        assertEquals(1, page2.path("items").size());
+        assertEquals(first, l(page2.path("items").get(0), "id"));
+        assertEquals("stored", s(page2.path("items").get(0), "fulfillmentState"));
+        assertEquals(0, l(adminPage(prefix, "awaiting_shipment", 1, 20), "total"));
+        ObjectNode pickup = submit(arr(obj("lotId", lot(first), "quantity", 1)));
+        ObjectNode pending = adminPage(prefix, "awaiting_shipment", 1, 20);
+        assertEquals(1, l(pending, "total"));
+        assertEquals(first, l(pending.path("items").get(0), "id"));
+        assertEquals("待审核配送", s(pending.path("items").get(0), "fulfillmentText"));
+        assertEquals(2, l(adminPage(prefix, "stored", 1, 20), "total"));
+        storage.review(l(pickup, "id"), obj("approve", true, "reason", "核实配送"), 1);
+        assertEquals("待发货", s(adminPage(prefix, "awaiting_shipment", 1, 20).path("items").get(0), "fulfillmentText"));
+        storage.ship(l(pickup, "id"), obj("carrier", "测试快递", "tracking", "ADMIN123456", "reason", "实际发货"), 1);
+        ObjectNode later = submit(arr(obj("lotId", lot(first), "quantity", 1)));
+        ObjectNode transit = adminPage(prefix, "shipped", 1, 20);
+        assertEquals(1, l(transit, "total"));
+        assertEquals("shipped", s(transit.path("items").get(0), "fulfillmentState"));
+        assertEquals(0, l(adminPage(prefix, "awaiting_shipment", 1, 20), "total"), "运输中优先，与卡片主状态一致");
+        storage.receive(l(pickup, "id"), user);
+        assertEquals(1, l(adminPage(prefix, "awaiting_shipment", 1, 20), "total"));
+        storage.cancel(l(later, "id"), user, user, "取消第二次配送", false);
+        assertEquals(0, l(adminPage(prefix, "awaiting_shipment", 1, 20), "total"));
+        assertEquals(0, l(adminPage(prefix, "shipped", 1, 20), "total"));
+        assertEquals(3, l(adminPage(prefix, "stored", 1, 20), "total"), "签收和取消后余货回到寄存分类");
+        Map<String, String> legacyQuery = new HashMap<>();
+        legacyQuery.put("q", prefix);
+        legacyQuery.put("status", "paid");
+        legacyQuery.put("page", "1");
+        ObjectNode legacy = orders.adminPage(legacyQuery);
+        assertEquals(2, l(legacy, "total"), "原status参数继续按持久化状态筛选");
+    }
+
     @Test
     void cancellingCombinedDeliveryKeepsNewGoodsAvailableForOrdinaryShipping() {
         credit(100000, id());

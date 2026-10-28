@@ -38,6 +38,29 @@ public final class OrderFulfillment {
         }
     }
 
+    /** 后台按卡片主履约状态分类，计数与分页共用；运输优先于待发货，纯留仓归寄存中。 */
+    public static String adminCondition(String state) {
+        if (state == null || state.trim().isEmpty()) return "";
+        switch (state.trim()) {
+            case "pending":
+                return "status='pending'";
+            case "awaiting_shipment":
+                return "(" + PAID + " AND NOT " + TRANSIT + " AND " + PENDING + ")";
+            case "shipped":
+                return condition(3);
+            case "stored":
+                return "(" + PAID + " AND NOT " + TRANSIT + " AND NOT " + PENDING + " AND " + STORED + ")";
+            case "completed":
+                return "status='completed'";
+            case "refunded":
+                return "status='refunded'";
+            case "closed":
+                return "status='closed'";
+            default:
+                throw com.jianyanji.common.BusinessException.invalid("不支持的订单履约分类");
+        }
+    }
+
     /** 复用已读取的订单行及包裹计算数量，不额外查询；数量单位为SKU件数。 */
     public static void describe(ObjectNode order) {
         long stored = 0, direct = 0, received = 0, pendingQuantity = 0, transitQuantity = 0;

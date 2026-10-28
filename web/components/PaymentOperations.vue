@@ -147,8 +147,8 @@ const correcting = ref<{
   tracking: string;
 } | null>(null);
 const labels: Record<string, string> = {
-  pending: "待核款",
-  paid: "待发货",
+  pending: "待支付",
+  paid: "已支付",
   awaiting_shipment: "待发货",
   shipped: "运输中",
   completed: "已完成",
@@ -160,30 +160,29 @@ const labels: Record<string, string> = {
   partially_refunded: "部分退款",
 };
 const paymentLabels: Record<string, string> = {
-  unpaid: "待核款",
+  unpaid: "待支付",
   paying: "历史交易处理中",
   unknown: "结果待核查",
   review: "需补偿核查",
-  paid: "已收款 / 积分已扣款",
+  paid: "已支付",
   failed: "未收款",
   partially_refunded: "部分退款",
   refunded: "已退款",
 };
+// 订单办理按实际履约筛选；财务查询继续使用原订单状态。
+const listFilters = () => ({
+  q: query.value,
+  status: props.financeOnly ? status.value : "",
+  fulfillment: props.financeOnly ? "" : status.value,
+  kind: props.financeOnly ? "goods" : "",
+});
 const {
   rows: orders,
   total: orderTotal,
   pagination: orderPagination,
   loading: listLoading,
   load: loadOrders,
-} = useAdminList<Order>(
-  "/admin/orders",
-  () => ({
-    q: query.value,
-    status: status.value,
-    kind: props.financeOnly ? "goods" : "",
-  }),
-  error,
-);
+} = useAdminList<Order>("/admin/orders", listFilters, error);
 const visible = computed(() => orders.value);
 
 const canShip = computed(
@@ -219,16 +218,28 @@ const methodNames: Record<string, string> = {
   wechat: "历史微信支付",
 };
 const money = (v: number) => (v / 100).toFixed(2);
-const statusTabs = [
-  { key: "", tab: "全部订单" },
-  { key: "pending", tab: "待支付" },
-  { key: "paid", tab: "已支付" },
-  { key: "shipped", tab: "已发货" },
-  { key: "completed", tab: "已完成" },
-  { key: "refunded", tab: "已退款" },
-  { key: "closed", tab: "已关闭" },
-];
-// 筛选沿用服务端原订单状态，寄存和待审核配送由每单的实际履约信息展示。
+const statusTabs = computed(() =>
+  props.financeOnly
+    ? [
+        { key: "", tab: "全部订单" },
+        { key: "pending", tab: "待支付" },
+        { key: "paid", tab: "已支付" },
+        { key: "shipped", tab: "已发货" },
+        { key: "completed", tab: "已完成" },
+        { key: "refunded", tab: "已退款" },
+        { key: "closed", tab: "已关闭" },
+      ]
+    : [
+        { key: "", tab: "全部订单" },
+        { key: "pending", tab: "待支付" },
+        { key: "awaiting_shipment", tab: "待发货" },
+        { key: "shipped", tab: "运输中" },
+        { key: "stored", tab: "寄存中" },
+        { key: "completed", tab: "已完成" },
+        { key: "refunded", tab: "已退款" },
+        { key: "closed", tab: "已关闭" },
+      ],
+);
 const filterLabels: Record<string, string> = {
   ...labels,
   pending: "待支付",
@@ -570,17 +581,6 @@ function statusColor(value: string) {
             v-model:value="query"
             placeholder="商品名称、规格、订单号或用户编号"
             :disabled="busy" /></label
-        ><label class="field"
-          >订单状态<AdminSelect v-model="status" :disabled="busy">
-            <option value="">全部状态</option>
-            <option
-              v-for="(label, key) in filterLabels"
-              :key="key"
-              :value="key"
-            >
-              {{ label }}
-            </option>
-          </AdminSelect></label
         ><template #actions
           ><a-button
             html-type="submit"
