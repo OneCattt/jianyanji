@@ -15,6 +15,8 @@ import com.jianyanji.payments.PaymentService;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -115,12 +117,16 @@ public class OrderService {
             shipments.add(shipment);
         }
         result.set("shipments", shipments);
-        result.set(
-                "pickups",
-                json(
-                        db.list(
-                                "SELECT DISTINCT p.id,p.number,p.status FROM pickup_orders p JOIN pickup_lines pl ON pl.pickup_id=p.id AND pl.is_deleted=0 JOIN order_lines ol ON ol.id=pl.line_id AND ol.is_deleted=0 WHERE ol.order_id=? AND p.is_deleted=0 ORDER BY p.id",
-                                l(order, "id"))));
+        // 同一次关联查询携带本原订单的申请行，不增加逐提货单查询，也不混入跨单商品。
+        Map<Long, ObjectNode> pickups = new LinkedHashMap<>();
+        for (ObjectNode row : db.list(
+                "SELECT p.id,p.number,p.status,pl.line_id,pl.quantity FROM pickup_orders p JOIN pickup_lines pl ON pl.pickup_id=p.id AND pl.is_deleted=0 JOIN order_lines ol ON ol.id=pl.line_id AND ol.is_deleted=0 WHERE ol.order_id=? AND p.is_deleted=0 ORDER BY p.id,pl.id",
+                l(order, "id"))) {
+            ObjectNode pickup = pickups.computeIfAbsent(l(row, "id"),
+                    id -> obj("id", id, "number", s(row, "number"), "status", s(row, "status"), "lines", arr()));
+            pickup.withArray("lines").add(obj("lineId", l(row, "line_id"), "quantity", l(row, "quantity")));
+        }
+        result.set("pickups", json(pickups.values()));
         OrderFulfillment.describe(result);
         return result;
     }

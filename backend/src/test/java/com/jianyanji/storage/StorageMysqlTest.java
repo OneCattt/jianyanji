@@ -205,13 +205,20 @@ class StorageMysqlTest {
         assertEquals(0, l(lists.orderCounts(user), "paid"));
         ObjectNode pickup = submit(arr(obj("lotId", lot(orderId), "quantity", 1)));
         assertEquals("awaiting_shipment", s(orders.view(orders.owned(orderId, user)), "fulfillmentState"));
+        ObjectNode pending = (ObjectNode) lists.mine("orders", buyer(), 1, 1, 2, null).path("items").get(0);
+        assertEquals(1, l(pending, "pendingShipQuantity"), "仅申请一件不能展示原购买三件为待发货");
+        assertEquals(1, l(pending.path("lines").get(0), "pending_ship_qty"));
         assertEquals(1, l(lists.orderCounts(user), "paid"));
         ship(l(pickup, "id"));
-        assertEquals("shipped", s(orders.view(orders.owned(orderId, user)), "fulfillmentState"));
+        ObjectNode transit = orders.view(orders.owned(orderId, user));
+        assertEquals("shipped", s(transit, "fulfillmentState"));
+        assertEquals(0, l(transit, "pendingShipQuantity"));
+        assertEquals(1, l(transit.path("lines").get(0), "in_transit_qty"));
         storage.receive(l(pickup, "id"), user);
         ObjectNode stored = orders.view(orders.owned(orderId, user));
         assertEquals("stored", s(stored, "fulfillmentState"));
         assertEquals(2, l(stored, "storageRemainingQty"));
+        assertEquals(0, l(stored.path("lines").get(0), "in_transit_qty"));
         assertEquals(0, lists.mine("orders", buyer(), 1, 1, 3, null).path("items").size());
         assertEquals(0, l(lists.orderCounts(user), "shipped"));
     }
@@ -224,6 +231,7 @@ class StorageMysqlTest {
         ObjectNode fresh = create(2, 1, arr(obj("lotId", lotId, "quantity", 1)));
         long orderId = l(fresh, "id");
         wallet.payWithPoints(user, orderId);
+        assertEquals(1, l(orders.view(orders.owned(orderId, user)), "pendingShipQuantity"), "新购配送不能重复计入未分配数量");
         ObjectNode pickup = db.one("SELECT * FROM pickup_orders WHERE purchase_order_id=? AND is_deleted=0", orderId);
         ObjectNode cancelled = storage.cancel(l(pickup, "id"), user, user, "取消合并配送", false);
         assertEquals(1, l(cancelled, "newGoodsQuantity"));
@@ -233,6 +241,8 @@ class StorageMysqlTest {
         ObjectNode line = fulfillment.shippableLines(orderId).get(0);
         assertEquals(1, l(line, "remaining"));
         assertEquals(1, l(orders.view(orders.owned(orderId, user)), "directShipQuantity"));
+        assertEquals(1, l(orders.view(orders.owned(orderId, user)), "pendingShipQuantity"), "取消配送后只展示可直接发出的新货");
+        assertEquals(0, l(orders.view(orders.owned(l(first, "id"), user)), "pendingShipQuantity"), "取消提货后原寄存不再待发");
         storage.cancel(l(pickup, "id"), user, user, "重复取消", false);
         fulfillment.ship(orderId, obj("carrier", "测试快递", "tracking", "CANCEL1234", "reason", "继续配送已购新货", "requestKey", "ship-" + id(), "lines", arr(obj("lineId", l(line, "id"), "quantity", 1))), 1);
         assertEquals(1, l(db.one("SELECT shipped_qty FROM order_lines WHERE id=?", l(line, "id")), "shipped_qty"));
@@ -284,7 +294,11 @@ class StorageMysqlTest {
                                 obj("lotId", lot(l(a, "id")), "quantity", 2),
                                 obj("lotId", lot(l(b, "id")), "quantity", 1)));
         long id = l(p, "id");
+        assertEquals(2, l(orders.view(orders.owned(l(a, "id"), user)), "pendingShipQuantity"));
+        assertEquals(1, l(orders.view(orders.owned(l(b, "id"), user)), "pendingShipQuantity"), "合并配送不能混入另一来源订单的商品");
         ship(id);
+        assertEquals(2, l(orders.view(orders.owned(l(a, "id"), user)), "inTransitQuantity"));
+        assertEquals(1, l(orders.view(orders.owned(l(b, "id"), user)), "inTransitQuantity"));
         long shipmentId =
                 l(
                         db.one(
