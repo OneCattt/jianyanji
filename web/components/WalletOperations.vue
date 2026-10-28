@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useAdminUserNames } from "../admin-user-names";
+const userNames = useAdminUserNames();
+import AdminUserName from "./AdminUserName.vue";
 import AdminUserSelect from "./AdminUserSelect.vue";
 import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
@@ -288,7 +291,7 @@ const receiptColumns = [
         </a-card>
         <AdminDrawer
           v-if="wallet"
-          :title="`积分钱包 · 用户 #${userId}`"
+          :title="`积分钱包 · ${userNames.label(userId)}`"
           :busy="busy || Boolean(dialog)"
           wide
           @close="wallet = null"
@@ -400,9 +403,8 @@ const receiptColumns = [
               ><template #bodyCell="{ column, record: r }"
                 ><template v-if="column.key === 'c0'"
                   ><div class="table-cell-content">
-                    #{{ r.id }} / #{{ r.user_id }}
-                  </div></template
-                >
+                    收款 #{{ r.id }} · <AdminUserName :id="r.user_id" /></div
+                ></template>
                 <template v-else-if="column.key === 'c1'"
                   ><div class="table-cell-content">
                     {{ purposeNames[r.purpose] || r.purpose }}

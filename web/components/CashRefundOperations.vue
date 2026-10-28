@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminUserName from "./AdminUserName.vue";
 import AdminUserSelect from "./AdminUserSelect.vue";
 import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
@@ -247,7 +248,9 @@ const cashRefundColumns = [
               ><div class="table-cell-content">
                 {{ r.number
                 }}<small
-                  >用户 #{{ r.user_id }} · 原收款 #{{ r.receipt_id }}</small
+                  ><AdminUserName :id="r.user_id" /> · 原收款 #{{
+                    r.receipt_id
+                  }}</small
                 >
               </div></template
             >

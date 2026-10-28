@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminUserName from "./AdminUserName.vue";
 import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
 import { computed, onMounted, ref } from "vue";
@@ -502,7 +503,7 @@ function statusColor(value: string) {
             ><template v-if="column.key === 'order'">
               {{ o.number
               }}<small class="cell-note"
-                >用户 {{ o.user_id }} ·
+                ><AdminUserName :id="o.user_id" /> ·
                 {{ o.kind === "package" ? "入驻产品包" : "商品订单" }}</small
               > </template
             ><template v-else-if="column.key === 'fulfillment'">

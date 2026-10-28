@@ -44,6 +44,9 @@ class OperationsExportControllerTest {
                         java.nio.charset.StandardCharsets.UTF_8);
         verify(access).staff("onboarding:manage");
         assertTrue(csv.startsWith("\uFEFF"));
+        assertTrue(csv.contains("归属19800店主名称"));
+        assertTrue(csv.contains("用户名称"));
+        assertFalse(csv.split("\r\n")[0].contains("user_id"));
         assertTrue(csv.contains("\"'=1+2\n下一行\""));
         assertFalse(csv.contains("phone"));
         assertFalse(csv.contains("evidence"));

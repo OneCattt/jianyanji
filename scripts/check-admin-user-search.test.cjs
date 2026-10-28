@@ -48,6 +48,10 @@ function setup(name, props = {}, request = async () => ({})) {
         if (id === "ant-design-vue")
           return { Radio: { Group: {}, Button: {} } };
         if (id === "../client") return { api: request };
+        if (id === "../admin-user-names")
+          return {
+            useAdminUserNames: () => ({ label: (id) => `测试用户（#${id}）` }),
+          };
         if (id === "../content-client")
           return {
             contentApi: {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminUserName from "./AdminUserName.vue";
 import { useAdminList } from "../useAdminList";
 import QualificationOperations from "./QualificationOperations.vue";
 import FeedbackToast from "./FeedbackToast.vue";
@@ -458,7 +459,8 @@ const packageLineColumns = [
           "
           ><template #bodyCell="{ column, record: a }"
             ><template v-if="column.key === 'applicant'"
-              >#{{ a.id }} · {{ a.nickname || "用户 #" + a.user_id }}</template
+              >#{{ a.id }} ·
+              <AdminUserName :id="a.user_id" :name="a.nickname" /></template
             ><template v-else-if="column.key === 'identity'">
               {{
                 a.target_identity === "B" ? "调肤主理人" : "调肤店主"
@@ -509,10 +511,9 @@ const packageLineColumns = [
             入驻申请 #{{ selected.id }} · {{ selected.package_snapshot.name }}
           </h3>
           <p>
-            用户 #{{ selected.user_id }} · 货款 ¥{{
-              money(selected.package_snapshot.amountCents)
-            }}
-            · {{ states[selected.status] }}
+            <AdminUserName :id="selected.user_id" :name="selected.nickname" /> ·
+            货款 ¥{{ money(selected.package_snapshot.amountCents) }} ·
+            {{ states[selected.status] }}
           </p>
           <p v-if="selected.review_reason" class="muted">
             处理说明：{{ selected.review_reason }}
@@ -521,19 +522,26 @@ const packageLineColumns = [
             当次入驻条件：{{ selected.package_snapshot.conditions }}
           </p>
           <a-descriptions size="small" bordered :column="2">
-            <a-descriptions-item label="申请直接邀请人">{{
-              selected.requested_inviter_id
-                ? "用户 #" + selected.requested_inviter_id
-                : "历史申请缺少确认，请本人重新确认"
-            }}</a-descriptions-item>
-            <a-descriptions-item label="确认直接邀请人">{{
-              selected.inviter_id ? "用户 #" + selected.inviter_id : "尚未确认"
-            }}</a-descriptions-item>
-            <a-descriptions-item label="归属主理人">{{
-              selected.principal_id
-                ? "用户 #" + selected.principal_id
-                : "尚未确认"
-            }}</a-descriptions-item>
+            <a-descriptions-item label="申请直接邀请人"
+              ><AdminUserName
+                v-if="selected.requested_inviter_id"
+                :id="selected.requested_inviter_id"
+              /><span v-else
+                >历史申请缺少确认，请本人重新确认</span
+              ></a-descriptions-item
+            >
+            <a-descriptions-item label="确认直接邀请人"
+              ><AdminUserName
+                v-if="selected.inviter_id"
+                :id="selected.inviter_id"
+              /><span v-else>尚未确认</span></a-descriptions-item
+            >
+            <a-descriptions-item label="归属19800店主"
+              ><AdminUserName
+                v-if="selected.principal_id"
+                :id="selected.principal_id"
+              /><span v-else>尚未确认</span></a-descriptions-item
+            >
           </a-descriptions>
           <a-table
             :columns="packageLineColumns"

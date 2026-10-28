@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE || "playwright"
 );
-const output = ".scratch/admin-detail-drawers";
+const output = process.env.ADMIN_TEST_OUTPUT || ".scratch/admin-detail-drawers";
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1920, height: 1000 } });
@@ -48,6 +48,8 @@ const order = (id) => ({
     {
       id: 1,
       sku_id: 1,
+      is_gift: false,
+      unit_cents: 44400,
       quantity: 2,
       shipped_qty: 0,
       refunded_unshipped: 0,
@@ -101,11 +103,17 @@ const reward = (id) => ({
   reason: "本地验收",
   status: "eligible",
 });
+const nameBatches = [],
+  submitted = [];
+let pickupVariant;
 const pickup = {
   id: 1,
   user_id: 1,
   number: "TH-DRAWER-1",
   status: "review",
+  fee_cents: 1000,
+  create_time: "2026-10-28T00:00:00.000Z",
+  review_reason: "本地核验通过，按申请安排配送",
   newGoodsQuantity: 1,
   storedGoodsQuantity: 2,
   address: order(1).snapshot.address,
@@ -174,8 +182,27 @@ await page.route("**/api/**", async (route) => {
     body = list(Array.from({ length: 12 }, (_, i) => reward(i + 1)));
   else if (/\/rewards\/\d+$/.test(path))
     body = reward(Number(path.split("/").at(-1)));
-  else if (path === "/api/admin/user-options")
+  else if (path === "/api/admin/user-labels") {
+    nameBatches.push(url.searchParams.get("ids"));
+    body = {
+      items: (url.searchParams.get("ids") || "")
+        .split(",")
+        .map((id) => ({ id: Number(id), nickname: "本地客户" + id })),
+    };
+  } else if (path === "/api/admin/user-options")
     body = list([{ id: 1, label: "本地客户 · #1", identity: "D" }]);
+  else if (
+    path === "/api/admin/product-options" &&
+    url.searchParams.get("kind") === "lot"
+  )
+    body = list([
+      {
+        id: 101,
+        label: "本地寄存商品 · 原订单JY-DRAWER-1 · 可提2件",
+        active: true,
+        quantity: 2,
+      },
+    ]);
   else if (/\/wallets\/\d+$/.test(path))
     body = {
       balanceCents: 12345,
@@ -184,8 +211,47 @@ await page.route("**/api/**", async (route) => {
       lots: [],
       ledger: [],
     };
-  else if (path === "/api/admin/pickups") body = list([pickup]);
-  else if (path === "/api/admin/pickups/1") body = pickup;
+  else if (path === "/api/admin/pickups" && route.request().method() === "GET")
+    body = list([pickup]);
+  else if (path === "/api/admin/pickups/1") body = pickupVariant || pickup;
+  else if (/\/users\/\d+\/address-options$/.test(path)) {
+    const current = Number(url.searchParams.get("page") || 1);
+    body = {
+      items: Array.from({ length: current === 1 ? 20 : 1 }, (_, i) => ({
+        id: i + 1 + (current - 1) * 20,
+        recipient: `本地收货人${i + 1 + (current - 1) * 20}`,
+        phone: "13800000000",
+        province: "广东省",
+        city: "广州市",
+        district: "测试区",
+        detail: "本地验收地址",
+        is_default: i === 0 ? 1 : 0,
+      })),
+      total: 21,
+      page: current,
+      pageSize: 20,
+    };
+  } else if (
+    path === "/api/admin/pickups/1/ship" ||
+    (path === "/api/admin/pickups" && route.request().method() === "POST")
+  ) {
+    submitted.push({ path, body: route.request().postDataJSON() });
+    body = { id: 1 };
+  } else if (path === "/api/admin/refunds")
+    body = list([
+      {
+        id: 1,
+        order_id: 1,
+        number: "RF-LOCAL-1",
+        kind: "goods",
+        status: "rejected",
+        reason: "本地售后验收",
+        total_cents: 3500,
+        lines: [],
+      },
+    ]);
+  else if (path === "/api/admin/aftersales-settings")
+    body = { days: 7, policy: "本地售后政策" };
   else if (["/api/admin/staff", "/api/admin/categories"].includes(path))
     body = [];
   else if (path === "/api/admin/content") body = null;
@@ -247,6 +313,9 @@ try {
   await trigger.click();
   let drawer = await drawerVisible("订单详情与处理");
   await drawer.getByText("JY-DRAWER-1", { exact: true }).waitFor();
+  await page.getByText("本地客户1（#1）", { exact: true }).first().waitFor();
+  assert.equal(nameBatches.length, 1);
+  checks.push("列表重复用户名称合并一次批量查询，名称及编号一起显示");
   await drawer
     .getByRole("button", { name: "登记品牌仓发货", exact: true })
     .click();
@@ -338,6 +407,146 @@ try {
   checks.push(
     "提货详情使用抽屉，1259×570下多商品内容独立滚动，关闭操作保持可见",
   );
+  pickupVariant = {
+    ...pickup,
+    status: "approved",
+    number: "TH37c1c5e5406349ba843388a04780f361",
+    lines: [{ ...pickup.lines[0], is_gift: true }],
+  };
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.getByRole("button", { name: "明细", exact: true }).first().click();
+  drawer = await drawerVisible("提货详情");
+  await drawer
+    .getByRole("heading", { name: "收货信息", exact: true })
+    .waitFor();
+  await drawer
+    .getByRole("heading", { name: "商品明细", exact: true })
+    .waitFor();
+  await drawer.getByText("本地客户1（#1）", { exact: true }).waitFor();
+  await drawer.getByText("赠品", { exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/pickup-readable-1920.png` });
+  await drawer
+    .getByRole("button", { name: "原订单 #1 · 查看详情", exact: true })
+    .click();
+  let linked = page.locator(".admin-drawer-wrap:visible").last();
+  await linked.getByText("JY-DRAWER-1", { exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(
+    () => document.querySelectorAll(".admin-drawer-wrap").length === 1,
+  );
+  assert.equal(await drawer.count(), 1);
+  await drawer
+    .getByRole("button", { name: "登记本次配送发货", exact: true })
+    .click();
+  drawer = await drawerVisible("登记提货发货");
+  for (const [width, height] of [
+    [1259, 570],
+    [390, 844],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForFunction(() => {
+      const r = document
+        .querySelector(".admin-drawer-wrap .ant-drawer-content-wrapper")
+        .getBoundingClientRect();
+      return (
+        r.width <= innerWidth && r.x >= 0 && Math.abs(r.right - innerWidth) < 1
+      );
+    });
+    const footer = drawer.locator(".dialog-actions");
+    const rect = await footer.boundingBox();
+    assert(rect.y + rect.height <= height);
+    assert.equal(
+      await drawer
+        .locator(".ant-drawer-body")
+        .evaluate((el) => el.scrollWidth > el.clientWidth),
+      false,
+    );
+    await page.screenshot({ path: `${output}/pickup-shipping-${width}.png` });
+  }
+  await drawer.getByLabel("快递公司", { exact: true }).fill("本地快递");
+  await drawer.getByLabel("快递单号", { exact: true }).fill("LOCAL0001");
+  await drawer.getByLabel("办理原因", { exact: true }).fill("本地模拟发货");
+  await drawer.getByRole("button", { name: "确认发货", exact: true }).click();
+  await drawer.waitFor({ state: "detached" });
+  assert.deepEqual(submitted.at(-1), {
+    path: "/api/admin/pickups/1/ship",
+    body: {
+      carrier: "本地快递",
+      tracking: "LOCAL0001",
+      reason: "本地模拟发货",
+    },
+  });
+  checks.push(
+    "提货详情分区和赠品清楚展示，原订单可嵌套查看；发货在窄屏和矮窗口不溢出，提交契约保留",
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const storagePicker = page.locator(".admin-filter-bar .admin-user-select");
+  await storagePicker.locator(".ant-select-selector").click();
+  await page
+    .locator(".ant-select-item-option")
+    .filter({ hasText: "本地客户" })
+    .click();
+  await page
+    .getByRole("button", { name: "为该用户人工提货", exact: true })
+    .click();
+  drawer = await drawerVisible("人工办理提货");
+  await drawer.getByLabel("办理原因", { exact: true }).fill("本地人工提货校验");
+  await drawer.getByRole("button", { name: "确认办理", exact: true }).click();
+  assert.equal(submitted.length, 1);
+  await drawer.locator(".admin-address-select .ant-select-selector").click();
+  await page.getByRole("button", { name: "下一页", exact: true }).click();
+  await page
+    .locator(".ant-select-item-option")
+    .filter({ hasText: "本地收货人21" })
+    .click();
+  await drawer
+    .locator(".address-preview")
+    .getByText("本地收货人21", { exact: false })
+    .waitFor();
+  assert.equal(
+    await drawer
+      .locator(".admin-address-select input.admin-validation-proxy")
+      .inputValue(),
+    "selected",
+  );
+  await page.screenshot({ path: `${output}/manual-address-readable.png` });
+  await drawer.locator(".admin-product-select .ant-select-selector").click();
+  await page
+    .locator(".ant-select-item-option")
+    .filter({ hasText: "本地寄存商品" })
+    .click();
+  await drawer.getByRole("button", { name: "确认办理", exact: true }).click();
+  await page.waitForFunction(
+    () => !document.querySelector(".admin-drawer-wrap"),
+  );
+  assert.equal(submitted.length, 2);
+  assert.equal(submitted[1].path, "/api/admin/pickups");
+  const manualBody = submitted[1].body;
+  assert.deepEqual(
+    { ...manualBody, requestKey: "uuid" },
+    {
+      userId: 1,
+      addressId: 21,
+      storedItems: [{ lotId: 101, quantity: 1 }],
+      reason: "本地人工提货校验",
+      requestKey: "uuid",
+    },
+  );
+  assert.match(manualBody.requestKey, /^[0-9a-f-]{36}$/);
+  checks.push(
+    "人工提货未选地址不能提交，跨页选择地址后提交保留用户、地址、商品、数量及幂等键",
+  );
+  await navigate("商品售后");
+  await page
+    .getByRole("button", { name: "原订单 #1 · 查看详情", exact: true })
+    .first()
+    .click();
+  drawer = await drawerVisible("原订单详情");
+  await drawer.getByText("JY-DRAWER-1", { exact: true }).waitFor();
+  await drawer.getByText("成交商品", { exact: true }).waitFor();
+  await drawer.getByRole("button", { name: "关闭详情", exact: true }).click();
+  await page.getByText("RF-LOCAL-1", { exact: true }).waitFor();
+  checks.push("售后原订单可直接打开详情，关闭后保留售后记录列表");
   await page.setViewportSize({ width: 1440, height: 900 });
   for (const [menu, button, title] of [
     ["商品与分类", "新增商品", "新增商品"],

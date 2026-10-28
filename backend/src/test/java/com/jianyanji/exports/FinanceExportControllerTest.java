@@ -17,6 +17,20 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 /** 财务导出沿用功能权限、必要筛选和字段白名单，不以导出扩大读取范围。 */
 class FinanceExportControllerTest {
     @Test
+    void everyExportHasChineseHeadersAndUserNamesWithoutChangingAmounts() {
+        for (String kind : new String[]{"receipts","payments","refunds","points","cash-refunds","rewards","settlements","reversals","offsets","recoveries"}) {
+            Db db = mock(Db.class);
+            when(db.list(org.mockito.ArgumentMatchers.startsWith("SELECT t."))).thenReturn(Collections.singletonList(obj("id",1,"user_id",7,"amount_cents",14000)));
+            when(db.list(org.mockito.ArgumentMatchers.startsWith("SELECT t."), anyLong())).thenReturn(Collections.singletonList(obj("id",1,"user_id",7,"amount_cents",14000)));
+            when(db.list("SELECT id,nickname FROM users WHERE is_deleted=0 AND id IN (?)",7L)).thenReturn(Collections.singletonList(obj("id",7,"nickname","本地客户")));
+            String csv=new String(new FinanceExportController(db,mock(Access.class)).export(kind,"points".equals(kind)?7L:null,"payments".equals(kind)?1L:null,null).getBody(),StandardCharsets.UTF_8);
+            for(String header:csv.split("\r\n")[0].split(",")) assertTrue(header.matches("(?s).*[\\u4e00-\\u9fff].*"),kind+header);
+            if(java.util.Arrays.asList("receipts","points","cash-refunds","rewards","settlements").contains(kind)) { assertTrue(csv.contains("用户名称")); assertTrue(csv.contains("本地客户")); }
+            if("receipts".equals(kind)) { assertTrue(csv.contains("金额（分）")); assertTrue(csv.contains("14000")); }
+        }
+    }
+
+    @Test
     void eachKindRequiresItsOriginalBusinessPermissionBeforeQuery() throws Exception {
         String[][] cases = {
             {"receipts", "finance:manage"}, {"points", "finance:manage"},

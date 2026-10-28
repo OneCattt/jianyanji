@@ -74,10 +74,12 @@ public class OperationsExportController {
         }
         access.staff(permission);
         List<ObjectNode> rows = db.list(sql);
+        ExportColumns.names(db, rows);
+        keys = ExportColumns.keys(keys);
         StringBuilder csv = new StringBuilder("\uFEFF");
         for (int i = 0; i < keys.length; i++) {
             if (i > 0) csv.append(',');
-            csv.append(cell(keys[i]));
+            csv.append(cell(ExportColumns.label(keys[i])));
         }
         csv.append("\r\n");
         for (ObjectNode row : rows) {

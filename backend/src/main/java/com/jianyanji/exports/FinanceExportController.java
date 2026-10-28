@@ -135,8 +135,12 @@ public class FinanceExportController {
         }
         List<ObjectNode> rows =
                 db.list(sql.append(" ORDER BY t.id DESC LIMIT 200").toString(), args.toArray());
+        ExportColumns.names(db, rows);
+        keys = ExportColumns.keys(keys);
         StringBuilder csv = new StringBuilder("\uFEFF");
-        append(csv, Arrays.asList(keys));
+        List<String> headers = new ArrayList<>();
+        for (String key : keys) headers.add(ExportColumns.label(key));
+        append(csv, headers);
         for (ObjectNode row : rows) {
             List<String> values = new ArrayList<>();
             for (String key : keys) values.add(s(row, key));

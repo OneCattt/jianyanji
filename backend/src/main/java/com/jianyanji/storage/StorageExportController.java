@@ -5,6 +5,7 @@ import static com.jianyanji.common.J.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jianyanji.common.*;
+import com.jianyanji.exports.ExportColumns;
 import java.io.*;
 import java.util.*;
 import org.apache.poi.ss.usermodel.*;
@@ -105,6 +106,13 @@ public class StorageExportController {
                                         "入驻记录ID", "用户ID", "档位编码", "总数量", "实际消耗", "人工确认", "确认依据"
                                     };
                         }
+                        List<String> translated = new ArrayList<>();
+                        for (int c = 0; c < keys.length; c++) {
+                            translated.add(labels[c]);
+                            if ("user_id".equals(keys[c])) translated.add("用户名称");
+                        }
+                        keys = ExportColumns.keys(keys);
+                        labels = translated.toArray(new String[0]);
                         Row header = sheet.createRow(0);
                         for (int c = 0; c < labels.length; c++)
                             header.createCell(c).setCellValue(labels[c]);
@@ -129,7 +137,10 @@ public class StorageExportController {
                                                 ? new StorageService(db, access).lots(null, filters)
                                                 : new StorageService(db, access)
                                                         .pickups(null, filters);
-                            for (JsonNode item : result.path("items")) {
+                            List<ObjectNode> batch = new ArrayList<>();
+                            for (JsonNode item : result.path("items")) batch.add((ObjectNode) item);
+                            ExportColumns.names(db, batch);
+                            for (JsonNode item : batch) {
                                 if (row == 1048576) {
                                     sheet =
                                             workbook.createSheet(

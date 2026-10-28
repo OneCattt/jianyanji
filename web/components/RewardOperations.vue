@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useAdminUserNames } from "../admin-user-names";
+const userNames = useAdminUserNames();
+import AdminUserName from "./AdminUserName.vue";
 import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
 import { computed, onMounted, ref, useId } from "vue";
@@ -461,9 +464,10 @@ const debtColumns = [
               <template v-else-if="column.key === 'c1'"
                 ><div class="table-cell-content">
                   {{ r.orderNumber
-                  }}<small>奖励 #{{ r.id }} · 代理 #{{ r.userId }}</small>
-                </div></template
-              >
+                  }}<small
+                    >奖励 #{{ r.id }} · <AdminUserName :id="r.userId"
+                  /></small></div
+              ></template>
               <template v-else-if="column.key === 'c2'"
                 ><div class="table-cell-content">
                   ¥{{ amount(r.amountCents) }}
@@ -566,7 +570,9 @@ const debtColumns = [
             ><template v-if="column.key === 'c0'"
               ><div class="table-cell-content">
                 {{ s.month }} · {{ s.payee
-                }}<small>代理 #{{ s.user_id }} / 结算 #{{ s.id }}</small>
+                }}<small
+                  ><AdminUserName :id="s.user_id" /> / 结算 #{{ s.id }}</small
+                >
               </div></template
             >
             <template v-else-if="column.key === 'c1'"
@@ -642,7 +648,7 @@ const debtColumns = [
           ><template #bodyCell="{ column, record: d }"
             ><template v-if="column.key === 'c0'"
               ><div class="table-cell-content">
-                代理 #{{ d.user_id }} · 冲回 #{{ d.id
+                <AdminUserName :id="d.user_id" /> · 冲回 #{{ d.id
                 }}<small>原奖励 #{{ d.reward_id }}</small>
               </div></template
             >
@@ -706,8 +712,8 @@ const debtColumns = [
           detail.orderNumber
         }}</a-descriptions-item>
         <a-descriptions-item label="收益人"
-          >#{{ detail.userId }}</a-descriptions-item
-        >
+          ><AdminUserName :id="detail.userId"
+        /></a-descriptions-item>
         <a-descriptions-item label="原奖励"
           >¥{{ amount(detail.amountCents) }}</a-descriptions-item
         >
@@ -828,7 +834,7 @@ const debtColumns = [
                     ? "零售佣金"
                     : "店主订货收益"
               }}
-              · 收益人 #{{ basis.userId }}
+              · 收益人 <AdminUserName :id="basis.userId" />
             </p>
           </div>
           <div class="source-calculated-amount">
@@ -849,7 +855,7 @@ const debtColumns = [
               :key="candidate.userId"
               :value="candidate.userId"
             >
-              #{{ candidate.userId }} ·
+              {{ userNames.label(candidate.userId) }} ·
               {{
                 candidate.snapshot.beneficiaryRole === "principal"
                   ? "归属主理人"

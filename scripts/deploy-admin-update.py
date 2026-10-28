@@ -213,6 +213,8 @@ try:
                            ("/api/pickups/1", 401), ("/api/wallet", 401), ("/api/offers", 200), ("/api/admin/product-options?kind=sku", 401),
                            ("/api/admin/product-options?kind=lot&userId=1", 401),
                            ("/api/admin/user-options", 401),
+                           ("/api/admin/user-labels?ids=1", 401),
+                           ("/api/admin/users/1/address-options", 401),
                            ("/api/admin/user-options?identity=B", 401)]:
         try:
             with urllib.request.urlopen("http://127.0.0.1:3100" + path, timeout=5) as response:

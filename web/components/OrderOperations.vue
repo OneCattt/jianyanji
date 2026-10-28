@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminUserName from "./AdminUserName.vue";
 import { useAdminList } from "../useAdminList";
 import { computed, ref, watch } from "vue";
 import { api } from "../client";
@@ -451,8 +452,10 @@ function statusColor(value: string) {
         </div>
         <dl class="facts">
           <div>
-            <dt>订单 ID / 购买者 ID</dt>
-            <dd>{{ selected.id }} / {{ selected.user_id }}</dd>
+            <dt>订单编号 / 购买用户</dt>
+            <dd>
+              {{ selected.id }} / <AdminUserName :id="selected.user_id" />
+            </dd>
           </div>
           <div>
             <dt>业务类型</dt>
@@ -469,8 +472,8 @@ function statusColor(value: string) {
             </dd>
           </div>
           <div>
-            <dt>归属主理人 ID</dt>
-            <dd>{{ selected.snapshot.principalId ?? "—" }}</dd>
+            <dt>归属19800店主</dt>
+            <dd><AdminUserName :id="selected.snapshot.principalId" /></dd>
           </div>
           <div>
             <dt>收款 / 积分状态</dt>
@@ -686,8 +689,7 @@ function statusColor(value: string) {
                   time(order.create_time)
                 }}</small> </template
               ><template v-else-if="column.key === 'buyer'">
-                {{ order.user_id
-                }}<small class="cell-note">{{
+                <AdminUserName :id="order.user_id" /><small class="cell-note">{{
                   kindName(order.kind)
                 }}</small> </template
               ><template v-else-if="column.key === 'recipient'">{{

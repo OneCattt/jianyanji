@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AdminUserName from "./AdminUserName.vue";
+import { provideAdminUserNames } from "../admin-user-names";
 import AdminUserSelect from "./AdminUserSelect.vue";
 import { ref, computed, onMounted, h, watch } from "vue";
 import "../admin.css";
@@ -61,6 +63,17 @@ const me = ref<Staff | null>(null),
   busy = ref(false),
   error = ref(""),
   notice = ref("");
+const userNames = provideAdminUserNames(() => me.value?.id);
+function displayActor(event: Audit) {
+  return event.actor_kind === "user" && event.actor_id
+    ? userNames.label(event.actor_id, event.actor_name)
+    : auditActor(event);
+}
+function displayObject(event: Audit) {
+  return event.object_type === "user" && /^[1-9]\d*$/.test(event.object_id)
+    ? userNames.label(event.object_id, event.object_name || undefined)
+    : auditObject(event);
+}
 const refreshKey = ref(0);
 const username = ref(""),
   password = ref(""),
@@ -448,8 +461,7 @@ const staffColumns = [
   { title: "操作", key: "actions", width: 190 },
 ];
 const userColumns = [
-  { title: "用户编号", key: "id", width: 140 },
-  { title: "昵称", dataIndex: "nickname", key: "nickname", width: 200 },
+  { title: "用户 / 编号", key: "id", width: 230 },
   { title: "有效身份", key: "identity", width: 160 },
   { title: "联系电话", key: "phone", width: 180 },
 ];
@@ -764,10 +776,12 @@ async function changePage(value: number) {
             :scroll="{ x: 680 }"
             :locale="{ emptyText: '还没有用户登录' }"
             ><template #bodyCell="{ column, record }"
-              ><span v-if="column.key === 'id'" class="mono">{{
-                String(record.id).padStart(6, "0")
-              }}</span
-              ><a-tag v-else-if="column.key === 'identity'">{{
+              ><AdminUserName
+                v-if="column.key === 'id'"
+                :id="record.id"
+                :name="record.nickname"
+              />
+              <a-tag v-else-if="column.key === 'identity'">{{
                 record.identityName
               }}</a-tag
               ><span v-else-if="column.key === 'phone'">{{
@@ -831,12 +845,12 @@ async function changePage(value: number) {
                 new Date(record.create_time).toLocaleString("zh-CN")
               }}</span
               ><template v-else-if="column.key === 'actor'">{{
-                auditActor(record)
+                displayActor(record)
               }}</template
               ><template v-else-if="column.key === 'action'"
                 ><strong>{{ auditAction(record) }}</strong></template
               ><template v-else-if="column.key === 'object'">{{
-                auditObject(record)
+                displayObject(record)
               }}</template
               ><template v-else-if="column.key === 'result'"
                 ><a-tag
@@ -982,7 +996,7 @@ async function changePage(value: number) {
         </div>
         <div>
           <dt>操作者</dt>
-          <dd>{{ auditActor(selectedAudit) }}</dd>
+          <dd>{{ displayActor(selectedAudit) }}</dd>
         </div>
         <div>
           <dt>操作内容</dt>
@@ -990,7 +1004,7 @@ async function changePage(value: number) {
         </div>
         <div>
           <dt>操作对象</dt>
-          <dd>{{ auditObject(selectedAudit) }}</dd>
+          <dd>{{ displayObject(selectedAudit) }}</dd>
         </div>
         <div>
           <dt>处理结果</dt>
@@ -1025,7 +1039,12 @@ async function changePage(value: number) {
           <div>
             <dt>操作者编号</dt>
             <dd>
-              {{ selectedAudit.actor_kind }} · {{ selectedAudit.actor_id }}
+              {{ selectedAudit.actor_kind }} ·
+              <AdminUserName
+                v-if="selectedAudit.actor_kind === 'user'"
+                :id="selectedAudit.actor_id"
+                :name="selectedAudit.actor_name"
+              /><template v-else>{{ selectedAudit.actor_id }}</template>
             </dd>
           </div>
           <div>
@@ -1035,7 +1054,12 @@ async function changePage(value: number) {
           <div>
             <dt>对象编码</dt>
             <dd>
-              {{ selectedAudit.object_type }} · {{ selectedAudit.object_id }}
+              {{ selectedAudit.object_type }} ·
+              <AdminUserName
+                v-if="selectedAudit.object_type === 'user'"
+                :id="selectedAudit.object_id"
+                :name="selectedAudit.object_name || undefined"
+              /><template v-else>{{ selectedAudit.object_id }}</template>
             </dd>
           </div>
           <div>

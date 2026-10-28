@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useAdminUserNames } from "../admin-user-names";
+const userNames = useAdminUserNames();
+import AdminOrderLink from "./AdminOrderLink.vue";
+const sourceOrderOpen = ref(false);
 import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
 import { ref, onMounted, computed, watch } from "vue";
@@ -445,8 +449,7 @@ const actionNames: Record<string, string> = {
         <template #bodyCell="{ column, record: r }">
           <template v-if="column.key === 'number'">{{ r.number }}</template>
           <template v-else-if="column.key === 'order'"
-            >#{{ r.order_id
-            }}<small class="cell-note">{{
+            ><AdminOrderLink :id="r.order_id" /><small class="cell-note">{{
               r.kind === "package" ? "入驻产品包" : "商品订单"
             }}</small></template
           >
@@ -570,7 +573,7 @@ const actionNames: Record<string, string> = {
     <AdminDialog
       v-if="setupDialog"
       :title="setupDialog === 'policy' ? '编辑售后政策' : '客服受理商品售后'"
-      :busy="busy"
+      :busy="busy || sourceOrderOpen"
       :wide="setupDialog === 'create'"
       @close="!busy && (setupDialog = '')"
     >
@@ -632,7 +635,7 @@ const actionNames: Record<string, string> = {
             >
               <option :value="0" disabled>选择已付款订单</option>
               <option v-for="o in orderOptions" :key="o.id" :value="o.id">
-                {{ o.number }} · 用户{{ o.user_id }} ·
+                {{ o.number }} · {{ userNames.label(o.user_id) }} ·
                 {{ money(o.total_cents) }}
               </option>
             </AdminSelect></label
@@ -717,14 +720,16 @@ const actionNames: Record<string, string> = {
       v-if="selected && action"
       :drawer="['offline', 'inspect'].includes(action)"
       :title="actionNames[action] + ' · ' + selected.number"
-      :busy="busy"
+      :busy="busy || sourceOrderOpen"
       @close="!busy && (action = '')"
     >
       <AdminForm class="form-grid" @submit="submit">
         <a-descriptions class="wide-field" size="small" :column="2" bordered>
           <a-descriptions-item label="原订单"
-            >#{{ selected.order_id }}</a-descriptions-item
-          >
+            ><AdminOrderLink
+              :id="selected.order_id"
+              @open-change="sourceOrderOpen = $event"
+          /></a-descriptions-item>
           <a-descriptions-item label="申请退款金额">{{
             money(selected.total_cents)
           }}</a-descriptions-item>
