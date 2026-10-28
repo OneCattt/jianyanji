@@ -1,0 +1,15 @@
+{
+  "environment": "实际Vue页面，HTTP响应使用本地模拟数据",
+  "layout": {
+    "display": "flex",
+    "boxY": 335.59375,
+    "textY": 335.59375,
+    "nativeDates": 0,
+    "heights": [38, 38, 38, 38, 38, 38, 38]
+  },
+  "userSearch": "分页追加、关键词搜索、选择与清空筛选通过",
+  "responsive": [1565, 1024, 390],
+  "sharedScreens": ["订单与发货", "商品售后", "产品包与入驻", "品牌种草内容"],
+  "requiredValidation": "空选阻止提交，选择后清除错误，换用户清除旧钱包",
+  "errors": []
+}

@@ -1,0 +1,37 @@
+{
+  "commit": "3901030e67e29ad3e55f9ef8866a1577a0aa0cf8",
+  "publishedAt": "2026-10-28T12:32:36.661607+08:00",
+  "backup": "/var/backups/jianyanji/20261028T123226+0800-admin-search-3901030",
+  "services": ["active", "active"],
+  "apiPaused": false,
+  "filesVerified": true,
+  "businessCountsUnchanged": true,
+  "financialTotalsUnchanged": true,
+  "migrationVersions": "1,2,3,4,5,6,7,8,9,10,11,12,13,14",
+  "configChanges": false,
+  "httpsChecks": [
+    {
+      "path": "/admin",
+      "status": 200
+    },
+    {
+      "path": "/api/public/context",
+      "status": 200
+    },
+    {
+      "path": "/api/admin/user-options",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-options?identity=B",
+      "status": 401
+    }
+  ],
+  "externalPublicHttps": {
+    "status": 0,
+    "curlExit": 35,
+    "result": "本机访问公网连接重置，公网链路待实际网络验收"
+  },
+  "productionBusinessLoginVerified": false,
+  "miniprogramPublished": false
+}

@@ -1,0 +1,65 @@
+{
+  "environment": "最终提交JAR + 本机隔离MySQL + 真实HTTP登录会话，仅本地测试数据",
+  "checks": [
+    {
+      "path": "/admin/user-options",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "path": "/admin/user-options",
+      "status": 403,
+      "pass": true
+    },
+    {
+      "path": "/admin/user-options?page=3&pageSize=20",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "path": "/admin/user-options?id=144",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "path": "/admin/user-options?q=%E7%94%A8%E6%88%B7%E6%90%9C%E7%B4%A213a3219451664bf5a787822a7684ae345",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "path": "/admin/user-options?identity=B",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "path": "/admin/user-options?identity=agents",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "path": "/admin/user-options?id=185&identity=B",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "path": "/admin/user-options?q=%E7%BB%9D%E4%B8%8D%E5%AD%98%E5%9C%A8%E7%94%A8%E6%88%B7%25_!",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "path": "/admin/user-options?id=1%20OR%201=1",
+      "status": 400,
+      "pass": true
+    },
+    {
+      "path": "/admin/user-options?identity=staff",
+      "status": 400,
+      "pass": true
+    },
+    {
+      "path": "/public/context",
+      "status": 200,
+      "pass": true
+    }
+  ]
+}
