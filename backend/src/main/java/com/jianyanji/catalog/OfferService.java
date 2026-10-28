@@ -106,7 +106,7 @@ public class OfferService {
         for (JsonNode line : found.path("lines")) {
             ObjectNode sku =
                     db.one(
-                            "SELECT s.*,p.name AS product_name FROM skus s JOIN products p ON p.id=s.product_id AND p.is_deleted=0 WHERE s.id=? AND s.is_deleted=0",
+                            "SELECT s.*,p.name AS product_name,p.image AS product_image FROM skus s JOIN products p ON p.id=s.product_id AND p.is_deleted=0 WHERE s.id=? AND s.is_deleted=0",
                             l(line, "skuId"));
             if (sku == null) throw conflict("套餐原商品已不存在");
             long qty = Math.multiplyExact(count, l(line, "quantity"));
@@ -130,6 +130,8 @@ public class OfferService {
                             s(found, "name"),
                             "name",
                             s(sku, "product_name"),
+                            "image",
+                            s(sku, "product_image"),
                             "skuName",
                             s(sku, "name")));
         }
