@@ -13,4 +13,14 @@
 - 无数据库迁移和配置变化，V1～V14须与线上一致。部署前暂停API、备份数据库/旧应用/配置；失败仅回退应用，业务数据不整库回灌。发布后核对产物哈希、服务、匿名权限、迁移、全表行数与资金汇总。
 - 本地模拟不替代生产真实账号业务验收；公网访问独立探测。小程序未发布，工作区已有小程序改动不纳入此次提交。
 
-实际提交、产物、备份和部署验证结果在完成后补充。
+## 实际发布记录
+
+- 应用提交 `0ce7ee08692bacfc7ee4488b442e5f31248038c6` 已推送至 `origin/main`，后端和管理前端于2026-10-28 13:33:19（上海时间）部署。产物从该提交导出源码构建；既有寄存待发件数修复随当前基线保留。
+- Vue/TypeScript检查、19项搜索组件回归、Vite生产构建通过；正式生产产物的14项浏览器交互检查通过，包含复杂表单390px适配和嵌套裁切。后端显式JDK8 Maven verify，185项中174项通过、11项专用数据库集成测试跳过；用户搜索隔离MySQL回归实际执行。构建仍有既有主JS超过500kB提示。
+- 发布包SHA-256 `2e8fb5e6289d12a4db223404dfb1bb5625620242d7c24b2860ea15ee8bc65bd1`；JAR SHA-256 `11ee264df74665572540044692056eed34f5864af5205d3c54b987a7c0cb15c5`。线上HTML/JS/CSS及品牌资源均已逐个核对发布清单。
+- 发布目录 `/opt/jianyanji/releases/admin-search-0ce7ee0`；备份目录 `/var/backups/jianyanji/20261028T133310+0800-admin-search-0ce7ee0`，包含数据库、旧应用及运行配置。沿用既有部署脚本的目录命名。
+- `jianyanji`和`nginx`正常、API维护标记解除、开发认证关闭。服务器本机HTTPS后台及公开上下文200，匿名订单/提货/用户选项接口401。
+- V1～V14迁移未变，无新增迁移或配置变化；独立检查确认全部表行数、资金汇总和普通商品三档价格与备份前一致。
+- 本机公网HTTPS探测仍为curl 35连接重置，公网链路未验收；生产真实账号业务操作待运营验证。小程序未发布。
+- 证据：[产物清单](../../.scratch/admin-detail-drawers/bundle.json)、[构建产物浏览器验证](../../.scratch/admin-detail-drawers/packaged-browser-result.json)、[部署结果](../../.scratch/admin-detail-drawers/deployment-result.json)、[独立核对](../../.scratch/admin-detail-drawers/production-postcheck.json)。
+
