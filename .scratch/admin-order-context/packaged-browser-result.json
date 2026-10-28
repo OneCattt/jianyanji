@@ -1,0 +1,34 @@
+{
+  "commit": "5b8e30f851d7841aba1e22710fc6acc1c139a7b1",
+  "checks": [
+    "订单详情商品和分区",
+    "订单内打开配送",
+    "取消配送表单与固定底栏",
+    "取消成功后原订单未分配商品可发货",
+    "Escape返回原订单"
+  ],
+  "layouts": [
+    {
+      "drawers": [
+        {
+          "left": 240,
+          "right": 1280
+        }
+      ],
+      "overflow": false,
+      "width": 1280
+    },
+    {
+      "drawers": [
+        {
+          "left": 880,
+          "right": 1920
+        }
+      ],
+      "overflow": false,
+      "width": 1920
+    }
+  ],
+  "errors": [],
+  "data": "本地内存模拟API"
+}

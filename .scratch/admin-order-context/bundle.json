@@ -1,0 +1,29 @@
+{
+  "commit": "5b8e30f851d7841aba1e22710fc6acc1c139a7b1",
+  "archive": "/Users/jiangruliang/Documents/ChatGPT/jianyanji/artifacts/jianyanji-admin-search-5b8e30f.tar.gz",
+  "archiveSha256": "eb133e6922386f0cae648fc4539d1bd6928b6e705314f3e88f7cece957eaffce",
+  "files": {
+    "dist/index.html": "1ce8d9cbe9b59f5edae0f5a0c5c5a988f90902c3ffb5a074fc47d66a4e8dae2b",
+    "dist/brand/logo-horizontal-red.svg": "cfe315e54330cb0cb4cde5af9110c9a46f610f9af06b7087e060011500386c8d",
+    "dist/brand/app-icon.png": "60d9c1b6091b14e950a8bceab0601dbe7f08cd3400b4cd2f151b7552ffac9615",
+    "dist/brand/app-icon.svg": "e06f5104361b1a0f2972af5fd683778554600c8b55e06542e51f861b2b3a0d43",
+    "dist/assets/index-COLXg42z.js": "c25028429266b8d47b5b8b353dff87b4d39842ba36ab5be89e7f4b15b70d9e95",
+    "dist/assets/index-QAp7xi8d.css": "257e8fa598dfcf3f2455fe45133b61d3dbaaedcb257d1eb0edc54754f54dff7d",
+    "backend/jianyanji-api-0.1.0.jar": "1ac702d475605bc95f6e91aeb480bad9b4f5973955c3c0e7c13864bdefedf2c1"
+  },
+  "verification": {
+    "java": {
+      "tests": 191,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 13
+    },
+    "javaVersion": "1.8.0_452",
+    "backendClassesUnchanged": true,
+    "frontendPassed": 27,
+    "typecheck": "passed",
+    "viteBuild": "passed",
+    "packagedBrowserChecks": 5,
+    "browserData": "本地内存模拟API，无生产写入"
+  }
+}

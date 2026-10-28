@@ -1,0 +1,71 @@
+{
+  "commit": "5b8e30f851d7841aba1e22710fc6acc1c139a7b1",
+  "release": "/opt/jianyanji/releases/admin-search-5b8e30f",
+  "backup": "/var/backups/jianyanji/20261028T162313+0800-admin-search-5b8e30f",
+  "publishedAt": "2026-10-28T16:23:23.875771+08:00",
+  "migrations": [],
+  "previousMigrationsUnchanged": true,
+  "businessRowsPreserved": true,
+  "financialTotalsPreserved": true,
+  "files": {
+    "dist/index.html": "1ce8d9cbe9b59f5edae0f5a0c5c5a988f90902c3ffb5a074fc47d66a4e8dae2b",
+    "dist/brand/logo-horizontal-red.svg": "cfe315e54330cb0cb4cde5af9110c9a46f610f9af06b7087e060011500386c8d",
+    "dist/brand/app-icon.png": "60d9c1b6091b14e950a8bceab0601dbe7f08cd3400b4cd2f151b7552ffac9615",
+    "dist/brand/app-icon.svg": "e06f5104361b1a0f2972af5fd683778554600c8b55e06542e51f861b2b3a0d43",
+    "dist/assets/index-COLXg42z.js": "c25028429266b8d47b5b8b353dff87b4d39842ba36ab5be89e7f4b15b70d9e95",
+    "dist/assets/index-QAp7xi8d.css": "257e8fa598dfcf3f2455fe45133b61d3dbaaedcb257d1eb0edc54754f54dff7d",
+    "backend/jianyanji-api-0.1.0.jar": "1ac702d475605bc95f6e91aeb480bad9b4f5973955c3c0e7c13864bdefedf2c1"
+  },
+  "servicesActive": true,
+  "httpsArtifactHashesVerified": true,
+  "apiPaused": false,
+  "checks": [
+    {
+      "path": "/api/mini/storage",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/storage",
+      "status": 401
+    },
+    {
+      "path": "/api/pickups/1",
+      "status": 401
+    },
+    {
+      "path": "/api/wallet",
+      "status": 401
+    },
+    {
+      "path": "/api/offers",
+      "status": 200
+    },
+    {
+      "path": "/api/admin/product-options?kind=sku",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/product-options?kind=lot&userId=1",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-options",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-labels?ids=1",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/users/1/address-options",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-options?identity=B",
+      "status": 401
+    }
+  ],
+  "devAuth": false,
+  "wechatConfigured": true,
+  "miniprogramPublished": false
+}
