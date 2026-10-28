@@ -1,0 +1,75 @@
+{
+  "environment": "实际提交JAR + 本机隔离MySQL + 真实HTTP登录会话，仅本地测试数据",
+  "checks": [
+    {
+      "name": "匿名名称查询被拒绝",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "name": "匿名地址查询被拒绝",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "name": "无权限名称查询被拒绝",
+      "status": 403,
+      "pass": true
+    },
+    {
+      "name": "无权限地址查询被拒绝",
+      "status": 403,
+      "pass": true
+    },
+    {
+      "name": "去重名称仅返回编号及昵称，过滤已删除用户",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "非法名称编号被拒绝",
+      "status": 400,
+      "pass": true
+    },
+    {
+      "name": "名称批次超限被拒绝",
+      "status": 400,
+      "pass": true
+    },
+    {
+      "name": "首屏地址按默认优先且排除已删除和其他用户",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "地址第二页覆盖未加载内容",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "地址可按收货人搜索",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "不能搜索到其他用户地址",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "不能搜索到已删除地址",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "name": "地址非法页码被拒绝",
+      "status": 400,
+      "pass": true
+    },
+    {
+      "name": "开发认证关闭",
+      "status": 200,
+      "pass": true
+    }
+  ]
+}

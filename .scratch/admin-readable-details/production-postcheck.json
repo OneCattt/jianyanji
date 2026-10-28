@@ -1,0 +1,48 @@
+{
+  "commit": "5f713d933ba7fb92b5e4bd651e5fe11bdd87c3f6",
+  "publishedAt": "2026-10-28T14:27:41.864746+08:00",
+  "backup": "/var/backups/jianyanji/20261028T142731+0800-admin-search-5f713d9",
+  "services": [
+    "active",
+    "active"
+  ],
+  "apiPaused": false,
+  "filesVerified": true,
+  "businessCountsUnchanged": true,
+  "financialTotalsUnchanged": true,
+  "skuPricesUnchanged": true,
+  "migrationVersions": "1,2,3,4,5,6,7,8,9,10,11,12,13,14",
+  "configChanges": false,
+  "httpsChecks": [
+    {
+      "path": "/admin",
+      "status": 200
+    },
+    {
+      "path": "/api/public/context",
+      "status": 200
+    },
+    {
+      "path": "/api/admin/orders",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/pickups",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-options",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-labels?ids=1",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/users/1/address-options",
+      "status": 401
+    }
+  ],
+  "productionBusinessLoginVerified": false,
+  "miniprogramPublished": false
+}

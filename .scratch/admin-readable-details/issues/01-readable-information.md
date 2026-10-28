@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 # 详情排版、用户名称和地址选择
 
@@ -8,3 +8,4 @@ Status: ready-for-agent
 
 - 2026-10-28：合并三个连续截图要求，检查全部后台用户编号和人工提货地址入口。
 - 2026-10-28：六项需求已实现；类型检查、22项前端回归、18项浏览器交互和JDK8后端verify通过，隔离MySQL验证地址分页及隔离。准备从提交构建发布，生产账号业务验收保留待办。
+- 2026-10-28：应用`5f713d9`已提交推送并部署；从提交独立构建的前端18项浏览器、JAR14项真实HTTP检查通过，发布后产物、服务、数据与价格独立核对通过。待运营使用真实账号验收；当前电脑公网curl35连接重置。交付记录见`docs/development/admin-readable-details-delivery.md`。

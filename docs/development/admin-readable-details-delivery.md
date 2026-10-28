@@ -12,4 +12,11 @@
 
 ## 实际发布记录
 
-待按提交构建及部署后补充。
+- 应用提交`5f713d933ba7fb92b5e4bd651e5fe11bdd87c3f6`已推送至`origin/main`，后端与管理前端于2026-10-28 14:27:41（上海时间）部署。构建从该提交导出源码，与工作区未提交的小程序改动隔离。
+- 提交源码的类型检查、22项前端回归、Vite生产构建、18项生产前端产物浏览器检查通过。最终JAR的14项真实HTTP检查通过，使用隔离本机MySQL与临时本地账号，覆盖真实登录、匿名/无关权限拒绝、批量名称去重与最小响应、地址分页搜索和逻辑删除过滤。后端JDK8 verify结果191项、零失败、11项专用集成测试跳过；其中用户查询隔离MySQL回归已执行。
+- 发布包SHA-256：`64ff5632dfc7d564ce5f33c7aefdae8bde61451772fe194a26674ffac5548f86`。JAR SHA-256：`bae579cefaf0df9dae675c685deb737c289fb68c006ef238c8e58fa472aadf6a`。线上HTML/JS/CSS和品牌资源均与产物清单一致。构建有既有主JS超过500kB提示。
+- 发布目录：`/opt/jianyanji/releases/admin-search-5f713d9`；备份目录：`/var/backups/jianyanji/20261028T142731+0800-admin-search-5f713d9`，包含数据库、旧应用和运行配置。沿用既有部署脚本目录命名。
+- `jianyanji`与`nginx`正常，API维护标记解除，开发认证关闭。服务器本机HTTPS后台/公开上下文200，匿名订单、提货、用户选项、新名称与地址查询接口401。
+- 无新增迁移或配置变更，V1～V14一致。独立核对全部表行数、资金汇总、普通商品三档价格与发布前备份一致；无数据恢复操作。应用可按备份回退，数据库不需要整库恢复。
+- 当前电脑公网探测为curl35连接重置，公网链路未验收。生产账号的实际提货/发货及导出操作待运营验收；本轮不创建生产测试账号。小程序未发布。
+- 证据：[产物清单](../../.scratch/admin-readable-details/bundle.json)、[生产产物浏览器验证](../../.scratch/admin-readable-details/packaged-browser-result.json)、[JAR真实HTTP验证](../../.scratch/admin-readable-details/packaged-http-result.json)、[部署结果](../../.scratch/admin-readable-details/deployment-result.json)、[独立核对](../../.scratch/admin-readable-details/production-postcheck.json)。
