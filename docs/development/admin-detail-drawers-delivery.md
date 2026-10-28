@@ -23,4 +23,3 @@
 - V1～V14迁移未变，无新增迁移或配置变化；独立检查确认全部表行数、资金汇总和普通商品三档价格与备份前一致。
 - 本机公网HTTPS探测仍为curl 35连接重置，公网链路未验收；生产真实账号业务操作待运营验证。小程序未发布。
 - 证据：[产物清单](../../.scratch/admin-detail-drawers/bundle.json)、[构建产物浏览器验证](../../.scratch/admin-detail-drawers/packaged-browser-result.json)、[部署结果](../../.scratch/admin-detail-drawers/deployment-result.json)、[独立核对](../../.scratch/admin-detail-drawers/production-postcheck.json)。
-
