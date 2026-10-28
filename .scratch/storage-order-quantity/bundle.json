@@ -1,0 +1,46 @@
+{
+  "commit": "935f2779ba94bff7bc4be3e1e18f2f7d984bab25",
+  "archive": "artifacts/jianyanji-admin-search-935f277.tar.gz",
+  "archiveSha256": "f5cb2705195d22c81b4d43a181673236fcab1ad1dd2fd24b428529bed8f8782c",
+  "sourceArchiveSha256": "e05011897c9c6a7a0208e6ac20a4ae5a8a245e4344d7427e69b6590bddbe7761",
+  "files": {
+    "dist/index.html": "5c102a2db43d53034b364a5e023e2478a4a8004993b81926224ea5692daeabb2",
+    "dist/brand/logo-horizontal-red.svg": "cfe315e54330cb0cb4cde5af9110c9a46f610f9af06b7087e060011500386c8d",
+    "dist/brand/app-icon.png": "60d9c1b6091b14e950a8bceab0601dbe7f08cd3400b4cd2f151b7552ffac9615",
+    "dist/brand/app-icon.svg": "e06f5104361b1a0f2972af5fd683778554600c8b55e06542e51f861b2b3a0d43",
+    "dist/assets/index-BJZKRnp_.css": "fc377d14887e2f69a2e64e334b18d3d8b3f97df32418eb9b14707a445a1d09c8",
+    "dist/assets/index-Bd5Io1WK.js": "3b2c6a07b57d28d202183ce26bce1e296d88ee79c99c04ae00351f1931d5d952",
+    "backend/jianyanji-api-0.1.0.jar": "b5b7c382d1833dcfc5d9b27ad40b1d9eb7adca05db9f3fd1469ac93548cd0923"
+  },
+  "verification": {
+    "java": {
+      "tests": 207,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 11
+    },
+    "selectedSuites": {
+      "com.jianyanji.orders.OrderServiceTest": {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "com.jianyanji.storage.StorageMysqlTest": {
+        "tests": 23,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "com.jianyanji.mobile.MiniListTest": {
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "frontendRuntimeAndTemplateTests": 57,
+    "nativeMiniprogramCheck": "passed",
+    "frontendArtifact": "复用3901030已部署产物，已核对源码无变化且所有静态文件哈希一致"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "commit": "935f2779ba94bff7bc4be3e1e18f2f7d984bab25",
+  "release": "/opt/jianyanji/releases/admin-search-935f277",
+  "backup": "/var/backups/jianyanji/20261028T132716+0800-admin-search-935f277",
+  "publishedAt": "2026-10-28T13:27:26.682594+08:00",
+  "migrations": [],
+  "previousMigrationsUnchanged": true,
+  "businessRowsPreserved": true,
+  "financialTotalsPreserved": true,
+  "files": {
+    "dist/index.html": "5c102a2db43d53034b364a5e023e2478a4a8004993b81926224ea5692daeabb2",
+    "dist/brand/logo-horizontal-red.svg": "cfe315e54330cb0cb4cde5af9110c9a46f610f9af06b7087e060011500386c8d",
+    "dist/brand/app-icon.png": "60d9c1b6091b14e950a8bceab0601dbe7f08cd3400b4cd2f151b7552ffac9615",
+    "dist/brand/app-icon.svg": "e06f5104361b1a0f2972af5fd683778554600c8b55e06542e51f861b2b3a0d43",
+    "dist/assets/index-BJZKRnp_.css": "fc377d14887e2f69a2e64e334b18d3d8b3f97df32418eb9b14707a445a1d09c8",
+    "dist/assets/index-Bd5Io1WK.js": "3b2c6a07b57d28d202183ce26bce1e296d88ee79c99c04ae00351f1931d5d952",
+    "backend/jianyanji-api-0.1.0.jar": "b5b7c382d1833dcfc5d9b27ad40b1d9eb7adca05db9f3fd1469ac93548cd0923"
+  },
+  "servicesActive": true,
+  "httpsArtifactHashesVerified": true,
+  "apiPaused": false,
+  "checks": [
+    {
+      "path": "/api/mini/storage",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/storage",
+      "status": 401
+    },
+    {
+      "path": "/api/pickups/1",
+      "status": 401
+    },
+    {
+      "path": "/api/wallet",
+      "status": 401
+    },
+    {
+      "path": "/api/offers",
+      "status": 200
+    },
+    {
+      "path": "/api/admin/product-options?kind=sku",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/product-options?kind=lot&userId=1",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-options",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-options?identity=B",
+      "status": 401
+    }
+  ],
+  "devAuth": false,
+  "wechatConfigured": true,
+  "miniprogramPublished": false
+}
