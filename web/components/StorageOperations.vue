@@ -21,6 +21,9 @@ interface Row {
   available_qty?: number;
   total_qty?: number;
   total_shipped_qty?: number;
+  newGoodsQuantity?: number;
+  storedGoodsQuantity?: number;
+  shipped_qty?: number;
   held_qty?: number;
   starts_on?: string;
   expires_on?: string;
@@ -57,9 +60,13 @@ interface Row {
     is_gift: boolean;
   }[];
 }
-const props = defineProps<{ staff: Staff }>();
+const props = defineProps<{
+  staff: Staff;
+  pickup?: { id: number; number: string };
+}>();
+const pickupFilter = ref(props.pickup?.number || "");
 const sourceKind = ref("");
-const tab = ref("lots"),
+const tab = ref(props.pickup ? "pickups" : "lots"),
   userId = ref(""),
   skuId = ref(0),
   from = ref(""),
@@ -110,6 +117,7 @@ const states: Record<string, string> = {
   sending: "发送中",
 };
 const filters = () => ({
+  q: tab.value === "pickups" ? pickupFilter.value : "",
   kind: tab.value === "lots" ? sourceKind.value : "",
   userId: userId.value,
   skuId: tab.value === "lots" && skuId.value ? String(skuId.value) : "",
@@ -129,7 +137,16 @@ async function reload() {
     error.value = (e as Error).message;
   }
 }
-onMounted(reload);
+onMounted(async () => {
+  await reload();
+  if (props.pickup) {
+    try {
+      await detail({ id: props.pickup.id });
+    } catch (e) {
+      error.value = (e as Error).message;
+    }
+  }
+});
 function open(kind: string, row?: Row) {
   lineId.value = 0;
   manualItems.value = [{ lotId: 0, quantity: 1 }];
@@ -252,7 +269,7 @@ function submit() {
     }
   });
 }
-async function detail(row: Row) {
+async function detail(row: Pick<Row, "id">) {
   try {
     selected.value = await api<Row>(`/admin/pickups/${row.id}`);
     operation.value = "detail";
@@ -322,6 +339,14 @@ const columns = computed(() =>
       ><ARadioButton value="messages">到期与消息</ARadioButton></ARadioGroup
     >
     <div class="storage-filters">
+      <a-button
+        v-if="tab === 'pickups' && pickupFilter"
+        @click="
+          pickupFilter = '';
+          reload();
+        "
+        >查看全部配送单</a-button
+      >
       <label
         >用户ID<a-input v-model:value="userId" placeholder="全部用户" /></label
       ><template v-if="tab === 'lots'"
@@ -394,9 +419,9 @@ const columns = computed(() =>
         >
         <template v-else-if="column.key === 'quantity'"
           ><template v-if="tab === 'lots'"
-            >购买总量 {{ record.purchased_qty }}（寄存 {{ record.total_qty }}）
-            / 已发 {{ record.total_shipped_qty }} / 剩余
-            {{ record.remaining_qty }} / 占用 {{ record.held_qty }} / 可提
+            >寄存总量 {{ record.total_qty }} / 寄存已提
+            {{ record.shipped_qty }} / 剩余寄存 {{ record.remaining_qty }} /
+            占用 {{ record.held_qty }} / 可提
             {{ record.available_qty }}</template
           ><template v-else
             >{{ record.consumed_qty }} / {{ record.total_qty }}</template
@@ -518,9 +543,38 @@ const columns = computed(() =>
             item.quantity
           }}{{ item.is_gift ? "（赠品）" : "" }}
         </p>
-        <p>{{ selected?.review_reason }}</p></template
-      >
+        <p>{{ selected?.review_reason }}</p>
+        <a-space v-if="canOperate && selected" wrap>
+          <a-button
+            v-if="selected.status === 'review'"
+            @click="open('approve', selected)"
+            >审核通过</a-button
+          >
+          <a-button
+            v-if="selected.status === 'review'"
+            @click="open('reject', selected)"
+            >驳回</a-button
+          >
+          <a-button
+            v-if="selected.status === 'approved'"
+            type="primary"
+            @click="open('ship', selected)"
+            >登记本次配送发货</a-button
+          >
+          <a-button
+            v-if="['review', 'approved'].includes(selected.status || '')"
+            @click="open('cancel', selected)"
+            >取消本次配送</a-button
+          >
+        </a-space>
+      </template>
       <AdminForm v-else class="storage-form config-form" @submit="submit">
+        <p v-if="operation === 'cancel' || operation === 'reject'">
+          取消或驳回仅释放寄存提货占用并退本次运费，商品货款不退款。
+          <span v-if="selected?.newGoodsQuantity"
+            >新购商品继续保留在原订单，未发部分从订单管理安排配送，不自动转寄存。</span
+          >
+        </p>
         <label v-if="operation === 'extend'"
           >新到期日<input v-model="expiry" type="date" required
         /></label>

@@ -121,6 +121,7 @@ public class OrderService {
                         db.list(
                                 "SELECT DISTINCT p.id,p.number,p.status FROM pickup_orders p JOIN pickup_lines pl ON pl.pickup_id=p.id AND pl.is_deleted=0 JOIN order_lines ol ON ol.id=pl.line_id AND ol.is_deleted=0 WHERE ol.order_id=? AND p.is_deleted=0 ORDER BY p.id",
                                 l(order, "id"))));
+        OrderFulfillment.describe(result);
         return result;
     }
 

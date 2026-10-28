@@ -86,6 +86,13 @@ public class StorageService {
                                 "SELECT pl.*,ol.order_id,ol.sku_id,ol.is_gift,ol.unit_cents,p.name,s.name AS sku_name,s.unit,o.snapshot AS source_snapshot FROM pickup_lines pl JOIN order_lines ol ON ol.id=pl.line_id AND ol.is_deleted=0 JOIN orders o ON o.id=ol.order_id AND o.is_deleted=0 LEFT JOIN skus s ON s.id=ol.sku_id AND s.is_deleted=0 LEFT JOIN products p ON p.id=s.product_id AND p.is_deleted=0 WHERE pl.pickup_id=? AND pl.is_deleted=0 ORDER BY pl.id",
                                 l(pickup, "id"))));
         for (JsonNode line : result.path("lines")) historicalName((ObjectNode) line);
+        long fresh = 0, stored = 0;
+        for (JsonNode line : result.path("lines")) {
+            if (has(line, "lot_id")) stored += l(line, "quantity");
+            else fresh += l(line, "quantity");
+        }
+        result.put("newGoodsQuantity", fresh);
+        result.put("storedGoodsQuantity", stored);
         return result;
     }
     /** 按原成交快照展示历史名称，商品下架或逻辑删除不隐藏提货记录。 */

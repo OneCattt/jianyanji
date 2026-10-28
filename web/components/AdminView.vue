@@ -83,6 +83,7 @@ const form = ref({
 });
 const menuExpanded = ref(false);
 const selectedAudit = ref<Audit | null>(null);
+const focusedPickup = ref<{ id: number; number: string }>();
 const navigation = [
   {
     key: "storage",
@@ -875,7 +876,11 @@ async function changePage(value: number) {
           :disabled="busy"
           @change="changePage"
         />
-        <StorageOperations v-if="section === 'storage'" :staff="me" />
+        <StorageOperations
+          v-if="section === 'storage'"
+          :staff="me"
+          :pickup="focusedPickup"
+        />
         <CommerceConfiguration v-if="section === 'commerce'" :staff="me" />
         <OrderOperations
           v-if="section === 'shipping'"
@@ -887,6 +892,12 @@ async function changePage(value: number) {
           :key="section + ':' + refreshKey"
           :finance-only="section === 'receipts'"
           :can-finance="me.permissions.includes('finance:manage')"
+          @open-pickup="
+            (pickup) => {
+              focusedPickup = pickup;
+              section = 'storage';
+            }
+          "
         />
         <AfterSalesOperations
           v-if="['aftersales', 'orderrefunds'].includes(section)"

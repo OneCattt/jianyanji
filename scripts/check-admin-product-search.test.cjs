@@ -323,3 +323,41 @@ test("卸载组件后迟到请求不写入状态", async () => {
   await request;
   assert.equal(p.state.rows.value.length, 0);
 });
+
+test("订单配送入口识别有效提货占用，取消后新购仍可直接发货", async () => {
+  const line = {
+    id: 11,
+    sku_id: 1,
+    quantity: 3,
+    shipped_qty: 0,
+    refunded_unshipped: 0,
+    held_unshipped: 0,
+    storage_remaining: 2,
+    pickup_held: 1,
+  };
+  const order = {
+    id: 7,
+    status: "paid",
+    payment_state: "paid",
+    lines: [line],
+    snapshot: { lines: [] },
+    pickups: [{ id: 9, number: "TH9", status: "approved" }],
+  };
+  const { state, stop } = setup(
+    "PaymentOperations",
+    { financeOnly: false },
+    async () => ({ order: structuredClone(order) }),
+  );
+  try {
+    await state.select(7);
+    assert.equal(state.canShip.value, false);
+    assert.equal(state.activePickups.value[0].id, 9);
+    line.pickup_held = 0;
+    order.pickups[0].status = "cancelled";
+    await state.select(7);
+    assert.equal(state.canShip.value, true);
+    assert.equal(state.activePickups.value.length, 0);
+  } finally {
+    stop();
+  }
+});

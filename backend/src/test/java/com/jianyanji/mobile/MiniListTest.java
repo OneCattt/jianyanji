@@ -200,7 +200,8 @@ class MiniListTest {
         verify(orders).expireForUser(7L);
         verify(orders, never()).expire();
         assertTrue(queries.get(0).contains("user_id=?"));
-        assertTrue(queries.get(0).contains("status IN ('paid','awaiting_shipment')"));
+        assertTrue(queries.get(0).contains("remaining_qty"));
+        assertTrue(queries.get(0).contains("pickup_orders"));
         assertArrayEquals(new Object[] {7L, 21, 20}, arguments.get(0));
         service.mine("refunds", obj("id", 7), 1, 20, 0, 99L);
         assertTrue(queries.get(1).contains("o.user_id=?"));

@@ -11,6 +11,9 @@ const props = withDefaults(
   defineProps<{ financeOnly?: boolean; canFinance?: boolean }>(),
   { financeOnly: false, canFinance: false },
 );
+const emit = defineEmits<{
+  "open-pickup": [pickup: { id: number; number: string }];
+}>();
 interface OrderLine {
   id: number;
   sku_id: number;
@@ -34,6 +37,11 @@ interface Shipment {
   lines: { lineId: number; quantity: number }[];
 }
 interface Order {
+  fulfillmentText?: string;
+  fulfillmentState?: string;
+  storageRemainingQty?: number;
+  directShipQuantity?: number;
+  pickups?: { id: number; number: string; status: string }[];
   id: number;
   number: string;
   kind: string;
@@ -164,7 +172,14 @@ const canShip = computed(
   () =>
     selected.value &&
     ["paid", "partially_refunded"].includes(selected.value.payment_state) &&
-    ["paid", "awaiting_shipment", "shipped"].includes(selected.value.status),
+    ["paid", "awaiting_shipment", "shipped"].includes(selected.value.status) &&
+    selected.value.lines.some((line) => remaining(line) > 0),
+);
+const activePickups = computed(
+  () =>
+    selected.value?.pickups?.filter((pickup) =>
+      ["review", "approved"].includes(pickup.status),
+    ) || [],
 );
 const canCollect = computed(() => false);
 
@@ -490,7 +505,7 @@ function statusColor(value: string) {
               > </template
             ><template v-else-if="column.key === 'fulfillment'">
               <a-tag :color="statusColor(o.status)">{{
-                labels[o.status] || o.status
+                o.fulfillmentText || labels[o.status] || o.status
               }}</a-tag
               ><small class="cell-note" v-if="o.received_at"
                 >收货完成 {{ o.received_at }}</small
@@ -565,6 +580,20 @@ function statusColor(value: string) {
       </section>
       <template v-if="!props.financeOnly">
         <section class="detail-section">
+          <p v-if="selected.storageRemainingQty">
+            剩余寄存
+            {{
+              selected.storageRemainingQty
+            }}
+            件；留仓货品须通过提货申请安排配送。
+          </p>
+          <p v-for="pickup in activePickups" :key="pickup.id">
+            {{ pickup.status === "review" ? "待审核配送" : "待发货配送" }}
+            {{ pickup.number }}
+            <a-button @click="emit('open-pickup', pickup)"
+              >办理本次配送</a-button
+            >
+          </p>
           <a-button
             html-type="button"
             type="primary"
@@ -573,7 +602,12 @@ function statusColor(value: string) {
             @click="openShipment"
             >登记品牌仓发货</a-button
           >
-          <p v-else>当前订单不允许新增发货；未付款订单须先由客户扣积分支付。</p>
+          <p v-else-if="!activePickups.length && !selected.storageRemainingQty">
+            当前没有可直接发货数量；未付款订单须先由客户扣积分支付。
+          </p>
+          <p v-if="canShip">
+            本入口处理原订单未分配到有效配送单的货品，包含取消配送后保留的新购未发货商品。
+          </p>
         </section>
         <section class="detail-section">
           <h4>包裹与收货记录</h4>

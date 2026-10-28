@@ -193,6 +193,53 @@ class StorageMysqlTest {
     }
 
     @Test
+    void storageStatusFollowsActualParcelsAndFiltersBeforePagination() {
+        credit(100000, id());
+        ObjectNode order = purchase(3, 0);
+        long orderId = l(order, "id");
+        assertEquals("stored", s(orders.view(orders.owned(orderId, user)), "fulfillmentState"));
+        com.jianyanji.mobile.MiniListService lists =
+                new com.jianyanji.mobile.MiniListService(db, catalog, orders, aftersales, membership, null, wallet);
+        assertEquals(0, lists.mine("orders", buyer(), 1, 1, 2, null).path("items").size());
+        assertEquals(orderId, l(lists.mine("orders", buyer(), 1, 1, 5, null).path("items").get(0), "id"));
+        assertEquals(0, l(lists.orderCounts(user), "paid"));
+        ObjectNode pickup = submit(arr(obj("lotId", lot(orderId), "quantity", 1)));
+        assertEquals("awaiting_shipment", s(orders.view(orders.owned(orderId, user)), "fulfillmentState"));
+        assertEquals(1, l(lists.orderCounts(user), "paid"));
+        ship(l(pickup, "id"));
+        assertEquals("shipped", s(orders.view(orders.owned(orderId, user)), "fulfillmentState"));
+        storage.receive(l(pickup, "id"), user);
+        ObjectNode stored = orders.view(orders.owned(orderId, user));
+        assertEquals("stored", s(stored, "fulfillmentState"));
+        assertEquals(2, l(stored, "storageRemainingQty"));
+        assertEquals(0, lists.mine("orders", buyer(), 1, 1, 3, null).path("items").size());
+        assertEquals(0, l(lists.orderCounts(user), "shipped"));
+    }
+
+    @Test
+    void cancellingCombinedDeliveryKeepsNewGoodsAvailableForOrdinaryShipping() {
+        credit(100000, id());
+        ObjectNode first = purchase(3, 0);
+        long lotId = lot(l(first, "id"));
+        ObjectNode fresh = create(2, 1, arr(obj("lotId", lotId, "quantity", 1)));
+        long orderId = l(fresh, "id");
+        wallet.payWithPoints(user, orderId);
+        ObjectNode pickup = db.one("SELECT * FROM pickup_orders WHERE purchase_order_id=? AND is_deleted=0", orderId);
+        ObjectNode cancelled = storage.cancel(l(pickup, "id"), user, user, "取消合并配送", false);
+        assertEquals(1, l(cancelled, "newGoodsQuantity"));
+        assertEquals(1, l(cancelled, "storedGoodsQuantity"));
+        assertEquals(0, l(db.one("SELECT held_qty FROM storage_lots WHERE id=?", lotId), "held_qty"));
+        FulfillmentService fulfillment = new FulfillmentService(db, orders, access);
+        ObjectNode line = fulfillment.shippableLines(orderId).get(0);
+        assertEquals(1, l(line, "remaining"));
+        assertEquals(1, l(orders.view(orders.owned(orderId, user)), "directShipQuantity"));
+        storage.cancel(l(pickup, "id"), user, user, "重复取消", false);
+        fulfillment.ship(orderId, obj("carrier", "测试快递", "tracking", "CANCEL1234", "reason", "继续配送已购新货", "requestKey", "ship-" + id(), "lines", arr(obj("lineId", l(line, "id"), "quantity", 1))), 1);
+        assertEquals(1, l(db.one("SELECT shipped_qty FROM order_lines WHERE id=?", l(line, "id")), "shipped_qty"));
+        assertEquals(1, l(db.one("SELECT remaining_qty FROM storage_lots WHERE order_id=?", orderId), "remaining_qty"));
+    }
+
+    @Test
     void ordinaryCustomerRechargeIdempotentAndStorageOwnership() {
         String key = id();
         credit(50000, key);

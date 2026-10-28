@@ -29,6 +29,7 @@ interface Order {
   user_id: number;
   kind: string;
   status: string;
+  fulfillmentText?: string;
   payment_method: string | null;
   payment_state: string;
   total_cents: number;
@@ -443,7 +444,9 @@ function statusColor(value: string) {
             <h3>{{ selected.number }}</h3>
           </div>
           <a-tag :color="statusColor(selected.status)">{{
-            orderStates[selected.status] ?? selected.status
+            selected.fulfillmentText ||
+            orderStates[selected.status] ||
+            selected.status
           }}</a-tag>
         </div>
         <dl class="facts">
@@ -692,7 +695,9 @@ function statusColor(value: string) {
               }}</template
               ><template v-else-if="column.key === 'status'">
                 <a-tag :color="statusColor(order.status)">{{
-                  orderStates[order.status] ?? order.status
+                  order.fulfillmentText ||
+                  orderStates[order.status] ||
+                  order.status
                 }}</a-tag> </template
               ><template v-else-if="column.key === 'payment'">
                 <a-tag :color="statusColor(order.payment_state)">{{

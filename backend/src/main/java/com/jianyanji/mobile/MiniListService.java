@@ -9,6 +9,7 @@ import com.jianyanji.catalog.CatalogService;
 import com.jianyanji.common.*;
 import com.jianyanji.membership.MembershipService;
 import com.jianyanji.orders.OrderService;
+import com.jianyanji.orders.OrderFulfillment;
 import com.jianyanji.rewards.RewardService;
 import com.jianyanji.wallet.WalletService;
 import java.util.*;
@@ -128,16 +129,17 @@ public class MiniListService {
         Function<ObjectNode, ObjectNode> view = Function.identity();
         switch (kind) {
             case "orders":
-                Input.require(tab >= 0 && tab <= 4, "订单筛选无效");
+                Input.require(tab >= 0 && tab <= 5, "订单筛选无效");
                 orders.expireForUser(uid);
                 sql = "SELECT * FROM orders WHERE user_id=? AND is_deleted=0";
                 sql +=
                         new String[] {
                                     "",
                                     " AND status='pending'",
-                                    " AND status IN ('paid','awaiting_shipment')",
-                                    " AND status='shipped'",
-                                    " AND status='completed'"
+                                    " AND " + OrderFulfillment.condition(2),
+                                    " AND " + OrderFulfillment.condition(3),
+                                    " AND status='completed'",
+                                    " AND " + OrderFulfillment.condition(5)
                                 }
                                 [tab];
                 sql += " ORDER BY id DESC";
@@ -256,8 +258,8 @@ public class MiniListService {
     public ObjectNode orderCounts(long uid) {
         return db.one(
                 "SELECT COALESCE(SUM(status='pending' AND (payment_state NOT IN ('unpaid','failed') OR expires_at>=?)),0) AS pending,"
-                        + "COALESCE(SUM(status IN ('paid','awaiting_shipment')),0) AS paid,"
-                        + "COALESCE(SUM(status='shipped'),0) AS shipped,COALESCE(SUM(status='completed'),0) AS completed"
+                        + "COALESCE(SUM(" + OrderFulfillment.condition(2) + "),0) AS paid,"
+                        + "COALESCE(SUM(" + OrderFulfillment.condition(3) + "),0) AS shipped,COALESCE(SUM(status='completed'),0) AS completed"
                         + " FROM orders WHERE user_id=? AND is_deleted=0",
                 now(),
                 uid);
