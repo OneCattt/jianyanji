@@ -378,37 +378,19 @@ const actionNames: Record<string, string> = {
 <template>
   <section class="aftersales" :aria-busy="busy">
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
-    <div v-if="props.canManage" class="setup-panels">
-      <a-card size="small" class="setup-panel">
-        <div class="section-heading">
-          <h3>售后政策</h3>
-          <a-button
-            html-type="button"
-            :disabled="busy"
-            @click="openSetup('policy')"
-          >
-            编辑售后政策
-          </a-button>
-        </div>
-        <p>收货后 {{ policy.days }} 天可申请售后。</p>
-        <p>{{ policy.policy || "暂未配置售后政策" }}</p>
-        <p>新政策只用于新交易；历史订单保留购买时的政策。</p>
-      </a-card>
-      <a-card size="small" class="setup-panel">
-        <div class="section-heading">
-          <h3>客服受理商品售后</h3>
-          <a-button
-            html-type="button"
-            type="primary"
-            :disabled="busy"
-            @click="openSetup('create')"
-          >
-            新增售后受理
-          </a-button>
-        </div>
-        <p>选择原订单，登记退款商品与受理原因。</p>
-      </a-card>
-    </div>
+    <Teleport v-if="props.canManage" defer to="#admin-page-actions">
+      <a-button :disabled="busy" @click="openSetup('policy')"
+        >编辑售后政策</a-button
+      >
+      <a-button type="primary" :disabled="busy" @click="openSetup('create')"
+        >新增售后受理</a-button
+      >
+    </Teleport>
+    <details v-if="props.canManage" class="aftersales-policy">
+      <summary>售后政策 · 收货后 {{ policy.days }} 天可申请售后</summary>
+      <p>{{ policy.policy || "暂未配置售后政策" }}</p>
+      <p>新政策只用于新交易；历史订单保留购买时的政策。</p>
+    </details>
     <a-card size="small" class="refund-list">
       <header class="section-heading">
         <div>
@@ -824,14 +806,20 @@ const actionNames: Record<string, string> = {
   gap: 16px;
   min-width: 0;
 }
-.setup-panels {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-  gap: 16px;
-  min-width: 0;
+.aftersales-policy {
+  padding: 14px 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
 }
-.setup-panel,
+.aftersales-policy summary {
+  cursor: pointer;
+  color: var(--admin-muted);
+}
+.aftersales-policy p {
+  margin-top: 10px;
+}
 .refund-list {
   min-width: 0;
 }
@@ -852,7 +840,6 @@ h3 {
   font-size: 15px;
   line-height: 1.5;
 }
-.setup-panel p,
 .refund-details p {
   margin: 8px 0;
   line-height: 1.7;
@@ -918,11 +905,6 @@ h3 {
   gap: 8px;
   grid-column: 1 / -1;
   margin-top: 4px;
-}
-@media (max-width: 900px) {
-  .setup-panels {
-    grid-template-columns: 1fr;
-  }
 }
 @media (max-width: 650px) {
   .filters,

@@ -14,10 +14,12 @@ export const adminTheme = {
       '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
   },
   components: {
-    Table: { padding: 14, colorFillAlter: "#fafbfc" },
+    Table: { padding: 14, colorFillAlter: "#f5f6f8", headerColor: "#687080" },
+    Card: { paddingLG: 24, headerHeight: 52, boxShadowTertiary: "none" },
     Menu: {
-      controlHeightLG: 42,
-      itemMarginInline: 8,
+      controlHeightLG: 38,
+      itemHeight: 38,
+      itemMarginInline: 12,
       colorItemBgSelected: "#f7edf0",
       colorItemTextSelected: "#8d2638",
     },

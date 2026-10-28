@@ -10,6 +10,8 @@ import AdminForm from "./AdminForm.vue";
 import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
+import { ShoppingBag } from "lucide-vue-next";
+import { imageUrl } from "../image-url";
 const props = withDefaults(
   defineProps<{ financeOnly?: boolean; canFinance?: boolean }>(),
   { financeOnly: false, canFinance: false },
@@ -53,6 +55,7 @@ interface Order {
   payment_state: string;
   payment_method: string | null;
   total_cents: number;
+  create_time?: string;
   received_at: string | null;
   snapshot: {
     address: {
@@ -63,7 +66,14 @@ interface Order {
       district: string;
       detail: string;
     };
-    lines: { skuId: number; name: string; skuName: string }[];
+    lines: {
+      skuId: number;
+      name: string;
+      skuName: string;
+      quantity?: number;
+      image?: string;
+      isGift?: boolean;
+    }[];
   };
   lines: OrderLine[];
   shipments: Shipment[];
@@ -192,6 +202,32 @@ const methodNames: Record<string, string> = {
   wechat: "历史微信支付",
 };
 const money = (v: number) => (v / 100).toFixed(2);
+const statusTabs = [
+  { key: "", tab: "全部订单" },
+  { key: "pending", tab: "待支付" },
+  { key: "paid", tab: "已支付" },
+  { key: "shipped", tab: "已发货" },
+  { key: "completed", tab: "已完成" },
+  { key: "refunded", tab: "已退款" },
+  { key: "closed", tab: "已关闭" },
+];
+// 筛选沿用服务端原订单状态，寄存和待审核配送由每单的实际履约信息展示。
+const filterLabels = {
+  ...labels,
+  pending: "待支付",
+  paid: "已支付",
+  shipped: "已发货",
+};
+function orderTime(value?: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString("zh-CN", {
+        hour12: false,
+        timeZone: "Asia/Shanghai",
+      });
+}
 const remaining = (l: OrderLine) =>
   l.quantity -
   l.shipped_qty -
@@ -458,39 +494,174 @@ function statusColor(value: string) {
   <section class="payment-operations" :aria-busy="busy">
     <FeedbackToast v-model:notice="notice" v-model:error="error" />
     <a-card size="small" class="order-list">
-      <header class="section-heading">
-        <div>
-          <h3>
-            {{ props.financeOnly ? "订单积分支付记录" : "收款与履约订单" }}
-          </h3>
-          <p>
-            {{
-              props.financeOnly
-                ? "全部客户使用积分购买；私域充值请在积分管理核实到账。"
-                : "核对线下收款或积分扣款结果，登记品牌仓发货与物流纠正。"
-            }}
-          </p>
-        </div>
+      <header class="order-list-toolbar">
+        <a-tabs
+          v-model:active-key="status"
+          :animated="false"
+          class="order-status-tabs"
+          aria-label="订单状态"
+        >
+          <a-tab-pane
+            v-for="item in statusTabs"
+            :key="item.key"
+            :tab="item.tab"
+          />
+        </a-tabs>
         <span class="list-count">共 {{ orderTotal }} 笔订单</span>
       </header>
       <AdminFilterBar @submit="act(load)">
-        <label class="field"
+        <label class="field order-search"
           >搜索订单 / 商品<a-input
             v-model:value="query"
             placeholder="商品名称、规格、订单号或用户编号"
             :disabled="busy" /></label
         ><label class="field"
-          >履约状态<AdminSelect v-model="status" :disabled="busy">
+          >订单状态<AdminSelect v-model="status" :disabled="busy">
             <option value="">全部状态</option>
-            <option v-for="(label, key) in labels" :key="key" :value="key">
+            <option
+              v-for="(label, key) in filterLabels"
+              :key="key"
+              :value="key"
+            >
               {{ label }}
             </option>
           </AdminSelect></label
-        ><a-button html-type="submit" :disabled="busy" :loading="busy"
-          >刷新订单</a-button
-        >
+        ><template #actions
+          ><a-button
+            html-type="submit"
+            type="primary"
+            :disabled="busy"
+            :loading="busy || listLoading"
+            >查询订单</a-button
+          >
+          <a-button
+            v-if="query || status"
+            :disabled="busy"
+            @click="
+              query = '';
+              status = '';
+            "
+            >重置</a-button
+          >
+        </template>
       </AdminFilterBar>
-      <div class="table-wrap">
+      <template v-if="!props.financeOnly">
+        <div class="order-grid-heading" aria-hidden="true">
+          <span>商品 / 购买者</span><span>订单金额</span><span>履约与支付</span
+          ><span>操作</span>
+        </div>
+        <a-spin :spinning="busy || listLoading">
+          <div class="mall-orders" :aria-busy="busy || listLoading">
+            <article
+              v-for="o in visible"
+              :key="o.id"
+              class="mall-order"
+              :aria-label="`订单 ${o.number}`"
+            >
+              <header class="mall-order-meta">
+                <time v-if="o.create_time">{{ orderTime(o.create_time) }}</time>
+                <span class="mall-order-number"
+                  >订单号 <strong>{{ o.number }}</strong></span
+                >
+                <span class="mall-order-kind">{{
+                  o.kind === "package" ? "入驻产品包" : "商品订单"
+                }}</span>
+              </header>
+              <div class="mall-order-body">
+                <div class="mall-order-products">
+                  <div class="mall-order-buyer">
+                    <span>购买者</span><AdminUserName :id="o.user_id" />
+                  </div>
+                  <div
+                    v-for="(line, index) in o.snapshot.lines"
+                    :key="index"
+                    class="mall-order-product"
+                  >
+                    <div class="mall-product-image">
+                      <img
+                        v-if="line.image"
+                        :src="imageUrl(line.image, 'thumb')"
+                        :alt="line.name"
+                        width="64"
+                        height="64"
+                        loading="lazy"
+                      />
+                      <ShoppingBag v-else :size="24" aria-hidden="true" />
+                    </div>
+                    <div class="mall-product-copy">
+                      <strong>{{ line.name }}</strong>
+                      <span class="cell-note"
+                        >{{ line.skuName
+                        }}<template v-if="line.quantity !== undefined">
+                          · 原购 {{ line.quantity }} 件</template
+                        ><a-tag v-if="line.isGift" class="mall-gift"
+                          >赠品</a-tag
+                        ></span
+                      >
+                    </div>
+                  </div>
+                  <p v-if="!o.snapshot.lines?.length" class="cell-note">
+                    该订单暂无商品快照，可查看订单详情。
+                  </p>
+                </div>
+                <div class="mall-order-amount">
+                  <span class="mall-mobile-label">订单金额</span>
+                  <strong>¥{{ money(o.total_cents) }}</strong>
+                  <span class="cell-note">{{
+                    o.payment_method
+                      ? methodNames[o.payment_method] || o.payment_method
+                      : "尚未支付"
+                  }}</span>
+                </div>
+                <div class="mall-order-state">
+                  <a-tag
+                    :color="
+                      ['paid', 'awaiting_shipment'].includes(
+                        o.fulfillmentState || o.status,
+                      )
+                        ? 'warning'
+                        : statusColor(o.fulfillmentState || o.status)
+                    "
+                    >{{
+                      o.fulfillmentText || labels[o.status] || o.status
+                    }}</a-tag
+                  >
+                  <span class="cell-note">{{
+                    paymentLabels[o.payment_state] || o.payment_state
+                  }}</span>
+                  <span v-if="o.storageRemainingQty" class="cell-note"
+                    >寄存剩余 {{ o.storageRemainingQty }} 件</span
+                  >
+                  <span v-if="o.received_at" class="cell-note"
+                    >收货完成 {{ orderTime(o.received_at) }}</span
+                  >
+                </div>
+                <div class="mall-order-actions">
+                  <a-button :disabled="busy" @click="act(() => select(o.id))"
+                    >查看与处理</a-button
+                  >
+                </div>
+              </div>
+            </article>
+            <div
+              v-if="!visible.length && !listLoading && !busy"
+              class="mall-orders-empty"
+            >
+              <ShoppingBag :size="32" aria-hidden="true" />
+              <strong>{{
+                query || status ? "暂无符合条件的订单" : "暂无订单"
+              }}</strong>
+              <span>{{
+                query || status
+                  ? "请调整搜索条件或切换订单状态。"
+                  : "客户提交订单后，将在这里显示。"
+              }}</span>
+            </div>
+          </div>
+        </a-spin>
+        <a-pagination v-bind="orderPagination" class="mall-order-pagination" />
+      </template>
+      <div v-else class="table-wrap">
         <a-table
           :columns="orderColumns"
           :data-source="visible || []"
@@ -957,6 +1128,231 @@ h4 {
 .list-count {
   color: var(--admin-muted);
   font-size: 12px;
+}
+.order-list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+.order-list-toolbar .list-count {
+  flex-shrink: 0;
+  padding-bottom: 16px;
+}
+.order-status-tabs {
+  flex: 1;
+  min-width: 0;
+}
+.order-status-tabs :deep(.ant-tabs-nav) {
+  margin-bottom: 0;
+}
+.order-status-tabs :deep(.ant-tabs-tab) {
+  padding: 4px 0 16px;
+  font-weight: 500;
+}
+.order-status-tabs :deep(.ant-tabs-tab + .ant-tabs-tab) {
+  margin-left: 28px;
+}
+.order-status-tabs :deep(.ant-tabs-content-holder) {
+  display: none;
+}
+.order-search {
+  --admin-filter-width: 380px;
+}
+.order-grid-heading,
+.mall-order-body {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) minmax(120px, 0.32fr) minmax(160px, 0.45fr)
+    128px;
+  gap: 20px;
+}
+.order-grid-heading {
+  padding: 0 20px 12px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.mall-orders {
+  display: grid;
+  gap: 16px;
+}
+.mall-order {
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.mall-order-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  padding: 12px 20px;
+  background: #f5f6f8;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.mall-order-number {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mall-order-number strong {
+  margin-left: 6px;
+  font-weight: 500;
+  color: var(--admin-ink);
+}
+.mall-order-kind {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.mall-order-body {
+  padding: 20px;
+}
+.mall-order-products,
+.mall-product-copy,
+.mall-order-state {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mall-order-buyer {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-bottom: 14px;
+  font-size: 12px;
+}
+.mall-order-buyer > span:first-child {
+  color: var(--admin-muted);
+}
+.mall-order-product {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.mall-order-product + .mall-order-product {
+  margin-top: 16px;
+}
+.mall-product-image {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #f7f8fa;
+  color: #969daa;
+}
+.mall-product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.mall-product-copy strong {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.mall-gift {
+  margin-left: 8px;
+  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+  border: 0;
+}
+.mall-order-amount > strong {
+  font-size: 18px;
+  font-weight: 600;
+}
+.mall-mobile-label {
+  display: none;
+}
+.mall-order-state :deep(.ant-tag) {
+  margin: 0;
+}
+.mall-order-actions {
+  text-align: right;
+}
+.mall-order-actions :deep(.ant-btn) {
+  color: var(--admin-accent);
+  border-color: #e5cbd1;
+  background: #fff;
+  box-shadow: none;
+}
+.mall-order-pagination {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 0;
+  margin-top: 24px;
+}
+.mall-orders-empty {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--admin-muted);
+  text-align: center;
+}
+.mall-orders-empty strong {
+  color: var(--admin-ink);
+  font-weight: 500;
+}
+.mall-orders-empty > span {
+  font-size: 13px;
+}
+@media (min-width: 901px) and (max-width: 1200px) {
+  .order-grid-heading,
+  .mall-order-body {
+    grid-template-columns: minmax(0, 1fr) 110px 140px 110px;
+    gap: 16px;
+  }
+}
+@media (max-width: 700px) {
+  .order-list-toolbar {
+    display: block;
+  }
+  .order-list-toolbar .list-count {
+    display: block;
+    padding: 12px 0 0;
+  }
+  .order-grid-heading {
+    display: none;
+  }
+  .mall-order-meta {
+    padding: 12px;
+    gap: 6px 12px;
+  }
+  .mall-order-number {
+    flex-basis: 100%;
+    order: 1;
+  }
+  .mall-order-body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding: 16px 12px;
+    gap: 16px;
+  }
+  .mall-order-products,
+  .mall-order-actions {
+    grid-column: 1 / -1;
+  }
+  .mall-order-buyer {
+    margin-bottom: 12px;
+  }
+  .mall-order-amount,
+  .mall-order-state {
+    padding-top: 12px;
+    border-top: 1px solid var(--admin-border);
+  }
+  .mall-mobile-label {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--admin-muted);
+    font-size: 12px;
+  }
+  .mall-order-actions :deep(.ant-btn) {
+    min-height: 44px;
+  }
 }
 .filters {
   display: flex;

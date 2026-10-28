@@ -551,10 +551,6 @@ const productColumns = [
           <span aria-hidden="true">＋</span> 新增商品
         </a-button>
       </Teleport>
-      <p class="catalog-summary">
-        共 {{ productTotal }} 件商品 · 本页 {{ products.length }} 件
-      </p>
-
       <a-collapse class="surface category-panel"
         ><a-collapse-panel key="details"
           ><template #header>
@@ -894,6 +890,43 @@ const productColumns = [
             :loading="busy || loading || listLoading"
             :scroll="{ x: 680 }"
             :pagination="productPagination"
+            ><template #emptyText>
+              <div
+                v-if="
+                  !filteredProducts.length && !loading && loaded && !loadFailed
+                "
+                class="empty-state"
+              >
+                <span class="empty-symbol" aria-hidden="true">{{
+                  hasFilters ? "⌕" : "＋"
+                }}</span>
+                <h4>
+                  {{ hasFilters ? "没有符合条件的商品" : "尚未配置商品" }}
+                </h4>
+                <p>
+                  {{
+                    hasFilters
+                      ? "试试其他商品名称、分类或上架状态。"
+                      : "先配置商品分类，再添加图片、规格、价格与库存。"
+                  }}
+                </p>
+                <a-button
+                  html-type="button"
+                  v-if="hasFilters"
+                  @click="resetFilters"
+                >
+                  重置筛选
+                </a-button>
+                <a-button
+                  html-type="button"
+                  type="primary"
+                  v-else
+                  :disabled="busy"
+                  @click="edit()"
+                >
+                  新增商品
+                </a-button>
+              </div> </template
             ><template #bodyCell="{ column, record: p }"
               ><template v-if="column.key === 'c0'"
                 ><div class="table-cell-content">
@@ -950,38 +983,6 @@ const productColumns = [
               ></template
             ></a-table
           >
-        </div>
-        <div
-          v-if="!filteredProducts.length && !loading && loaded && !loadFailed"
-          class="empty-state"
-        >
-          <span class="empty-symbol" aria-hidden="true">{{
-            products.length ? "⌕" : "＋"
-          }}</span>
-          <h4>{{ products.length ? "没有符合条件的商品" : "尚未配置商品" }}</h4>
-          <p>
-            {{
-              products.length
-                ? "试试其他商品名称、分类或上架状态。"
-                : "先配置商品分类，再添加图片、规格、价格与库存。"
-            }}
-          </p>
-          <a-button
-            html-type="button"
-            v-if="products.length"
-            @click="resetFilters"
-          >
-            重置筛选
-          </a-button>
-          <a-button
-            html-type="button"
-            type="primary"
-            v-else
-            :disabled="busy"
-            @click="edit()"
-          >
-            新增商品
-          </a-button>
         </div>
       </a-card>
     </template>
@@ -1309,7 +1310,7 @@ const productColumns = [
   overflow: hidden;
 }
 .catalog-toolbar {
-  padding: 18px 20px;
+  padding: 0 0 20px;
 }
 .catalog-filters {
   display: flex;

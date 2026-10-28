@@ -5,9 +5,8 @@ import AdminUserName from "./AdminUserName.vue";
 import AdminAddressSelect from "./AdminAddressSelect.vue";
 import AdminUserSelect from "./AdminUserSelect.vue";
 import { computed, onMounted, ref, watch } from "vue";
-import { Radio as AntRadio, Select as ASelect } from "ant-design-vue";
-const ARadioGroup = AntRadio.Group,
-  ARadioButton = AntRadio.Button;
+import { Select as ASelect } from "ant-design-vue";
+import { Package } from "lucide-vue-next";
 import { api, type Staff } from "../client";
 import { useAdminList } from "../useAdminList";
 import AdminForm from "./AdminForm.vue";
@@ -39,6 +38,8 @@ interface Row {
   purchased_qty?: number;
   package_name?: string;
   source_kind?: string;
+  is_gift?: boolean;
+  expired?: boolean;
   fee_cents?: number;
   fee_refunded?: boolean | number;
   carrier?: string;
@@ -338,18 +339,25 @@ const pickupLineColumns = [
 const columns = computed(() =>
   tab.value === "lots"
     ? [
-        { title: "用户 / 来源", key: "source" },
-        { title: "商品", key: "goods" },
-        { title: "数量", key: "quantity" },
-        { title: "有效期", key: "expiry" },
-        { title: "操作", key: "actions" },
+        { title: "商品 / 原订单", key: "goods", width: 240 },
+        { title: "所属客户", key: "source", width: 150 },
+        { title: "可提数量", key: "available", width: 100 },
+        { title: "寄存数量", key: "quantity", width: 180 },
+        { title: "到期时间", key: "expiry", width: 150 },
+        { title: "操作", key: "actions", width: 120 },
       ]
     : tab.value === "pickups"
       ? [
-          { title: "提货单 / 用户", key: "source" },
-          { title: "状态", key: "status" },
-          { title: "运费积分", key: "fee" },
-          { title: "操作", key: "actions" },
+          { title: "提货单 / 客户", key: "source", width: 250 },
+          { title: "本次配送", key: "delivery", width: 180 },
+          { title: "处理状态", key: "status", width: 130 },
+          {
+            title: "运费积分",
+            key: "fee",
+            width: 100,
+            align: "right" as const,
+          },
+          { title: "操作", key: "actions", width: 200 },
         ]
       : tab.value === "consumption"
         ? [
@@ -365,6 +373,48 @@ const columns = computed(() =>
             { title: "操作", key: "actions" },
           ],
 );
+const listDescriptions: Record<
+  string,
+  { title: string; unit: string; help: string; empty: string }
+> = {
+  lots: {
+    title: "客户寄存明细",
+    unit: "个寄存批次",
+    help: "按原购买批次查看商品；提货占用不代表已发货。",
+    empty: "暂无符合条件的寄存记录，可调整客户、商品或日期筛选。",
+  },
+  pickups: {
+    title: "提货处理记录",
+    unit: "张提货单",
+    help: "先审核，再登记发货；一张提货单按整个包裹签收。",
+    empty: "暂无符合条件的提货单，客户提交提货申请后将在这里显示。",
+  },
+  consumption: {
+    title: "权益包消耗记录",
+    unit: "条记录",
+    help: "按实际收货统计，人工确认只影响消耗记录。",
+    empty: "暂无权益包消耗记录。",
+  },
+  messages: {
+    title: "到期提醒记录",
+    unit: "条消息",
+    help: "查看提醒发送结果；发送失败或结果未明时先核实再重试。",
+    empty: "暂无到期提醒记录。",
+  },
+};
+function stateColor(value?: string) {
+  if (
+    ["review", "awaiting_payment", "unknown", "unavailable"].includes(
+      value || "",
+    )
+  )
+    return "warning";
+  if (["approved", "shipped", "sending", "pending"].includes(value || ""))
+    return "processing";
+  if (["received", "sent"].includes(value || "")) return "success";
+  if (["failed", "rejected"].includes(value || "")) return "error";
+  return "default";
+}
 </script>
 <template>
   <section class="panel storage-operations">
@@ -374,13 +424,26 @@ const columns = computed(() =>
       @dismiss-error="error = ''"
       @dismiss-notice="notice = ''"
     />
-    <ARadioGroup v-model:value="tab" button-style="solid"
-      ><ARadioButton value="lots">寄存台账</ARadioButton
-      ><ARadioButton value="pickups">提货审核</ARadioButton
-      ><ARadioButton v-if="canIdentity" value="consumption"
-        >权益包消耗</ARadioButton
-      ><ARadioButton value="messages">到期与消息</ARadioButton></ARadioGroup
+    <Teleport defer to="#admin-page-actions">
+      <a-button
+        v-if="canOperate && ['lots', 'pickups'].includes(tab)"
+        type="primary"
+        :disabled="!userId || busy"
+        @click="open('manual')"
+        >为该用户人工提货</a-button
+      >
+    </Teleport>
+    <a-tabs
+      v-model:active-key="tab"
+      :animated="false"
+      class="storage-tabs"
+      aria-label="寄存与提货业务分类"
     >
+      <a-tab-pane key="lots" tab="寄存台账" />
+      <a-tab-pane key="pickups" tab="提货审核" />
+      <a-tab-pane v-if="canIdentity" key="consumption" tab="权益包消耗" />
+      <a-tab-pane key="messages" tab="到期与消息" />
+    </a-tabs>
     <AdminFilterBar @submit="reload">
       <a-button
         v-if="tab === 'pickups' && pickupFilter"
@@ -391,7 +454,7 @@ const columns = computed(() =>
         >查看全部配送单</a-button
       >
       <label
-        >用户ID<AdminUserSelect
+        >客户<AdminUserSelect
           v-model="userId"
           placeholder="搜索用户（留空为全部）"
           :disabled="busy" /></label
@@ -409,95 +472,209 @@ const columns = computed(() =>
             v-model="skuId"
             include-inactive
             placeholder="搜索商品，筛选寄存记录"
-            aria-label="寄存商品筛选" /></label
-        ><label>寄存起日<AdminDatePicker v-model="from" type="date" /></label
-        ><label>寄存止日<AdminDatePicker v-model="to" type="date" /></label
-        ><a-checkbox v-model:checked="expiring"
+            aria-label="寄存商品筛选"
+        /></label>
+        <div class="storage-date-range">
+          <label>寄存起日<AdminDatePicker v-model="from" type="date" /></label
+          ><label>寄存止日<AdminDatePicker v-model="to" type="date" /></label>
+        </div>
+        <a-checkbox v-model:checked="expiring"
           >30天内到期及已到期</a-checkbox
         ></template
       >
+      <label v-if="tab === 'pickups'" class="storage-pickup-search"
+        >提货单号<a-input
+          v-model:value="pickupFilter"
+          placeholder="搜索提货单号"
+          allow-clear
+          :disabled="busy"
+      /></label>
       <template #actions>
-        <a-button html-type="submit" :loading="loading">刷新</a-button>
+        <a-button html-type="submit" type="primary" :loading="loading"
+          >查询</a-button
+        >
         <a-button v-if="tab !== 'messages'" :disabled="busy" @click="download"
           >导出Excel</a-button
         >
       </template>
     </AdminFilterBar>
-    <div class="admin-action-bar">
-      <a-button v-if="canOperate" @click="open('import')"
-        >历史未发货转寄存</a-button
-      ><a-button v-if="canOperate" :disabled="!userId" @click="open('manual')"
-        >为该用户人工提货</a-button
-      ><a-button
-        v-if="canIdentity"
-        :disabled="!userId"
-        @click="open('identity')"
-        >调整该用户身份</a-button
-      >
-    </div>
+    <header class="storage-list-heading">
+      <div>
+        <h3>{{ listDescriptions[tab].title }}</h3>
+        <p>{{ listDescriptions[tab].help }}</p>
+      </div>
+      <span>共 {{ total }} {{ listDescriptions[tab].unit }}</span>
+    </header>
     <a-table
       :data-source="rows"
       :columns="columns"
       row-key="id"
       :pagination="pagination"
       :loading="loading"
-      :scroll="{ x: 760 }"
+      :scroll="{ x: tab === 'lots' ? 940 : 860 }"
+      class="storage-table"
     >
+      <template #emptyText
+        ><div class="storage-empty">
+          <Package :size="28" aria-hidden="true" />
+          <p>{{ listDescriptions[tab].empty }}</p>
+        </div></template
+      >
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'source'"
-          ><strong>{{
-            record.order_number ||
-            record.number ||
-            record.title ||
-            "权益包#" + record.id
-          }}</strong>
-          <div>
-            <AdminUserName :id="record.user_id" /><span v-if="tab === 'lots'">
-              ·
-              {{ record.source_kind === "package" ? "店主权益包" : "普通订单" }}
-              · {{ record.package_name }}</span
+        <template v-if="column.key === 'source'">
+          <div class="storage-customer">
+            <strong v-if="tab !== 'lots'" class="storage-document-number">{{
+              record.number ||
+              record.order_number ||
+              record.title ||
+              "权益包#" + record.id
+            }}</strong>
+            <AdminUserName :id="record.user_id" />
+            <span
+              v-if="tab === 'consumption' && record.package_name"
+              class="storage-secondary"
+              >{{ record.package_name }}</span
             >
-          </div></template
-        >
-        <template v-else-if="column.key === 'goods'"
-          >{{ record.name }} {{ record.sku_name
-          }}<span v-if="record.is_gift"> · 赠品</span
-          >{{ record.last_error }}</template
-        >
-        <template v-else-if="column.key === 'quantity'"
-          ><template v-if="tab === 'lots'"
-            >寄存总量 {{ record.total_qty }} / 寄存已提
-            {{ record.shipped_qty }} / 剩余寄存 {{ record.remaining_qty }} /
-            占用 {{ record.held_qty }} / 可提
-            {{ record.available_qty }}</template
-          ><template v-else
-            >{{ record.consumed_qty }} / {{ record.total_qty }}</template
-          ></template
-        >
-        <template v-else-if="column.key === 'expiry'"
-          >{{ record.starts_on }} 至 {{ record.expires_on }}
-          <div v-if="record.expired">已到期，需人工办理</div></template
-        >
-        <template v-else-if="column.key === 'fee'"
-          >{{ (record.fee_cents / 100).toFixed(2)
-          }}<span v-if="record.fee_refunded">（已退回）</span
-          ><span
+          </div>
+        </template>
+        <template v-else-if="column.key === 'goods'">
+          <div v-if="tab === 'lots'" class="storage-product">
+            <span class="storage-product-icon"
+              ><Package :size="22" aria-hidden="true"
+            /></span>
+            <div>
+              <strong>{{ record.name }}</strong
+              ><a-tag v-if="record.is_gift" class="storage-gift">赠品</a-tag>
+              <span class="storage-secondary"
+                >{{ record.sku_name
+                }}<template v-if="record.unit">
+                  · {{ record.unit }}</template
+                ></span
+              >
+              <span class="storage-secondary"
+                >原订单 {{ record.order_number || "—" }}</span
+              >
+              <span
+                v-if="record.source_kind === 'package'"
+                class="storage-secondary"
+                >店主权益包 · {{ record.package_name }}</span
+              >
+            </div>
+          </div>
+          <template v-else
+            ><span>{{ record.body }}</span
+            ><span v-if="record.last_error" class="storage-error">{{
+              record.last_error
+            }}</span></template
+          >
+        </template>
+        <template v-else-if="column.key === 'available'">
+          <strong
+            class="storage-available"
+            :class="{ 'storage-zero': !record.available_qty }"
+            >{{ record.available_qty ?? "—" }}</strong
+          >
+          <span class="storage-secondary">{{ record.unit || "件" }}</span>
+        </template>
+        <template v-else-if="column.key === 'quantity'">
+          <dl v-if="tab === 'lots'" class="storage-quantities">
+            <div>
+              <dt>寄存总量</dt>
+              <dd>{{ record.total_qty ?? "—" }}</dd>
+              <dt>已提</dt>
+              <dd>{{ record.shipped_qty ?? "—" }}</dd>
+            </div>
+            <div>
+              <dt>剩余寄存</dt>
+              <dd>{{ record.remaining_qty ?? "—" }}</dd>
+              <dt>占用</dt>
+              <dd>{{ record.held_qty ?? "—" }}</dd>
+            </div>
+          </dl>
+          <template v-else
+            ><strong>{{ record.consumed_qty }} / {{ record.total_qty }}</strong
+            ><span class="storage-secondary"
+              >实际消耗 / 权益包总量</span
+            ></template
+          >
+        </template>
+        <template v-else-if="column.key === 'expiry'">
+          <strong class="storage-expiry">{{ record.expires_on }}</strong>
+          <span v-if="record.starts_on" class="storage-secondary"
+            >寄存起日 {{ record.starts_on }}</span
+          >
+          <a-tag v-if="record.expired" color="error" class="storage-expired"
+            >已到期，需人工办理</a-tag
+          >
+        </template>
+        <template v-else-if="column.key === 'delivery'">
+          <div class="storage-delivery-counts">
+            <span v-if="record.newGoodsQuantity !== undefined"
+              >新购 <strong>{{ record.newGoodsQuantity }}</strong> 件</span
+            >
+            <span v-if="record.storedGoodsQuantity !== undefined"
+              >寄存 <strong>{{ record.storedGoodsQuantity }}</strong> 件</span
+            >
+            <span
+              v-if="
+                record.newGoodsQuantity === undefined &&
+                record.storedGoodsQuantity === undefined
+              "
+              class="storage-secondary"
+              >查看明细确认商品</span
+            >
+          </div>
+          <span
+            v-if="record.carrier || record.tracking"
+            class="storage-secondary"
+            >{{ record.carrier }} {{ record.tracking }}</span
+          >
+          <span v-if="record.address?.recipient" class="storage-secondary"
+            >收货人 {{ record.address.recipient }}</span
+          >
+        </template>
+        <template v-else-if="column.key === 'fee'">
+          <strong>{{
+            record.fee_cents == null ? "—" : (record.fee_cents / 100).toFixed(2)
+          }}</strong>
+          <span v-if="record.fee_refunded" class="storage-secondary"
+            >已退回</span
+          >
+          <span
             v-else-if="
               record.status === 'awaiting_payment' ||
               (record.status === 'cancelled' && record.fee_cents > 0)
             "
-            >（未扣费）</span
-          ></template
-        >
-        <template v-else-if="column.key === 'status'">{{
-          tab === "consumption"
-            ? record.consumption_confirmed
-              ? "人工确认完成"
-              : "按实际收货统计"
-            : states[record.status || record.delivery_state] || record.status
-        }}</template>
+            class="storage-secondary"
+            >未扣费</span
+          >
+        </template>
+        <template v-else-if="column.key === 'status'">
+          <template v-if="tab === 'consumption'"
+            ><a-tag
+              :color="record.consumption_confirmed ? 'success' : 'default'"
+              >{{
+                record.consumption_confirmed ? "人工确认完成" : "按实际收货统计"
+              }}</a-tag
+            ></template
+          >
+          <a-tag
+            v-else
+            :color="stateColor(record.status || record.delivery_state)"
+            >{{
+              states[record.status || record.delivery_state] ||
+              record.status ||
+              record.delivery_state
+            }}</a-tag
+          >
+          <span v-if="record.create_time" class="storage-secondary">{{
+            new Date(record.create_time).toLocaleString("zh-CN", {
+              hour12: false,
+            })
+          }}</span>
+        </template>
         <template v-else-if="column.key === 'actions'"
-          ><a-space wrap>
+          ><a-space wrap class="storage-row-actions">
             <template v-if="tab === 'lots' && canOperate"
               ><a-button size="small" @click="open('extend', record)"
                 >延期</a-button
@@ -527,18 +704,27 @@ const columns = computed(() =>
                 >退本次运费</a-button
               ><template v-if="canOperate"
                 ><template v-if="record.status === 'review'"
-                  ><a-button size="small" @click="open('approve', record)"
+                  ><a-button
+                    size="small"
+                    type="primary"
+                    @click="open('approve', record)"
                     >通过</a-button
-                  ><a-button size="small" @click="open('reject', record)"
+                  ><a-button
+                    size="small"
+                    danger
+                    type="text"
+                    @click="open('reject', record)"
                     >驳回</a-button
                   ></template
                 ><a-button
                   v-if="record.status === 'approved'"
+                  type="primary"
                   size="small"
                   @click="open('ship', record)"
                   >发货</a-button
                 ><a-button
                   v-if="['review', 'approved'].includes(record.status)"
+                  type="text"
                   size="small"
                   @click="open('cancel', record)"
                   >取消</a-button
@@ -572,6 +758,21 @@ const columns = computed(() =>
         >
       </template>
     </a-table>
+    <details v-if="canOperate || canIdentity" class="storage-tools">
+      <summary>历史与资格办理</summary>
+      <div class="storage-tools-actions">
+        <a-button v-if="canOperate" :disabled="busy" @click="open('import')"
+          >历史未发货转寄存</a-button
+        >
+        <a-button
+          v-if="canIdentity"
+          :disabled="!userId || busy"
+          @click="open('identity')"
+          >调整该用户身份</a-button
+        >
+        <span>选择客户后可人工提货或调整身份；历史转寄存需核实原订单。</span>
+      </div>
+    </details>
     <component
       :is="operation === 'detail' ? AdminDrawer : AdminDialog"
       :drawer="['import', 'manual', 'identity', 'ship'].includes(operation)"
@@ -877,6 +1078,178 @@ const columns = computed(() =>
   </section>
 </template>
 <style scoped>
+.storage-tabs :deep(.ant-tabs-nav) {
+  margin: 0 0 20px;
+}
+.storage-tabs :deep(.ant-tabs-tab) {
+  padding: 10px 0 16px;
+  font-weight: 600;
+}
+.storage-date-range {
+  display: flex;
+  gap: 12px;
+}
+.storage-date-range label {
+  display: grid;
+  gap: 6px;
+  width: 148px;
+}
+.admin-filter-bar .storage-pickup-search {
+  --admin-filter-width: 280px;
+}
+.storage-list-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin: 24px 0 16px;
+}
+.storage-list-heading h3 {
+  margin: 0 0 5px;
+  font-size: 15px;
+}
+.storage-list-heading p,
+.storage-list-heading > span {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.storage-list-heading > span {
+  white-space: nowrap;
+}
+.storage-table :deep(.ant-table-cell) {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.storage-customer {
+  display: grid;
+  gap: 6px;
+}
+.storage-document-number {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.storage-product {
+  display: flex;
+  gap: 12px;
+}
+.storage-product > div {
+  min-width: 0;
+}
+.storage-product strong {
+  line-height: 1.6;
+}
+.storage-product-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 48px;
+  flex-shrink: 0;
+  color: var(--admin-muted);
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 4px;
+}
+.storage-secondary {
+  display: block;
+  margin-top: 5px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.storage-gift {
+  margin: 0 0 0 6px;
+  color: var(--admin-accent);
+  background: #f7edf0;
+  border: 0;
+  font-size: 11px;
+}
+.storage-error {
+  display: block;
+  margin-top: 6px;
+  color: #b42318;
+  font-size: 12px;
+}
+.storage-available {
+  color: var(--admin-accent);
+  font-size: 24px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.storage-zero {
+  color: var(--admin-muted);
+}
+.storage-quantities {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  font-size: 12px;
+}
+.storage-quantities > div {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  gap: 7px;
+  align-items: baseline;
+}
+.storage-quantities dt {
+  color: var(--admin-muted);
+}
+.storage-quantities dd {
+  margin: 0;
+  text-align: right;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.storage-expiry {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.storage-expired {
+  margin: 7px 0 0;
+  white-space: normal;
+}
+.storage-delivery-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.storage-delivery-counts strong {
+  font-variant-numeric: tabular-nums;
+}
+.storage-row-actions {
+  row-gap: 8px;
+}
+.storage-empty {
+  padding: 36px 20px;
+  color: var(--admin-muted);
+}
+.storage-empty p {
+  margin: 12px 0 0;
+}
+.storage-tools {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--admin-border);
+}
+.storage-tools summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.storage-tools-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+}
+.storage-tools-actions > span {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
 .storage-operation-context {
   display: grid;
   gap: 6px;
@@ -958,7 +1331,7 @@ const columns = computed(() =>
 }
 
 .admin-filter-bar .storage-product-filter {
-  --admin-filter-width: 300px;
+  --admin-filter-width: 260px;
 }
 .storage-item-row {
   display: grid;

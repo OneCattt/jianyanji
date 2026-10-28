@@ -7,6 +7,7 @@ import { onMounted, ref, watch } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
+import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
 const creating = ref(false);
@@ -180,23 +181,25 @@ const cashRefundColumns = [
       ]"
     />
     <div class="application-grid">
-      <AdminForm class="surface query-form" @submit="query">
+      <section class="surface query-form">
         <div class="section-heading">
           <h3>核实原收款与未用积分</h3>
           <p>搜索并选择申请人，核对可退款来源。</p>
         </div>
-        <label
-          >用户编号<AdminUserSelect
-            v-model="userId"
-            ref="userInput"
-            required
-            :disabled="busy"
-        /></label>
-        <div class="form-actions">
-          <a-button html-type="submit" :disabled="busy"
-            >查询原收款及积分</a-button
+        <AdminFilterBar class="cash-refund-query" @submit="query">
+          <label
+            >客户<AdminUserSelect
+              v-model="userId"
+              ref="userInput"
+              required
+              :disabled="busy"
+          /></label>
+          <template #actions
+            ><a-button html-type="submit" type="primary" :disabled="busy"
+              >查询原收款及积分</a-button
+            ></template
           >
-        </div>
+        </AdminFilterBar>
         <div v-if="wallet" class="wallet-summary">
           <div>
             <span>可用积分</span
@@ -211,7 +214,7 @@ const cashRefundColumns = [
         <p v-else id="cash-refund-create-help" class="empty-hint">
           查询后可查看积分余额，并选择原公司订货收款办理退现金。
         </p>
-      </AdminForm>
+      </section>
     </div>
     <a-card size="small" class="records">
       <div class="section-heading">
@@ -433,6 +436,10 @@ const cashRefundColumns = [
   </section>
 </template>
 <style scoped>
+.cash-refund-query > label {
+  --admin-filter-width: 360px;
+}
+
 .cash-refunds {
   display: grid;
   min-width: 0;
@@ -458,15 +465,9 @@ small {
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
-.form-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
 .surface {
   min-width: 0;
-  padding: 16px;
+  padding: 24px;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
   background: #fff;
@@ -521,10 +522,7 @@ small {
 .query-form {
   grid-column: 1;
 }
-.query-form > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
-  max-width: 360px;
-}
-form {
+form:not(.admin-filter-bar) {
   display: grid;
   gap: 12px;
 }

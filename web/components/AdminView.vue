@@ -40,6 +40,7 @@ import BrandContentOperations from "./BrandContentOperations.vue";
 import CourseRightsOperations from "./CourseRightsOperations.vue";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
+import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminSelect from "./AdminSelect.vue";
 import FeedbackToast from "./FeedbackToast.vue";
 import {
@@ -262,13 +263,36 @@ const sections = computed(() =>
   ),
 );
 const sectionGroups = computed(() =>
-  ["总览", "品牌经营", "交易与履约", "资金与奖励", "协作与记录"]
+  ["总览", "交易与履约", "品牌经营", "资金与奖励", "协作与记录"]
     .map((label) => ({
       label,
-      items: sections.value.filter((item) => item.group === label),
+      items: sections.value
+        .filter((item) => item.group === label)
+        .sort((a, b) => menuOrder.indexOf(a.key) - menuOrder.indexOf(b.key)),
     }))
     .filter((group) => group.items.length),
 );
+const menuOrder = [
+  "overview",
+  "orders",
+  "storage",
+  "aftersales",
+  "shipping",
+  "catalog",
+  "membership",
+  "commerce",
+  "posts",
+  "courses",
+  "content",
+  "wallet",
+  "receipts",
+  "orderrefunds",
+  "cashrefunds",
+  "rewards",
+  "users",
+  "staff",
+  "audit",
+];
 const workGroups = computed(() =>
   sectionGroups.value.filter((group) => group.label !== "总览"),
 );
@@ -277,10 +301,8 @@ const currentSection = computed(
     sections.value.find((item) => item.key === section.value) || navigation[0],
 );
 const quickEntries = computed(() =>
-  sections.value.filter((item) =>
-    ["catalog", "orders", "membership", "receipts", "wallet"].includes(
-      item.key,
-    ),
+  ["orders", "storage", "wallet", "aftersales", "catalog"].flatMap((key) =>
+    sections.value.filter((item) => item.key === key),
   ),
 );
 const sectionTitle = computed(
@@ -541,7 +563,7 @@ async function changePage(value: number) {
     </section>
   </main>
   <a-layout v-else class="admin-shell">
-    <a-layout-sider class="sidebar" theme="light" :width="232">
+    <a-layout-sider class="sidebar" theme="light" :width="216">
       <div class="sidebar-brand">
         <img
           class="brand-logo-image"
@@ -598,56 +620,42 @@ async function changePage(value: number) {
         /></a-button>
         <a-breadcrumb
           ><a-breadcrumb-item
-            ><a @click="navigate('overview')"
-              >品牌方工作空间</a
-            ></a-breadcrumb-item
+            ><a @click="navigate('overview')">商城管理</a></a-breadcrumb-item
           ><a-breadcrumb-item>{{
             sectionTitle
           }}</a-breadcrumb-item></a-breadcrumb
         >
-        <a-tag class="workspace-badge">品牌管理</a-tag>
+        <a-space class="admin-page-actions" wrap>
+          <div id="admin-page-actions"></div>
+          <a-button
+            v-if="section === 'staff'"
+            type="primary"
+            @click="open('create')"
+            ><template #icon><Plus :size="16" /></template
+            >新增工作人员</a-button
+          >
+          <a-button
+            v-else-if="section !== 'overview'"
+            :loading="busy"
+            @click="
+              ['users', 'staff', 'audit'].includes(section)
+                ? load()
+                : refreshKey++
+            "
+            ><template #icon><RefreshCw :size="14" /></template
+            >刷新记录</a-button
+          >
+          <span v-else class="date-label">{{
+            new Date().toLocaleDateString("zh-CN", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          }}</span>
+        </a-space>
+        <span class="workspace-badge">{{ me.displayName }}</span>
       </a-layout-header>
       <a-layout-content class="admin-content">
-        <div class="admin-heading">
-          <div>
-            <h1>{{ section === "overview" ? "经营工作台" : sectionTitle }}</h1>
-            <p>
-              {{
-                section === "overview"
-                  ? `你好，${me.displayName}。开始今天的品牌工作。`
-                  : currentSection.description
-              }}
-            </p>
-          </div>
-          <a-space class="admin-page-actions" wrap>
-            <div id="admin-page-actions"></div>
-            <a-button
-              v-if="section === 'staff'"
-              type="primary"
-              @click="open('create')"
-              ><template #icon><Plus :size="16" /></template
-              >新增工作人员</a-button
-            >
-            <a-button
-              v-else-if="section !== 'overview'"
-              :loading="busy"
-              @click="
-                ['users', 'staff', 'audit'].includes(section)
-                  ? load()
-                  : refreshKey++
-              "
-              ><template #icon><RefreshCw :size="14" /></template
-              >刷新记录</a-button
-            >
-            <span v-else class="date-label">{{
-              new Date().toLocaleDateString("zh-CN", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })
-            }}</span>
-          </a-space>
-        </div>
         <template v-if="section === 'overview'">
           <a-card
             v-if="quickEntries.length"
@@ -795,8 +803,7 @@ async function changePage(value: number) {
           :bordered="false"
           class="table-panel"
         >
-          <AdminForm
-            class="filter-bar"
+          <AdminFilterBar
             @submit="
               page = 1;
               load();
@@ -820,17 +827,19 @@ async function changePage(value: number) {
                 v-model:value="filterId"
                 :maxlength="40"
                 placeholder="请输入对象编号" /></label
-            ><a-button html-type="submit" type="primary" :loading="busy"
-              >查找记录</a-button
-            ><a-button
-              @click="
-                filterType = '';
-                filterId = '';
-                page = 1;
-                load();
-              "
-              >重置</a-button
-            ></AdminForm
+            ><template #actions
+              ><a-button html-type="submit" type="primary" :loading="busy"
+                >查找记录</a-button
+              ><a-button
+                @click="
+                  filterType = '';
+                  filterId = '';
+                  page = 1;
+                  load();
+                "
+                >重置</a-button
+              ></template
+            ></AdminFilterBar
           >
           <a-table
             :columns="auditColumns"

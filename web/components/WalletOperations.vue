@@ -10,6 +10,7 @@ import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminDrawer from "./AdminDrawer.vue";
 import AdminForm from "./AdminForm.vue";
+import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
 const purposeNames: Record<string, string> = {
@@ -267,11 +268,9 @@ const receiptColumns = [
           <p class="muted">
             填写客户编号可查看积分钱包，也可按原收款编号或流水追查。
           </p>
-          <AdminForm class="query-fields" @submit="run(refresh)">
+          <AdminFilterBar class="wallet-query-filters" @submit="run(refresh)">
             <label
-              >按客户编号追查<AdminUserSelect
-                v-model="userId"
-                :disabled="busy" /></label
+              >客户<AdminUserSelect v-model="userId" :disabled="busy" /></label
             ><label
               >原收款编号<a-input-number
                 class="number-field"
@@ -284,10 +283,12 @@ const receiptColumns = [
               >原银行 / 公司微信流水<a-input
                 v-model:value="externalTransactionId"
                 :maxlength="200" /></label
-            ><a-button html-type="submit" :disabled="busy"
-              >查询钱包和收款</a-button
+            ><template #actions
+              ><a-button html-type="submit" type="primary" :disabled="busy"
+                >查询钱包和收款</a-button
+              ></template
             >
-          </AdminForm>
+          </AdminFilterBar>
         </a-card>
         <AdminDrawer
           v-if="wallet"
@@ -400,6 +401,14 @@ const receiptColumns = [
               :loading="busy || listLoading"
               :scroll="{ x: 850 }"
               :pagination="receiptPagination"
+              ><template #emptyText
+                ><p class="empty-state">
+                  {{
+                    busy
+                      ? "正在加载收款记录…"
+                      : "暂无匹配的真实收款，请核对查询条件。"
+                  }}
+                </p></template
               ><template #bodyCell="{ column, record: r }"
                 ><template v-if="column.key === 'c0'"
                   ><div class="table-cell-content">
@@ -431,12 +440,6 @@ const receiptColumns = [
               ></a-table
             >
           </div>
-          <p v-if="busy && !receipts.length" class="empty-state" role="status">
-            正在加载收款记录…
-          </p>
-          <p v-else-if="!error && !receipts.length" class="empty-state">
-            暂无匹配的真实收款，请核对查询条件。
-          </p>
         </a-card>
       </div>
     </div>
@@ -596,7 +599,6 @@ h4 {
   background: #fff;
 }
 .fields,
-.query-fields,
 .correction-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -606,7 +608,6 @@ h4 {
 .fields h3,
 .fields .check,
 .fields > .dialog-actions,
-.query-fields > label:last-of-type,
 .correction-form h4,
 .correction-form > label:last-of-type,
 .correction-form > .dialog-actions,
@@ -617,8 +618,11 @@ h4 {
   display: grid;
   gap: 8px;
 }
-.query-fields {
-  margin-top: 4px;
+.wallet-query-filters {
+  margin: 0;
+}
+.wallet-query-filters > label:last-of-type {
+  --admin-filter-width: 320px;
 }
 label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
@@ -710,7 +714,6 @@ small {
 }
 @media (max-width: 650px) {
   .fields,
-  .query-fields,
   .correction-form {
     grid-template-columns: minmax(0, 1fr);
   }
