@@ -211,7 +211,9 @@ try:
     checks = []
     for path, expected in [("/api/mini/storage", 401), ("/api/admin/storage", 401),
                            ("/api/pickups/1", 401), ("/api/wallet", 401), ("/api/offers", 200), ("/api/admin/product-options?kind=sku", 401),
-                           ("/api/admin/product-options?kind=lot&userId=1", 401)]:
+                           ("/api/admin/product-options?kind=lot&userId=1", 401),
+                           ("/api/admin/user-options", 401),
+                           ("/api/admin/user-options?identity=B", 401)]:
         try:
             with urllib.request.urlopen("http://127.0.0.1:3100" + path, timeout=5) as response:
                 status = response.status
@@ -238,6 +240,7 @@ try:
     public_context = json.loads(https("/api/public/context"))
     assert public_context["devAuth"] is False
     https("/api/admin/storage", 401)
+    https("/api/admin/user-options", 401)
     report = {
         "commit": commit, "release": str(stage), "backup": str(backup),
         "publishedAt": result["publishedAt"], "migrations": [],

@@ -1024,7 +1024,7 @@ const productColumns = [
   padding: 0;
   border: 0;
 }
-.business-settings label {
+.business-settings label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
   min-width: 0;
   gap: 6px;
@@ -1125,7 +1125,7 @@ const productColumns = [
   padding: 16px 20px;
   align-items: end;
 }
-.save-bar > label {
+.save-bar > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   flex: 1;
 }
 .category-panel summary {
@@ -1468,7 +1468,7 @@ const productColumns = [
 .fields > label,
 .result-fields > label,
 .field-grid > label,
-.sku-form > label {
+.sku-form > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   align-content: start;
 }
 </style>

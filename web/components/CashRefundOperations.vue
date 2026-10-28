@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import AdminUserSelect from "./AdminUserSelect.vue";
 import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
@@ -14,7 +15,7 @@ const receipts = ref<any[]>([]),
   busy = ref(false),
   error = ref(""),
   notice = ref("");
-const userId = ref<number | null>(null),
+const userId = ref(""),
   receiptId = ref(0),
   amount = ref(""),
   reason = ref(""),
@@ -25,6 +26,16 @@ const userId = ref<number | null>(null),
   proof = ref(""),
   confirmed = ref(false),
   confirmedNoPayment = ref(false);
+watch(
+  userId,
+  () => {
+    wallet.value = null;
+    receipts.value = [];
+    receiptId.value = 0;
+    creating.value = false;
+  },
+  { flush: "sync" },
+);
 const names: Record<string, string> = {
   processing: "办理中，积分已占用",
   unknown: "结果未明，保留占用",
@@ -69,7 +80,7 @@ async function run(work: () => Promise<any>, refresh = true) {
 onMounted(() => run(load, false));
 async function query() {
   await run(async () => {
-    if (!Number.isSafeInteger(userId.value) || Number(userId.value) < 1)
+    if (!Number.isSafeInteger(Number(userId.value)) || Number(userId.value) < 1)
       throw new Error("请输入有效的用户编号");
     [wallet.value, receipts.value] = await Promise.all([
       api("/admin/wallets/" + userId.value),
@@ -90,7 +101,7 @@ async function create() {
     await api("/admin/cash-refunds", {
       method: "POST",
       body: {
-        userId: userId.value,
+        userId: Number(userId.value),
         receiptId: receiptId.value,
         amountCents: cents(amount.value),
         reason: reason.value,
@@ -171,17 +182,14 @@ const cashRefundColumns = [
       <AdminForm class="surface query-form" @submit="query">
         <div class="section-heading">
           <h3>核实原收款与未用积分</h3>
-          <p>输入申请人的用户编号，核对可退款来源。</p>
+          <p>搜索并选择申请人，核对可退款来源。</p>
         </div>
         <label
-          >用户编号<a-input-number
-            class="number-field"
-            :precision="0"
-            pattern="[0-9]+"
+          >用户编号<AdminUserSelect
+            v-model="userId"
             ref="userInput"
-            v-model:value="userId"
-            :min="1"
             required
+            :disabled="busy"
         /></label>
         <div class="form-actions">
           <a-button html-type="submit" :disabled="busy"
@@ -266,9 +274,9 @@ const cashRefundColumns = [
             ></template
           ><template #emptyText>
             <strong>暂无积分余额退款记录</strong>
-            <p>从用户编号查询原公司收款和未用积分，核实后办理退款。</p>
+            <p>搜索用户，查询原公司收款和未用积分，核实后办理退款。</p>
             <a-button html-type="button" @click="userInput?.focus()">
-              填写用户编号
+              搜索用户
             </a-button>
           </template></a-table
         >
@@ -508,14 +516,14 @@ small {
 .query-form {
   grid-column: 1;
 }
-.query-form > label {
+.query-form > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   max-width: 360px;
 }
 form {
   display: grid;
   gap: 12px;
 }
-label {
+label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
   min-width: 0;
   gap: 6px;
@@ -680,7 +688,7 @@ p.success {
 .fields > label,
 .result-fields > label,
 .field-grid > label,
-.sku-form > label {
+.sku-form > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   align-content: start;
 }
 </style>

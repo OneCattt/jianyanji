@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminUserSelect from "./AdminUserSelect.vue";
 import { computed, onMounted, ref, watch } from "vue";
 import { Radio as AntRadio, Select as ASelect } from "ant-design-vue";
 const ARadioGroup = AntRadio.Group,
@@ -6,6 +7,8 @@ const ARadioGroup = AntRadio.Group,
 import { api, type Staff } from "../client";
 import { useAdminList } from "../useAdminList";
 import AdminForm from "./AdminForm.vue";
+import AdminFilterBar from "./AdminFilterBar.vue";
+import AdminDatePicker from "./AdminDatePicker.vue";
 import AdminProductSelect from "./AdminProductSelect.vue";
 import AdminDialog from "./AdminDialog.vue";
 import FeedbackToast from "./FeedbackToast.vue";
@@ -89,6 +92,16 @@ const reason = ref(""),
   addressId = ref(""),
   manualItems = ref<{ lotId: number; quantity: number }[]>([]),
   actionKey = ref(crypto.randomUUID());
+watch(
+  userId,
+  () => {
+    lineId.value = 0;
+    addressId.value = "";
+    principal.value = "";
+    manualItems.value = [{ lotId: 0, quantity: 1 }];
+  },
+  { flush: "sync" },
+);
 const canOperate = computed(() =>
   props.staff.permissions.includes("orders:manage"),
 );
@@ -338,7 +351,7 @@ const columns = computed(() =>
         >权益包消耗</ARadioButton
       ><ARadioButton value="messages">到期与消息</ARadioButton></ARadioGroup
     >
-    <div class="storage-filters">
+    <AdminFilterBar @submit="reload">
       <a-button
         v-if="tab === 'pickups' && pickupFilter"
         @click="
@@ -348,12 +361,14 @@ const columns = computed(() =>
         >查看全部配送单</a-button
       >
       <label
-        >用户ID<a-input v-model:value="userId" placeholder="全部用户" /></label
+        >用户ID<AdminUserSelect
+          v-model="userId"
+          placeholder="搜索用户（留空为全部）"
+          :disabled="busy" /></label
       ><template v-if="tab === 'lots'"
         ><label
           >来源类型<ASelect
             v-model:value="sourceKind"
-            style="min-width: 180px"
             :options="[
               { value: '', label: '全部来源' },
               { value: 'goods', label: '普通商品 / 活动套餐' },
@@ -365,17 +380,20 @@ const columns = computed(() =>
             include-inactive
             placeholder="搜索商品，筛选寄存记录"
             aria-label="寄存商品筛选" /></label
-        ><label>寄存起日<input v-model="from" type="date" /></label
-        ><label>寄存止日<input v-model="to" type="date" /></label
+        ><label>寄存起日<AdminDatePicker v-model="from" type="date" /></label
+        ><label>寄存止日<AdminDatePicker v-model="to" type="date" /></label
         ><a-checkbox v-model:checked="expiring"
           >30天内到期及已到期</a-checkbox
         ></template
-      ><a-button :loading="loading" @click="reload">刷新</a-button
-      ><a-button v-if="tab !== 'messages'" :disabled="busy" @click="download"
-        >导出Excel</a-button
       >
-    </div>
-    <div class="storage-filters">
+      <template #actions>
+        <a-button html-type="submit" :loading="loading">刷新</a-button>
+        <a-button v-if="tab !== 'messages'" :disabled="busy" @click="download"
+          >导出Excel</a-button
+        >
+      </template>
+    </AdminFilterBar>
+    <div class="admin-action-bar">
       <a-button v-if="canOperate" @click="open('import')"
         >历史未发货转寄存</a-button
       ><a-button v-if="canOperate" :disabled="!userId" @click="open('manual')"
@@ -576,7 +594,7 @@ const columns = computed(() =>
           >
         </p>
         <label v-if="operation === 'extend'"
-          >新到期日<input v-model="expiry" type="date" required
+          >新到期日<AdminDatePicker v-model="expiry" type="date" required
         /></label>
         <template v-if="operation === 'ship'"
           ><label>快递公司<a-input v-model:value="carrier" required /></label
@@ -660,8 +678,10 @@ const columns = computed(() =>
                 { value: 'B', label: '19800店主' },
               ]" /></label
           ><label v-if="identity === 'C'"
-            >归属19800店主ID<a-input
-              v-model:value="principal"
+            >归属19800店主ID<AdminUserSelect
+              v-model="principal"
+              identity="B"
+              :disabled-ids="[userId]"
               required /></label
           ><label
             >资格核验依据<a-textarea v-model:value="evidence" required
@@ -681,21 +701,8 @@ const columns = computed(() =>
   </section>
 </template>
 <style scoped>
-.storage-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 12px;
-  margin: 20px 0;
-}
-.storage-filters label {
-  display: grid;
-  gap: 6px;
-  max-width: 180px;
-}
-.storage-filters .storage-product-filter {
-  width: 300px;
-  max-width: 100%;
+.admin-filter-bar .storage-product-filter {
+  --admin-filter-width: 300px;
 }
 .storage-item-row {
   display: grid;
@@ -715,17 +722,8 @@ const columns = computed(() =>
   display: grid;
   gap: 16px;
 }
-.storage-form label {
+.storage-form label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
   gap: 6px;
-}
-.storage-form input[type="date"],
-.storage-filters input[type="date"] {
-  padding: 7px;
-  border: 1px solid var(--border, #ddd);
-  border-radius: 6px;
-}
-.storage-operations :deep(button) {
-  min-height: 36px;
 }
 </style>

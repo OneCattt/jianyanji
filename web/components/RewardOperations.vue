@@ -1216,7 +1216,7 @@ summary {
   display: grid;
   gap: 4px;
 }
-.reward-operations label {
+.reward-operations label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
   min-width: 0;
   gap: 6px;
@@ -1225,7 +1225,7 @@ summary {
   justify-content: flex-start;
   align-items: end;
 }
-.inline label {
+.inline label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   flex: 1 1 220px;
   max-width: 360px;
 }
@@ -1265,7 +1265,7 @@ pre {
 .source-basis {
   margin-top: 16px;
 }
-.source-basis label {
+.source-basis label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   max-width: none;
 }
 .source-intro {
@@ -1420,7 +1420,7 @@ p.success {
   .form-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-  .inline label {
+  .inline label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
     max-width: none;
   }
   .source-query-row {
@@ -1468,7 +1468,7 @@ p.success {
   flex-shrink: 0;
 }
 .form-grid > label,
-.source-basis > label {
+.source-basis > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   align-content: start;
 }
 @media (max-width: 650px) {

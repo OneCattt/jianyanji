@@ -7,6 +7,7 @@ import ImageUploader from "./ImageUploader.vue";
 import ImageListUploader from "./ImageListUploader.vue";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
+import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminProductSelect from "./AdminProductSelect.vue";
 import AdminSelect from "./AdminSelect.vue";
 
@@ -155,7 +156,7 @@ const postColumns = [
       >
     </Teleport>
     <a-card size="small" title="内容列表">
-      <AdminForm class="post-filters" @submit="() => {}">
+      <AdminFilterBar @submit="() => {}">
         <label
           >标题或摘要<a-input
             v-model:value="search"
@@ -171,7 +172,7 @@ const postColumns = [
           </AdminSelect></label
         >
         <span class="muted">{{ filteredPosts.length }} 篇内容</span>
-      </AdminForm>
+      </AdminFilterBar>
       <div class="table-scroll">
         <a-table
           :data-source="filteredPosts"
@@ -381,7 +382,7 @@ const postColumns = [
   gap: 16px;
   margin-bottom: 20px;
 }
-.post-filters > label {
+.post-filters > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   flex: 1 1 180px;
   max-width: 320px;
 }
@@ -411,7 +412,7 @@ const postColumns = [
   gap: 16px;
   min-width: 0;
 }
-.module-editor > label {
+.module-editor > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
   gap: 6px;
   min-width: 0;

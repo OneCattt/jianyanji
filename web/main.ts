@@ -30,6 +30,7 @@ import "dayjs/locale/zh-cn";
 import zhCN from "ant-design-vue/es/locale/zh_CN";
 import "ant-design-vue/dist/reset.css";
 import App from "./App.vue";
+import { adminTheme } from "./admin-theme";
 import "./style.css";
 
 dayjs.locale("zh-cn");
@@ -41,31 +42,7 @@ const app = createApp({
       {
         locale: zhCN,
         autoInsertSpaceInButton: false,
-        theme: {
-          token: {
-            colorPrimary: "#8d2638",
-            colorInfo: "#8d2638",
-            colorText: "#252831",
-            colorTextSecondary: "#687080",
-            colorBgLayout: "#f5f6f8",
-            colorBorder: "#d9dde5",
-            borderRadius: 6,
-            controlHeight: 38,
-            fontSize: 14,
-            fontFamily:
-              '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
-          },
-          components: {
-            Table: { padding: 14, colorFillAlter: "#fafbfc" },
-            Menu: {
-              controlHeightLG: 42,
-              itemMarginInline: 8,
-              colorItemBgSelected: "#f7edf0",
-              colorItemTextSelected: "#8d2638",
-            },
-            Modal: { paddingContentHorizontalLG: 24 },
-          },
-        },
+        theme: adminTheme,
       },
       { default: () => h(App) },
     ),

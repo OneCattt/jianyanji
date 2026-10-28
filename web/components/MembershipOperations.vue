@@ -7,6 +7,7 @@ import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
+import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminProductSelect from "./AdminProductSelect.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
@@ -413,7 +414,7 @@ const packageLineColumns = [
           </p>
         </div>
       </div>
-      <AdminForm class="filters" @submit="() => {}">
+      <AdminFilterBar @submit="() => {}">
         <label class="field"
           >搜索申请 / 申请人<a-input
             v-model:value="applicationQuery"
@@ -435,7 +436,7 @@ const packageLineColumns = [
             </option></AdminSelect
           ></label
         >
-      </AdminForm>
+      </AdminFilterBar>
       <div
         class="table-wrap"
         tabindex="0"

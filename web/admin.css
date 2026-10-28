@@ -402,6 +402,64 @@
 .filter-bar > label {
   flex: 0 1 220px;
 }
+/* 公共筛选栏：所有控件沿用主题高度，字段标题不参与复选框内部排版。 */
+.admin-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 20px 0;
+}
+.admin-filter-bar > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
+  display: grid;
+  flex: 0 1 var(--admin-filter-width, 200px);
+  gap: 6px;
+  min-width: min(160px, 100%);
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 400;
+}
+.admin-filter-bar > .ant-checkbox-wrapper {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0;
+  min-height: 38px;
+  max-width: 100%;
+  margin-inline-start: 0;
+}
+.admin-filter-bar > .ant-checkbox-wrapper > span:last-child {
+  white-space: normal;
+}
+.admin-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+.admin-filter-bar .ant-input-number,
+.admin-filter-bar .ant-select,
+.admin-filter-bar .ant-picker {
+  width: 100%;
+  min-width: 0;
+}
+.admin-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+}
+@media (max-width: 640px) {
+  .admin-filter-bar > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
+    flex-basis: 100%;
+  }
+  .admin-filter-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
 .permission-fieldset {
   margin: 0;
   padding: 16px;

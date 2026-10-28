@@ -151,7 +151,7 @@ async function save() {
   gap: 16px;
   min-width: 0;
 }
-.module-editor > label {
+.module-editor > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
   gap: 6px;
   min-width: 0;
@@ -172,7 +172,9 @@ async function save() {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
-.course-section > .config-fields > label {
+.course-section
+  > .config-fields
+  > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
   gap: 6px;
   min-width: 0;
@@ -205,7 +207,7 @@ async function save() {
 .fields > label,
 .result-fields > label,
 .field-grid > label,
-.sku-form > label {
+.sku-form > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   align-content: start;
 }
 </style>

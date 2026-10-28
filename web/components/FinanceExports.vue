@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminUserSelect from "./AdminUserSelect.vue";
 import FeedbackToast from "./FeedbackToast.vue";
 import { computed, ref } from "vue";
 import AdminSelect from "./AdminSelect.vue";
@@ -86,11 +87,9 @@ async function download() {
           ></label
         >
         <label
-          >用户 ID（积分流水必填）<a-input
-            v-model:value="userId"
+          >用户 ID（积分流水必填）<AdminUserSelect
+            v-model="userId"
             :required="selectedKind === 'points'"
-            pattern="[1-9][0-9]*"
-            inputmode="numeric"
         /></label>
         <label
           >订单 ID（指定订单收款必填；公司收款汇总不支持）<a-input
@@ -125,7 +124,7 @@ async function download() {
   color: var(--admin-muted);
   line-height: 1.6;
 }
-.export-form > label {
+.export-form > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
   gap: 6px;
   min-width: 0;

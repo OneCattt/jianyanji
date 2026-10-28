@@ -5,6 +5,7 @@ import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
+import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
 const props = withDefaults(
@@ -470,7 +471,7 @@ function statusColor(value: string) {
         </div>
         <span class="list-count">共 {{ orderTotal }} 笔订单</span>
       </header>
-      <AdminForm class="filters" @submit="act(load)">
+      <AdminFilterBar @submit="act(load)">
         <label class="field"
           >搜索订单 / 商品<a-input
             v-model:value="query"
@@ -486,7 +487,7 @@ function statusColor(value: string) {
         ><a-button html-type="submit" :disabled="busy" :loading="busy"
           >刷新订单</a-button
         >
-      </AdminForm>
+      </AdminFilterBar>
       <div class="table-wrap">
         <a-table
           :columns="orderColumns"
@@ -582,9 +583,7 @@ function statusColor(value: string) {
         <section class="detail-section">
           <p v-if="selected.storageRemainingQty">
             剩余寄存
-            {{
-              selected.storageRemainingQty
-            }}
+            {{ selected.storageRemainingQty }}
             件；留仓货品须通过提货申请安排配送。
           </p>
           <p v-for="pickup in activePickups" :key="pickup.id">

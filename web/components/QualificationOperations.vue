@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import AdminUserSelect from "./AdminUserSelect.vue";
+import { ref, watch } from "vue";
 import { api } from "../client";
 import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
@@ -18,6 +19,16 @@ const form = ref({
   addressId: "",
   confirmed: false,
 });
+watch(
+  () => form.value.userId,
+  () => {
+    form.value.addressId = "";
+    form.value.principalId = "";
+    form.value.inviterId = "";
+    form.value.confirmed = false;
+  },
+  { flush: "sync" },
+);
 async function submit() {
   if (busy.value) return;
   busy.value = true;
@@ -134,16 +145,7 @@ async function submit() {
           <option value="relation">调整邀请与归属关系</option></AdminSelect
         ></label
       >
-      <label
-        >用户编号<a-input-number
-          class="number-field"
-          string-mode
-          :precision="0"
-          pattern="[0-9]+"
-          v-model:value="form.userId"
-          :min="1"
-          required
-      /></label>
+      <label>用户编号<AdminUserSelect v-model="form.userId" required /></label>
       <label
         v-if="['bootstrap', 'initial-application', 'identity'].includes(action)"
         >核验身份<AdminSelect v-model="form.identity"
@@ -155,13 +157,10 @@ async function submit() {
         ></label
       >
       <label v-if="action === 'relation'"
-        >直接邀请人编号<a-input-number
-          class="number-field"
-          string-mode
-          :precision="0"
-          pattern="[0-9]+"
-          v-model:value="form.inviterId"
-          :min="1"
+        >直接邀请人编号<AdminUserSelect
+          v-model="form.inviterId"
+          identity="agents"
+          :disabled-ids="[form.userId]"
           required
       /></label>
       <label
@@ -170,13 +169,10 @@ async function submit() {
           form.identity === 'C'
         "
         >{{ action === "handover" ? "指定有效接管主理人编号" : "归属主理人编号"
-        }}<a-input-number
-          class="number-field"
-          string-mode
-          :precision="0"
-          pattern="[0-9]+"
-          v-model:value="form.principalId"
-          :min="1"
+        }}<AdminUserSelect
+          v-model="form.principalId"
+          identity="B"
+          :disabled-ids="[form.userId]"
           required
       /></label>
       <label
@@ -234,7 +230,7 @@ async function submit() {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
-.qualification-form > label {
+.qualification-form > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
   gap: 6px;
 }
@@ -278,7 +274,7 @@ p {
 .fields > label,
 .result-fields > label,
 .field-grid > label,
-.sku-form > label {
+.sku-form > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   align-content: start;
 }
 </style>

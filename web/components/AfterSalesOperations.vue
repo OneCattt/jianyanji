@@ -5,6 +5,7 @@ import { ref, onMounted, computed, watch } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
+import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
 const props = withDefaults(
@@ -415,7 +416,7 @@ const actionNames: Record<string, string> = {
         <span class="list-count">共 {{ refundTotal }} 笔记录</span>
       </header>
 
-      <AdminForm class="filters" @submit="() => {}">
+      <AdminFilterBar @submit="() => {}">
         <label class="field"
           >搜索售后 / 原订单<a-input
             v-model:value="refundQuery"
@@ -430,7 +431,7 @@ const actionNames: Record<string, string> = {
             </option></AdminSelect
           ></label
         >
-      </AdminForm>
+      </AdminFilterBar>
       <a-table
         :columns="refundColumns"
         :data-source="filteredRefunds"

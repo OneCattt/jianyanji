@@ -6,7 +6,7 @@
 
 覆盖工作台、品牌内容、课程权益、商品分类、品牌资料、入驻、订单发货、售后、配送、收款积分、积分退现金、奖励结算、用户、工作人员、操作记录共 15 个页面，以及图片上传、资格归属办理、业务导出。
 
-- `web/main.ts` 统一主题及按需注册实际使用的组件。
+- `web/admin-theme.ts` 统一标准控件主题，`web/main.ts` 应用主题及按需注册实际使用的组件。
 - `AdminDialog.vue` 使用 AntD Modal，统一宽度、滚动区、操作栏及异步操作后的键盘焦点。
 - `AdminForm.vue` 使用 AntD Form 承载现有中文字段校验，保留必填、格式和范围约束；支持数值框和日期、选择器的校验与聚焦。
 - `AdminSelect.vue` 使用 AntD Select 展示和搜索，保留原 option 的字符串、数值类型及 change 事件契约。
@@ -36,3 +36,16 @@
 本地界面截图及布局检查结果位于忽略提交的 `artifacts/dialog-layout/`。
 
 构建包含 AntD 公共组件及后台模块，会提示单个 JavaScript 文件超过 500 kB；当前构建成功，该提示不代表运行错误。
+
+## 2026-10-28 公共控件补充
+
+2026-10-28：参考 `pos-medical-insurance-center` 的 `DslQueryForm`、`DslQueryFormItem` 和 `DslQueryList`，统一公共筛选容器、字段间距与标准控件；本项目沿用已有 Ant Design Vue，不增加另一套组件库。品牌色仍为清欣简妍肌酒红色。
+
+- `web/admin-theme.ts`：全局主题，标准控件高度38px、圆角6px、字号14px；按钮和输入框直接使用 Ant Design 组件。
+- `AdminForm`：统一表单布局、校验及错误提示。业务页的 `label` 规则必须排除 `.ant-checkbox-wrapper` 和 `.ant-radio-wrapper`，避免覆盖组件内部结构。
+- `AdminFilterBar`：公共筛选栏，字段随视口换行，小屏字段占满一行；默认槽放字段，`actions` 槽放查询、刷新和导出等按钮。普通字段宽200px，较长字段通过 `--admin-filter-width` 调整。
+- `AdminSelect`、`AdminDatePicker`：统一选择、日期格式和必填校验，不再使用可见原生下拉框或日期框。
+- `AdminUserSelect`：独立用户编号输入统一使用远程搜索，按昵称、完整手机号或ID搜索，分页加载并脱敏展示。`identity="B"` 限有效19800店主，`identity="agents"` 限有效店主；`disabledIds` 排除本人。绑定值为字符串ID，业务提交按原接口约定转换为数值。
+- 奖励收益人受原交易来源约束，保留原候选范围内的搜索，不改为任意用户选择。商品使用已有 `AdminProductSelect`。
+
+寄存、订单、售后、入驻申请和品牌内容筛选已接入公共筛选栏。切换用户须清除原用户的钱包展示、原收款、地址、寄存批次与关系选择；业务写入仍由原服务端权限和归属校验控制。

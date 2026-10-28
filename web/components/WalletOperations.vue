@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import AdminUserSelect from "./AdminUserSelect.vue";
 import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminForm from "./AdminForm.vue";
@@ -55,6 +56,13 @@ const wallet = ref<Wallet | null>(null),
   userId = ref(""),
   receiptId = ref(""),
   externalTransactionId = ref("");
+watch(
+  userId,
+  () => {
+    wallet.value = null;
+  },
+  { flush: "sync" },
+);
 const form = ref({
   userId: "",
   amount: "",
@@ -257,13 +265,9 @@ const receiptColumns = [
           </p>
           <AdminForm class="query-fields" @submit="run(refresh)">
             <label
-              >按客户编号追查<a-input-number
-                class="number-field"
-                string-mode
-                :precision="0"
-                pattern="[0-9]+"
-                v-model:value="userId"
-                :min="1" /></label
+              >按客户编号追查<AdminUserSelect
+                v-model="userId"
+                :disabled="busy" /></label
             ><label
               >原收款编号<a-input-number
                 class="number-field"
@@ -434,14 +438,10 @@ const receiptColumns = [
       <AdminForm class="fields receipt-form" @submit="confirmReceipt">
         <h3>核实订货到账并发积分</h3>
         <label
-          >客户用户编号<a-input-number
-            class="number-field"
-            string-mode
-            :precision="0"
-            pattern="[0-9]+"
-            v-model:value="form.userId"
-            :min="1"
+          >客户用户编号<AdminUserSelect
+            v-model="form.userId"
             required
+            :disabled="busy"
         /></label>
         <label
           >实际到账（元）<a-input
@@ -608,7 +608,7 @@ h4 {
 .query-fields {
   margin-top: 4px;
 }
-label {
+label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   display: grid;
   min-width: 0;
   gap: 5px;
@@ -742,7 +742,7 @@ small {
 .fields > label,
 .result-fields > label,
 .field-grid > label,
-.sku-form > label {
+.sku-form > label:not(.ant-checkbox-wrapper):not(.ant-radio-wrapper) {
   align-content: start;
 }
 </style>

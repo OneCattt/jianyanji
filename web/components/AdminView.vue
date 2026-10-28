@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from "vue";
+import AdminUserSelect from "./AdminUserSelect.vue";
+import { ref, computed, onMounted, h, watch } from "vue";
 import "../admin.css";
 import {
   LayoutDashboard,
@@ -82,6 +83,9 @@ const form = ref({
   reason: "",
 });
 const menuExpanded = ref(false);
+watch(filterType, () => {
+  filterId.value = "";
+});
 const selectedAudit = ref<Audit | null>(null);
 const focusedPickup = ref<{ id: number; number: string }>();
 const navigation = [
@@ -795,7 +799,10 @@ async function changePage(value: number) {
                 </option></AdminSelect
               ></label
             ><label
-              >对象编号<a-input
+              >对象编号<AdminUserSelect
+                v-if="filterType === 'user'"
+                v-model="filterId" /><a-input
+                v-else
                 v-model:value="filterId"
                 :maxlength="40"
                 placeholder="请输入对象编号" /></label
