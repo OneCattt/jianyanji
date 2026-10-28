@@ -4,6 +4,7 @@ import FeedbackToast from "./FeedbackToast.vue";
 import { computed, onMounted, ref, useId } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
+import AdminDrawer from "./AdminDrawer.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
@@ -686,10 +687,14 @@ const debtColumns = [
         >
       </div>
     </a-card>
-    <a-card size="small" v-if="detail" class="">
+    <AdminDrawer
+      v-if="detail"
+      title="奖励追溯明细"
+      :busy="busy || Boolean(dialog)"
+      @close="detail = null"
+    >
       <header>
         <h3>奖励 #{{ detail.id }} 追溯明细</h3>
-        <a-button html-type="button" @click="detail = null">收起</a-button>
       </header>
       <a-descriptions
         bordered
@@ -725,9 +730,10 @@ const debtColumns = [
           <pre>{{ JSON.stringify(detail, null, 2) }}</pre>
         </a-collapse-panel>
       </a-collapse>
-    </a-card>
+    </AdminDrawer>
     <AdminDialog
       v-if="dialog === 'settings'"
+      drawer
       title="奖励参数"
       :busy="busy"
       @close="closeDialog"
@@ -776,6 +782,7 @@ const debtColumns = [
     </AdminDialog>
     <AdminDialog
       v-if="dialog === 'source'"
+      drawer
       title="来源核算与奖励登记"
       :busy="busy"
       @close="closeDialog"
@@ -959,6 +966,7 @@ const debtColumns = [
     </AdminDialog>
     <AdminDialog
       v-if="dialog === 'plan'"
+      drawer
       title="创建待付款月结单"
       :busy="busy"
       @close="closeDialog"
@@ -1024,6 +1032,7 @@ const debtColumns = [
     </AdminDialog>
     <AdminDialog
       v-if="dialog === 'result'"
+      drawer
       title="登记结算实际结果"
       :busy="busy"
       @close="closeDialog"
@@ -1068,6 +1077,7 @@ const debtColumns = [
     </AdminDialog>
     <AdminDialog
       v-if="dialog === 'recovery'"
+      drawer
       title="登记人工实际追回"
       :busy="busy"
       @close="closeDialog"

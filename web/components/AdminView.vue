@@ -969,6 +969,7 @@ async function changePage(value: number) {
     </a-layout>
     <AdminDialog
       v-if="selectedAudit"
+      drawer
       title="操作记录详情"
       @close="selectedAudit = null"
     >
@@ -1049,6 +1050,7 @@ async function changePage(value: number) {
     </AdminDialog>
     <AdminDialog
       v-if="modal"
+      :drawer="modal !== 'remove'"
       :title="
         modal === 'create'
           ? '新增工作人员'

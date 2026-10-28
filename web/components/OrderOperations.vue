@@ -722,6 +722,7 @@ function statusColor(value: string) {
     </template>
     <AdminDialog
       v-if="editingShipping"
+      drawer
       title="配送与待付款配置"
       :busy="saving"
       @close="!saving && (editingShipping = false)"

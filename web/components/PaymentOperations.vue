@@ -4,6 +4,7 @@ import FeedbackToast from "./FeedbackToast.vue";
 import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
+import AdminDrawer from "./AdminDrawer.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminSelect from "./AdminSelect.vue";
@@ -530,164 +531,179 @@ function statusColor(value: string) {
         >
       </div>
     </a-card>
-    <a-card size="small" v-if="selected" class="order-detail">
-      <header class="section-heading">
-        <div>
-          <small class="cell-note">当前处理订单</small>
-          <h3>{{ selected.number }}</h3>
-        </div>
-        <a-button html-type="button" @click="selected = null">收起</a-button>
-      </header>
-      <p v-if="selected.snapshot.address" class="delivery-address">
-        {{ selected.snapshot.address.recipient }} ·
-        {{ selected.snapshot.address.phone }} ·
-        {{ selected.snapshot.address.province
-        }}{{ selected.snapshot.address.city
-        }}{{ selected.snapshot.address.district
-        }}{{ selected.snapshot.address.detail }}
-      </p>
-      <section class="detail-section">
-        <h4>收款与扣款记录</h4>
-        <p>
-          应收：¥{{ money(selected.total_cents) }} ·
-          {{ paymentLabels[selected.payment_state] || selected.payment_state }}
-          ·
-          {{
-            selected.payment_method
-              ? methodNames[selected.payment_method] || selected.payment_method
-              : "待核实线下收款"
-          }}
+    <AdminDrawer
+      v-if="selected"
+      title="订单详情与处理"
+      :busy="busy || Boolean(dialog || correcting)"
+      wide
+      @close="selected = null"
+    >
+      <div class="order-detail">
+        <header class="section-heading">
+          <div>
+            <small class="cell-note">当前处理订单</small>
+            <h3>{{ selected.number }}</h3>
+          </div>
+        </header>
+        <p v-if="selected.snapshot.address" class="delivery-address">
+          {{ selected.snapshot.address.recipient }} ·
+          {{ selected.snapshot.address.phone }} ·
+          {{ selected.snapshot.address.province
+          }}{{ selected.snapshot.address.city
+          }}{{ selected.snapshot.address.district
+          }}{{ selected.snapshot.address.detail }}
         </p>
-        <p v-if="payment?.receipt">
-          收款 / 扣款流水标识：{{
-            payment.receipt.transaction_id || "无外部流水"
-          }}
-          · 金额 ¥{{ money(payment.receipt.cents) }} · 实际到账 / 扣款时间：{{
-            payment.receipt.paid_at
-          }}
-        </p>
-        <p v-else>尚无积分扣款记录；客户足额积分支付后才可履约。</p>
-        <p v-if="selected.kind === 'package'">
-          产品包由客户扣积分购买后开通身份。
-        </p>
-        <a-button
-          v-if="canCollect"
-          type="primary"
-          :disabled="busy"
-          @click="openReceipt"
-        >
-          登记订单积分支付记录
-        </a-button>
-      </section>
-      <template v-if="!props.financeOnly">
         <section class="detail-section">
-          <p v-if="selected.storageRemainingQty">
-            剩余寄存
-            {{ selected.storageRemainingQty }}
-            件；留仓货品须通过提货申请安排配送。
+          <h4>收款与扣款记录</h4>
+          <p>
+            应收：¥{{ money(selected.total_cents) }} ·
+            {{
+              paymentLabels[selected.payment_state] || selected.payment_state
+            }}
+            ·
+            {{
+              selected.payment_method
+                ? methodNames[selected.payment_method] ||
+                  selected.payment_method
+                : "待核实线下收款"
+            }}
           </p>
-          <p v-for="pickup in activePickups" :key="pickup.id">
-            {{ pickup.status === "review" ? "待审核配送" : "待发货配送" }}
-            {{ pickup.number }}
-            <a-button @click="emit('open-pickup', pickup)"
-              >办理本次配送</a-button
-            >
+          <p v-if="payment?.receipt">
+            收款 / 扣款流水标识：{{
+              payment.receipt.transaction_id || "无外部流水"
+            }}
+            · 金额 ¥{{ money(payment.receipt.cents) }} · 实际到账 / 扣款时间：{{
+              payment.receipt.paid_at
+            }}
+          </p>
+          <p v-else>尚无积分扣款记录；客户足额积分支付后才可履约。</p>
+          <p v-if="selected.kind === 'package'">
+            产品包由客户扣积分购买后开通身份。
           </p>
           <a-button
-            html-type="button"
+            v-if="canCollect"
             type="primary"
-            v-if="canShip"
             :disabled="busy"
-            @click="openShipment"
-            >登记品牌仓发货</a-button
+            @click="openReceipt"
           >
-          <p v-else-if="!activePickups.length && !selected.storageRemainingQty">
-            当前没有可直接发货数量；未付款订单须先由客户扣积分支付。
-          </p>
-          <p v-if="canShip">
-            本入口处理原订单未分配到有效配送单的货品，包含取消配送后保留的新购未发货商品。
-          </p>
+            登记订单积分支付记录
+          </a-button>
         </section>
-        <section class="detail-section">
-          <h4>包裹与收货记录</h4>
-          <div v-for="s in selected.shipments" :key="s.id" class="parcel">
-            <div>
-              {{ s.carrier }} · {{ s.tracking }}
-              <small class="cell-note"
-                >出库 {{ s.shipped_at }} ·
-                {{
-                  s.received_at ? "收货 " + s.received_at : "尚未确认收货"
-                }}</small
+        <template v-if="!props.financeOnly">
+          <section class="detail-section">
+            <p v-if="selected.storageRemainingQty">
+              剩余寄存
+              {{ selected.storageRemainingQty }}
+              件；留仓货品须通过提货申请安排配送。
+            </p>
+            <p v-for="pickup in activePickups" :key="pickup.id">
+              {{ pickup.status === "review" ? "待审核配送" : "待发货配送" }}
+              {{ pickup.number }}
+              <a-button @click="emit('open-pickup', pickup)"
+                >办理本次配送</a-button
               >
-            </div>
+            </p>
             <a-button
               html-type="button"
+              type="primary"
+              v-if="canShip"
               :disabled="busy"
-              @click="openCorrection(s)"
+              @click="openShipment"
+              >登记品牌仓发货</a-button
             >
-              纠正物流信息
-            </a-button>
+            <p
+              v-else-if="!activePickups.length && !selected.storageRemainingQty"
+            >
+              当前没有可直接发货数量；未付款订单须先由客户扣积分支付。
+            </p>
+            <p v-if="canShip">
+              本入口处理原订单未分配到有效配送单的货品，包含取消配送后保留的新购未发货商品。
+            </p>
+          </section>
+          <section class="detail-section">
+            <h4>包裹与收货记录</h4>
+            <div v-for="s in selected.shipments" :key="s.id" class="parcel">
+              <div>
+                {{ s.carrier }} · {{ s.tracking }}
+                <small class="cell-note"
+                  >出库 {{ s.shipped_at }} ·
+                  {{
+                    s.received_at ? "收货 " + s.received_at : "尚未确认收货"
+                  }}</small
+                >
+              </div>
+              <a-button
+                html-type="button"
+                :disabled="busy"
+                @click="openCorrection(s)"
+              >
+                纠正物流信息
+              </a-button>
+            </div>
+            <p v-if="!selected.shipments.length">尚未登记发货</p>
+          </section>
+        </template>
+        <details class="detail-section payment-evidence">
+          <summary>查看历史交易与核查记录（只读）</summary>
+          <h4>历史支付尝试与异常到账依据</h4>
+          <div class="table-wrap">
+            <a-table
+              :columns="attemptColumns"
+              :data-source="payment?.attempts || []"
+              row-key="id"
+              :pagination="false"
+              :scroll="{ x: 900 }"
+              size="small"
+              ><template #bodyCell="{ column, record: a }"
+                ><template v-if="column.key === 'number'">{{
+                  a.number
+                }}</template
+                ><template v-else-if="column.key === 'state'"
+                  ><a-tag :color="statusColor(a.state)">{{
+                    paymentLabels[a.state] || a.state
+                  }}</a-tag></template
+                ><template v-else-if="column.key === 'transaction'">{{
+                  a.transaction_id || "尚未核验到账"
+                }}</template
+                ><template v-else-if="column.key === 'error'">{{
+                  a.last_error || "无"
+                }}</template
+                ><template v-else-if="column.key === 'request'">{{
+                  a.last_request_id
+                }}</template></template
+              ></a-table
+            >
           </div>
-          <p v-if="!selected.shipments.length">尚未登记发货</p>
-        </section>
-      </template>
-      <details class="detail-section payment-evidence">
-        <summary>查看历史交易与核查记录（只读）</summary>
-        <h4>历史支付尝试与异常到账依据</h4>
-        <div class="table-wrap">
-          <a-table
-            :columns="attemptColumns"
-            :data-source="payment?.attempts || []"
-            row-key="id"
-            :pagination="false"
-            :scroll="{ x: 900 }"
-            size="small"
-            ><template #bodyCell="{ column, record: a }"
-              ><template v-if="column.key === 'number'">{{ a.number }}</template
-              ><template v-else-if="column.key === 'state'"
-                ><a-tag :color="statusColor(a.state)">{{
-                  paymentLabels[a.state] || a.state
-                }}</a-tag></template
-              ><template v-else-if="column.key === 'transaction'">{{
-                a.transaction_id || "尚未核验到账"
-              }}</template
-              ><template v-else-if="column.key === 'error'">{{
-                a.last_error || "无"
-              }}</template
-              ><template v-else-if="column.key === 'request'">{{
-                a.last_request_id
-              }}</template></template
-            ></a-table
-          >
-        </div>
-        <h4>历史交易事件与核查证据</h4>
-        <div class="table-wrap">
-          <a-table
-            :columns="eventColumns"
-            :data-source="payment?.events || []"
-            row-key="id"
-            :pagination="false"
-            :scroll="{ x: 800 }"
-            size="small"
-            ><template #bodyCell="{ column, record: e }"
-              ><template v-if="column.key === 'time'">{{
-                e.create_time
-              }}</template
-              ><template v-else-if="column.key === 'result'"
-                >{{ e.action }} / {{ e.result }}</template
-              ><template v-else-if="column.key === 'detail'">{{
-                e.detail
-              }}</template
-              ><template v-else-if="column.key === 'request'">{{
-                e.request_id
-              }}</template></template
-            ></a-table
-          >
-        </div>
-      </details>
-    </a-card>
+          <h4>历史交易事件与核查证据</h4>
+          <div class="table-wrap">
+            <a-table
+              :columns="eventColumns"
+              :data-source="payment?.events || []"
+              row-key="id"
+              :pagination="false"
+              :scroll="{ x: 800 }"
+              size="small"
+              ><template #bodyCell="{ column, record: e }"
+                ><template v-if="column.key === 'time'">{{
+                  e.create_time
+                }}</template
+                ><template v-else-if="column.key === 'result'"
+                  >{{ e.action }} / {{ e.result }}</template
+                ><template v-else-if="column.key === 'detail'">{{
+                  e.detail
+                }}</template
+                ><template v-else-if="column.key === 'request'">{{
+                  e.request_id
+                }}</template></template
+              ></a-table
+            >
+          </div>
+        </details>
+      </div>
+    </AdminDrawer>
     <AdminDialog
       v-if="selected && dialog"
+      drawer
       :title="dialog === 'ship' ? '登记品牌仓发货' : '登记订单积分支付记录'"
       :busy="busy"
       :wide="dialog === 'ship'"

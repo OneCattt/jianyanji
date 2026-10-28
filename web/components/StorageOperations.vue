@@ -11,6 +11,7 @@ import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
 import AdminProductSelect from "./AdminProductSelect.vue";
 import AdminDialog from "./AdminDialog.vue";
+import AdminDrawer from "./AdminDrawer.vue";
 import FeedbackToast from "./FeedbackToast.vue";
 interface Row {
   id: number;
@@ -543,7 +544,9 @@ const columns = computed(() =>
         >
       </template>
     </a-table>
-    <AdminDialog
+    <component
+      :is="operation === 'detail' ? AdminDrawer : AdminDialog"
+      :drawer="['import', 'manual', 'identity'].includes(operation)"
       v-if="operation"
       :title="operation === 'detail' ? '提货详情' : '寄存与身份办理'"
       :busy="busy"
@@ -562,7 +565,9 @@ const columns = computed(() =>
           }}{{ item.is_gift ? "（赠品）" : "" }}
         </p>
         <p>{{ selected?.review_reason }}</p>
-        <a-space v-if="canOperate && selected" wrap>
+      </template>
+      <template #actions>
+        <a-space v-if="operation === 'detail' && canOperate && selected" wrap>
           <a-button
             v-if="selected.status === 'review'"
             @click="open('approve', selected)"
@@ -586,7 +591,11 @@ const columns = computed(() =>
           >
         </a-space>
       </template>
-      <AdminForm v-else class="storage-form config-form" @submit="submit">
+      <AdminForm
+        v-if="operation !== 'detail'"
+        class="storage-form config-form"
+        @submit="submit"
+      >
         <p v-if="operation === 'cancel' || operation === 'reject'">
           取消或驳回仅释放寄存提货占用并退本次运费，商品货款不退款。
           <span v-if="selected?.newGoodsQuantity"
@@ -697,7 +706,7 @@ const columns = computed(() =>
           >确认办理</a-button
         >
       </AdminForm>
-    </AdminDialog>
+    </component>
   </section>
 </template>
 <style scoped>

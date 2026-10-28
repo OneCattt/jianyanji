@@ -715,6 +715,7 @@ const actionNames: Record<string, string> = {
     </AdminDialog>
     <AdminDialog
       v-if="selected && action"
+      :drawer="['offline', 'inspect'].includes(action)"
       :title="actionNames[action] + ' · ' + selected.number"
       :busy="busy"
       @close="!busy && (action = '')"

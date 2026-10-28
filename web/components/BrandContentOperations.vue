@@ -244,6 +244,7 @@ const postColumns = [
   </section>
   <AdminDialog
     v-if="editing"
+    drawer
     title="维护种草内容"
     :busy="busy || uploading"
     @close="editing = false"

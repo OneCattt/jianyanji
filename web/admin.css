@@ -1,7 +1,8 @@
 /* Ant Design 负责控件外观；这里仅管理品牌、页面结构与业务表单排版。 */
 .admin-shell,
 .admin-login,
-.admin-modal-wrap {
+.admin-modal-wrap,
+.admin-drawer-wrap {
   --admin-accent: #8d2638;
   --admin-accent-soft: #f7edf0;
   --admin-bg: #f5f6f8;
@@ -484,6 +485,40 @@
   max-width: 100%;
   overflow-x: auto;
 }
+.admin-drawer-wrap .ant-drawer-header {
+  padding: 20px 24px;
+}
+.admin-drawer-wrap .ant-drawer-title {
+  font-size: 18px;
+}
+.admin-drawer-wrap .ant-drawer-body {
+  min-width: 0;
+  padding: 24px;
+  overscroll-behavior: contain;
+}
+.admin-drawer-wrap .ant-drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 24px;
+}
+.admin-drawer-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  outline: none;
+}
+.admin-drawer-body > :last-child {
+  margin-bottom: 0;
+}
+@media (max-width: 640px) {
+  .admin-drawer-wrap .ant-drawer-header,
+  .admin-drawer-wrap .ant-drawer-body,
+  .admin-drawer-wrap .ant-drawer-footer {
+    padding: 16px;
+  }
+}
 .admin-modal-wrap .admin-dialog {
   max-width: calc(100vw - 32px);
   padding-bottom: 0;
@@ -515,15 +550,15 @@
 .admin-dialog-body > :last-child {
   margin-bottom: 24px;
 }
-.admin-dialog-body .admin-form {
+:is(.admin-dialog-body, .admin-drawer-body) .admin-form {
   margin: 0;
   display: grid;
   gap: 18px;
 }
-.admin-dialog-body .admin-form:last-child {
+:is(.admin-dialog-body, .admin-drawer-body) .admin-form:last-child {
   margin-bottom: 0;
 }
-.admin-dialog-body .dialog-actions {
+:is(.admin-dialog-body, .admin-drawer-body) .dialog-actions {
   grid-column: 1 / -1;
   position: sticky;
   bottom: 0;
@@ -538,10 +573,10 @@
   border-top: 1px solid var(--admin-border);
   background: #fff;
 }
-.admin-dialog-body .dialog-actions .ant-btn {
+:is(.admin-dialog-body, .admin-drawer-body) .dialog-actions .ant-btn {
   min-width: 80px;
 }
-.admin-dialog-body .ant-table-wrapper {
+:is(.admin-dialog-body, .admin-drawer-body) .ant-table-wrapper {
   max-width: 100%;
 }
 .admin-login {
@@ -776,11 +811,11 @@
     padding: 18px 16px 0;
     max-height: calc(94dvh - 80px);
   }
-  .admin-dialog-body .dialog-actions {
+  :is(.admin-dialog-body, .admin-drawer-body) .dialog-actions {
     margin-inline: -16px;
     padding: 14px 16px;
   }
-  .admin-dialog-body .dialog-actions .ant-btn {
+  :is(.admin-dialog-body, .admin-drawer-body) .dialog-actions .ant-btn {
     height: auto;
     min-height: 38px;
     white-space: normal;
@@ -917,7 +952,7 @@
   }
 }
 
-.admin-dialog-body .config-save-bar {
+:is(.admin-dialog-body, .admin-drawer-body) .config-save-bar {
   position: sticky;
   bottom: 0;
   z-index: 5;
@@ -925,7 +960,7 @@
   padding: 16px 24px;
   background: #fff;
 }
-.admin-dialog-body .config-save-bar .dialog-actions {
+:is(.admin-dialog-body, .admin-drawer-body) .config-save-bar .dialog-actions {
   position: static;
   grid-column: auto;
   margin: 0;
@@ -933,7 +968,7 @@
   border: 0;
 }
 @media (max-width: 700px) {
-  .admin-dialog-body .config-save-bar {
+  :is(.admin-dialog-body, .admin-drawer-body) .config-save-bar {
     margin-inline: -16px;
     padding: 14px 16px;
   }

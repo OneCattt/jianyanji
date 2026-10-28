@@ -5,6 +5,7 @@ import FeedbackToast from "./FeedbackToast.vue";
 import { onMounted, ref, watch } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
+import AdminDrawer from "./AdminDrawer.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
@@ -285,93 +286,101 @@ const receiptColumns = [
             >
           </AdminForm>
         </a-card>
-        <a-card size="small" v-if="wallet" class="wallet-detail">
-          <div class="balances">
-            <p>
-              积分余额<strong>{{ money(wallet.balanceCents) }}</strong>
-            </p>
-            <p>
-              可用积分<strong>{{ money(wallet.availableCents) }}</strong>
-            </p>
-            <p>
-              办理中占用<strong>{{ money(wallet.heldCents) }}</strong>
-            </p>
-          </div>
-          <h3>原收款积分批次</h3>
-          <div
-            class="table-wrap"
-            tabindex="0"
-            role="region"
-            aria-label="原收款积分批次，可横向滚动"
-          >
-            <a-table
-              :data-source="wallet.lots"
-              :columns="pointLotColumns"
-              row-key="id"
-              size="middle"
-              :loading="busy || listLoading"
-              :scroll="{ x: 680 }"
-              :pagination="{
-                defaultPageSize: 10,
-                showSizeChanger: true,
-                pageSizeOptions: ['10', '20', '50'],
-                hideOnSinglePage: false,
-              }"
-              ><template #bodyCell="{ column, record: lot }"
-                ><template v-if="column.key === 'c0'"
-                  ><div class="table-cell-content">
-                    #{{ lot.id }} / #{{ lot.receipt_id
-                    }}<small>{{ lot.external_transaction_id }}</small>
-                  </div></template
-                >
-                <template v-else-if="column.key === 'c1'"
-                  ><div class="table-cell-content">
-                    {{ money(lot.issued_cents) }}
-                  </div></template
-                >
-                <template v-else-if="column.key === 'c2'"
-                  ><div class="table-cell-content">
-                    {{ money(lot.remaining_cents) }} /
-                    {{ money(lot.held_cents) }}
-                  </div></template
-                >
-                <template v-else-if="column.key === 'c3'"
-                  ><div class="table-cell-content">
-                    <a-button
-                      html-type="button"
-                      :disabled="busy"
-                      @click="openCorrection(lot.id)"
-                    >
-                      来源差额纠正
-                    </a-button>
-                  </div></template
-                ></template
-              ></a-table
-            >
-          </div>
-          <p v-if="!wallet.lots.length" class="empty-state">
-            暂无原收款积分批次。
-          </p>
-          <p class="muted">
-            仅能纠正该原批次未消费且未占用的积分，已消费差额须人工核实处理。
-          </p>
-          <h3>积分流水</h3>
-          <div v-for="entry in ledger" :key="entry.id" class="entry">
-            <div>
-              {{ kinds[entry.kind] || entry.kind }} ·
-              {{ entry.order_number || "原收款 #" + entry.receipt_id
-              }}<small>{{ entry.create_time }} · {{ entry.reason }}</small>
+        <AdminDrawer
+          v-if="wallet"
+          :title="`积分钱包 · 用户 #${userId}`"
+          :busy="busy || Boolean(dialog)"
+          wide
+          @close="wallet = null"
+        >
+          <div class="wallet-detail">
+            <div class="balances">
+              <p>
+                积分余额<strong>{{ money(wallet.balanceCents) }}</strong>
+              </p>
+              <p>
+                可用积分<strong>{{ money(wallet.availableCents) }}</strong>
+              </p>
+              <p>
+                办理中占用<strong>{{ money(wallet.heldCents) }}</strong>
+              </p>
             </div>
-            <strong
-              >{{ entry.delta_cents > 0 ? "+" : ""
-              }}{{ money(entry.delta_cents) }}</strong
+            <h3>原收款积分批次</h3>
+            <div
+              class="table-wrap"
+              tabindex="0"
+              role="region"
+              aria-label="原收款积分批次，可横向滚动"
             >
+              <a-table
+                :data-source="wallet.lots"
+                :columns="pointLotColumns"
+                row-key="id"
+                size="middle"
+                :loading="busy || listLoading"
+                :scroll="{ x: 680 }"
+                :pagination="{
+                  defaultPageSize: 10,
+                  showSizeChanger: true,
+                  pageSizeOptions: ['10', '20', '50'],
+                  hideOnSinglePage: false,
+                }"
+                ><template #bodyCell="{ column, record: lot }"
+                  ><template v-if="column.key === 'c0'"
+                    ><div class="table-cell-content">
+                      #{{ lot.id }} / #{{ lot.receipt_id
+                      }}<small>{{ lot.external_transaction_id }}</small>
+                    </div></template
+                  >
+                  <template v-else-if="column.key === 'c1'"
+                    ><div class="table-cell-content">
+                      {{ money(lot.issued_cents) }}
+                    </div></template
+                  >
+                  <template v-else-if="column.key === 'c2'"
+                    ><div class="table-cell-content">
+                      {{ money(lot.remaining_cents) }} /
+                      {{ money(lot.held_cents) }}
+                    </div></template
+                  >
+                  <template v-else-if="column.key === 'c3'"
+                    ><div class="table-cell-content">
+                      <a-button
+                        html-type="button"
+                        :disabled="busy"
+                        @click="openCorrection(lot.id)"
+                      >
+                        来源差额纠正
+                      </a-button>
+                    </div></template
+                  ></template
+                ></a-table
+              >
+            </div>
+            <p v-if="!wallet.lots.length" class="empty-state">
+              暂无原收款积分批次。
+            </p>
+            <p class="muted">
+              仅能纠正该原批次未消费且未占用的积分，已消费差额须人工核实处理。
+            </p>
+            <h3>积分流水</h3>
+            <div v-for="entry in ledger" :key="entry.id" class="entry">
+              <div>
+                {{ kinds[entry.kind] || entry.kind }} ·
+                {{ entry.order_number || "原收款 #" + entry.receipt_id
+                }}<small>{{ entry.create_time }} · {{ entry.reason }}</small>
+              </div>
+              <strong
+                >{{ entry.delta_cents > 0 ? "+" : ""
+                }}{{ money(entry.delta_cents) }}</strong
+              >
+            </div>
+            <p v-if="!ledger.length && !ledgerLoading" class="empty-state">
+              暂无积分流水。
+            </p>
+            <a-pagination v-bind="ledgerPagination" :disabled="ledgerLoading" />
           </div>
-          <p v-if="!ledger.length && !ledgerLoading" class="empty-state">
-            暂无积分流水。
-          </p>
-          <a-pagination v-bind="ledgerPagination" :disabled="ledgerLoading" />
-        </a-card>
+        </AdminDrawer>
         <a-card size="small" class="receipts-panel" aria-label="真实收款记录">
           <h3>真实收款记录</h3>
           <div
@@ -431,6 +440,7 @@ const receiptColumns = [
     </div>
     <AdminDialog
       v-if="dialog === 'receipt'"
+      drawer
       title="充值核款并发积分"
       :busy="busy"
       @close="closeDialog"

@@ -6,6 +6,7 @@ import ImageUploader from "./ImageUploader.vue";
 import { computed, onMounted, ref } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
+import AdminDrawer from "./AdminDrawer.vue";
 import AdminForm from "./AdminForm.vue";
 import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminProductSelect from "./AdminProductSelect.vue";
@@ -495,90 +496,95 @@ const packageLineColumns = [
         >
       </div>
     </a-card>
-    <a-card size="small" v-if="selected" class="application-detail">
-      <header class="detail-heading">
-        <h3>
-          入驻申请 #{{ selected.id }} · {{ selected.package_snapshot.name }}
-        </h3>
-        <p>
-          用户 #{{ selected.user_id }} · 货款 ¥{{
-            money(selected.package_snapshot.amountCents)
-          }}
-          · {{ states[selected.status] }}
-        </p>
-        <p v-if="selected.review_reason" class="muted">
-          处理说明：{{ selected.review_reason }}
-        </p>
-        <p class="muted">
-          当次入驻条件：{{ selected.package_snapshot.conditions }}
-        </p>
-        <a-descriptions size="small" bordered :column="2">
-          <a-descriptions-item label="申请直接邀请人">{{
-            selected.requested_inviter_id
-              ? "用户 #" + selected.requested_inviter_id
-              : "历史申请缺少确认，请本人重新确认"
-          }}</a-descriptions-item>
-          <a-descriptions-item label="确认直接邀请人">{{
-            selected.inviter_id ? "用户 #" + selected.inviter_id : "尚未确认"
-          }}</a-descriptions-item>
-          <a-descriptions-item label="归属主理人">{{
-            selected.principal_id
-              ? "用户 #" + selected.principal_id
-              : "尚未确认"
-          }}</a-descriptions-item>
-        </a-descriptions>
-        <a-table
-          :columns="packageLineColumns"
-          :data-source="selected.package_snapshot.lines"
-          :row-key="packageLineKey"
-          :pagination="false"
-          :scroll="{ x: 460 }"
-          size="small"
-        >
-          <template #bodyCell="{ column, record: line }"
-            ><template v-if="column.key === 'sku'"
-              >规格 #{{ line.skuId }}</template
-            ><template v-else-if="column.key === 'quantity'">{{
-              line.quantity
-            }}</template
-            ><template v-else-if="column.key === 'unit'"
-              >¥{{ money(line.unitCents) }}</template
-            ></template
+    <AdminDrawer
+      v-if="selected"
+      :title="`入驻申请 #${selected.id}`"
+      :busy="busy || Boolean(dialog)"
+      wide
+      @close="selected = null"
+    >
+      <div class="application-detail">
+        <header class="detail-heading">
+          <h3>
+            入驻申请 #{{ selected.id }} · {{ selected.package_snapshot.name }}
+          </h3>
+          <p>
+            用户 #{{ selected.user_id }} · 货款 ¥{{
+              money(selected.package_snapshot.amountCents)
+            }}
+            · {{ states[selected.status] }}
+          </p>
+          <p v-if="selected.review_reason" class="muted">
+            处理说明：{{ selected.review_reason }}
+          </p>
+          <p class="muted">
+            当次入驻条件：{{ selected.package_snapshot.conditions }}
+          </p>
+          <a-descriptions size="small" bordered :column="2">
+            <a-descriptions-item label="申请直接邀请人">{{
+              selected.requested_inviter_id
+                ? "用户 #" + selected.requested_inviter_id
+                : "历史申请缺少确认，请本人重新确认"
+            }}</a-descriptions-item>
+            <a-descriptions-item label="确认直接邀请人">{{
+              selected.inviter_id ? "用户 #" + selected.inviter_id : "尚未确认"
+            }}</a-descriptions-item>
+            <a-descriptions-item label="归属主理人">{{
+              selected.principal_id
+                ? "用户 #" + selected.principal_id
+                : "尚未确认"
+            }}</a-descriptions-item>
+          </a-descriptions>
+          <a-table
+            :columns="packageLineColumns"
+            :data-source="selected.package_snapshot.lines"
+            :row-key="packageLineKey"
+            :pagination="false"
+            :scroll="{ x: 460 }"
+            size="small"
           >
-        </a-table>
-      </header>
-      <a-space wrap>
-        <a-button
-          html-type="button"
-          type="primary"
-          v-if="false"
-          :disabled="busy"
-          @click="openApplicationDialog('receipt')"
-        >
-          核实真实到账
-        </a-button>
-        <a-button html-type="button" :disabled="busy" @click="selected = null">
-          关闭详情
-        </a-button>
-      </a-space>
-      <div class="review-workspace">
-        <section
-          v-if="selected.receipt || selected.order"
-          class="workflow-panel"
-        >
-          <p v-if="selected.receipt">
-            原收款 #{{ selected.receipt.id }} ·
-            {{ selected.receipt.external_transaction_id }}
-          </p>
-          <p v-if="selected.order">
-            商品交付订单 {{ selected.order.number }} ·
-            {{
-              orderStates[selected.order.status] || selected.order.status
-            }}（请在订单与交付中安排发货）
-          </p>
-        </section>
+            <template #bodyCell="{ column, record: line }"
+              ><template v-if="column.key === 'sku'"
+                >规格 #{{ line.skuId }}</template
+              ><template v-else-if="column.key === 'quantity'">{{
+                line.quantity
+              }}</template
+              ><template v-else-if="column.key === 'unit'"
+                >¥{{ money(line.unitCents) }}</template
+              ></template
+            >
+          </a-table>
+        </header>
+        <a-space wrap>
+          <a-button
+            html-type="button"
+            type="primary"
+            v-if="false"
+            :disabled="busy"
+            @click="openApplicationDialog('receipt')"
+          >
+            核实真实到账
+          </a-button>
+        </a-space>
+        <div class="review-workspace">
+          <section
+            v-if="selected.receipt || selected.order"
+            class="workflow-panel"
+          >
+            <p v-if="selected.receipt">
+              原收款 #{{ selected.receipt.id }} ·
+              {{ selected.receipt.external_transaction_id }}
+            </p>
+            <p v-if="selected.order">
+              商品交付订单 {{ selected.order.number }} ·
+              {{
+                orderStates[selected.order.status] || selected.order.status
+              }}（请在订单与交付中安排发货）
+            </p>
+          </section>
+        </div>
       </div>
-    </a-card>
+    </AdminDrawer>
     <a-collapse
       v-if="props.permissions.includes('onboarding:manage')"
       class="qualification-tools"
@@ -788,6 +794,7 @@ const packageLineColumns = [
     </AdminDialog>
     <AdminDialog
       v-if="dialog === 'receipt' && selected"
+      drawer
       :title="'入驻核款 · 申请 #' + selected.id"
       :busy="busy"
       @close="closeDialog"
@@ -908,7 +915,7 @@ p {
   display: grid;
   gap: 10px;
 }
-.application-detail :deep(.ant-card-body) {
+.application-detail {
   grid-template-columns: minmax(0, 1fr);
   display: grid;
   gap: 16px;

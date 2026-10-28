@@ -1,11 +1,18 @@
 <script setup lang="ts">
+import AdminDrawer from "./AdminDrawer.vue";
 import { Modal } from "ant-design-vue";
 import { nextTick, ref, watch } from "vue";
 const props = withDefaults(
-  defineProps<{ title: string; busy?: boolean; wide?: boolean }>(),
+  defineProps<{
+    title: string;
+    busy?: boolean;
+    wide?: boolean;
+    drawer?: boolean;
+  }>(),
   {
     busy: false,
     wide: false,
+    drawer: false,
   },
 );
 const emit = defineEmits<{ close: [] }>();
@@ -23,7 +30,17 @@ watch(
 </script>
 
 <template>
+  <AdminDrawer
+    v-if="wide || drawer"
+    :title="title"
+    :busy="busy"
+    :wide="wide"
+    :show-footer="false"
+    @close="emit('close')"
+    ><slot
+  /></AdminDrawer>
   <Modal
+    v-else
     :open="true"
     :title="title"
     :width="wide ? 900 : 680"

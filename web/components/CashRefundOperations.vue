@@ -284,6 +284,7 @@ const cashRefundColumns = [
     </a-card>
     <AdminDialog
       v-if="creating"
+      drawer
       title="人工受理未用积分退现金"
       :busy="busy"
       @close="!busy && (creating = false)"
@@ -346,6 +347,7 @@ const cashRefundColumns = [
     </AdminDialog>
     <AdminDialog
       v-if="selected"
+      drawer
       :title="'登记实际处理结果 · ' + selected.number"
       :busy="busy"
       @close="!busy && (selected = null)"
