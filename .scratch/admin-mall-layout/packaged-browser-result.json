@@ -1,0 +1,139 @@
+{
+  "environment": "64ddaf0真实构建产物，使用只读模拟API",
+  "checks": [
+    {
+      "name": "订单与发货",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "寄存与提货",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "商品售后",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "配送政策",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "商品与分类",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "产品包与入驻",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "套餐与提醒配置",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "品牌种草内容",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "课程成长权益",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "品牌与经营说明",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "积分充值收款",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "积分支付记录",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "订单退款登记",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "未用积分退现金",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "奖励与结算",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "用户资料",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "工作人员",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "操作记录",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    },
+    {
+      "name": "工作台",
+      "errors": [],
+      "headings": 0,
+      "overflow": false,
+      "width": 1440
+    }
+  ],
+  "errors": []
+}
