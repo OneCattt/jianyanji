@@ -6,7 +6,12 @@ const vm = require("node:vm");
 const ts = require("typescript");
 const vue = require("vue");
 const { parse, compileScript } = require("@vue/compiler-sfc");
-function setup(name, props = {}, request = async () => ({})) {
+function setup(
+  name,
+  props = {},
+  request = async () => ({}),
+  listLoad = async () => [],
+) {
   const filename = path.resolve(
     __dirname,
     "../web/components/" + name + ".vue",
@@ -65,7 +70,7 @@ function setup(name, props = {}, request = async () => ({})) {
               total: vue.ref(0),
               pagination: {},
               loading: vue.ref(false),
-              load: async () => [],
+              load: listLoad,
             }),
           };
         return {};
@@ -349,7 +354,7 @@ test("订单配送入口识别有效提货占用，取消后新购仍可直接�
   };
   const { state, stop } = setup(
     "PaymentOperations",
-    { financeOnly: false },
+    { financeOnly: false, canOperate: true },
     async () => ({ order: structuredClone(order) }),
   );
   try {
@@ -364,4 +369,195 @@ test("订单配送入口识别有效提货占用，取消后新购仍可直接�
   } finally {
     stop();
   }
+});
+
+test("配送从订单内打开，写入后刷新原订单并保留搜索及状态筛选", async () => {
+  let status = "approved";
+  const order = () => ({
+    id: 7,
+    payment_state: "paid",
+    status: "paid",
+    lines: [],
+    snapshot: { lines: [] },
+    pickups: [{ id: 9, number: "TH9", status }],
+  });
+  let loads = 0;
+  const p = setup(
+    "PaymentOperations",
+    { financeOnly: false, canOperate: true },
+    async () => ({ order: order() }),
+    async () => {
+      loads++;
+    },
+  );
+  await p.state.select(7);
+  p.state.query.value = "原关键词";
+  p.state.status.value = "paid";
+  p.state.openPickup(9);
+  assert.equal(p.state.pickupId.value, 9);
+  assert.equal(p.events.length, 0);
+  status = "shipped";
+  await p.state.pickupChanged();
+  assert.equal(p.state.selected.value.id, 7);
+  assert.equal(p.state.selected.value.pickups[0].status, "shipped");
+  assert.equal(p.state.pickupId.value, 9);
+  assert.equal(p.state.query.value, "原关键词");
+  assert.equal(p.state.status.value, "paid");
+  assert.equal(loads, 1);
+  p.stop();
+});
+test("配送成功但订单刷新失败时提示已成功，并停用旧履约操作", async () => {
+  let fail = false;
+  const order = {
+    id: 7,
+    payment_state: "paid",
+    status: "paid",
+    lines: [
+      {
+        id: 1,
+        quantity: 2,
+        shipped_qty: 0,
+        refunded_unshipped: 0,
+        held_unshipped: 0,
+      },
+    ],
+    snapshot: { lines: [] },
+  };
+  const p = setup(
+    "PaymentOperations",
+    { financeOnly: false, canOperate: true },
+    async () => {
+      if (fail) throw Error("读取失败");
+      return { order };
+    },
+  );
+  await p.state.select(7);
+  assert.equal(p.state.canShip.value, true);
+  fail = true;
+  await p.state.pickupChanged();
+  assert.match(p.state.error.value, /配送办理已成功/);
+  assert.equal(p.state.canShip.value, false);
+  p.state.openPickup(9);
+  assert.equal(p.state.pickupId.value, null);
+  fail = false;
+  await p.state.select(7);
+  assert.equal(p.state.canShip.value, true);
+  p.stop();
+});
+test("配送窗口按状态和权限办理，提交失败保留输入，成功使用返回单据且不会重复发货", async () => {
+  let fail = true,
+    posts = 0;
+  const pickup = { id: 9, status: "approved", lines: [] };
+  const p = setup(
+    "AdminPickupDrawer",
+    { id: 9, canOperate: true, canFinance: false },
+    async (url, options) => {
+      if (!options) return { ...pickup };
+      posts++;
+      assert.equal(url, "/admin/pickups/9/ship");
+      if (fail) throw Error("发货失败");
+      assert.deepEqual(plain(options.body), {
+        reason: "实际出库",
+        carrier: "顺丰",
+        tracking: "SF123456",
+      });
+      return { ...pickup, status: "shipped" };
+    },
+  );
+  await p.state.load();
+  p.state.openAction("approve");
+  assert.equal(p.state.action.value, "");
+  p.state.openAction("ship");
+  p.state.reason.value = "实际出库";
+  p.state.carrier.value = "顺丰";
+  p.state.tracking.value = "SF123456";
+  await p.state.submit();
+  assert.equal(p.state.action.value, "ship");
+  assert.equal(p.state.tracking.value, "SF123456");
+  assert.equal(p.events.length, 0);
+  fail = false;
+  await p.state.submit();
+  assert.equal(p.state.selected.value.status, "shipped");
+  assert.equal(p.state.action.value, "");
+  assert.equal(p.events[0][0], "changed");
+  p.state.openAction("ship");
+  await p.state.submit();
+  assert.equal(posts, 2);
+  p.stop();
+});
+test("只读与财务权限不能审核发货，退款成功后不再显示重复退款入口", async () => {
+  const p = setup(
+    "AdminPickupDrawer",
+    { id: 9, canOperate: false, canFinance: true },
+    async () => ({
+      id: 9,
+      status: "shipped",
+      fee_cents: 1000,
+      fee_refunded: true,
+    }),
+  );
+  p.state.selected.value = { id: 9, status: "review" };
+  assert.equal(p.state.allowedActions.value.length, 0);
+  p.state.openAction("approve");
+  assert.equal(p.state.action.value, "");
+  p.state.selected.value = {
+    id: 9,
+    status: "shipped",
+    fee_cents: 1000,
+    fee_refunded: false,
+  };
+  assert.deepEqual(plain(p.state.allowedActions.value), ["refund-fee"]);
+  p.state.openAction("refund-fee");
+  p.state.reason.value = "核实退回运费";
+  await p.state.submit();
+  assert.equal(p.state.allowedActions.value.length, 0);
+  p.stop();
+});
+test("配送审核和取消沿用原接口，跨订单商品完整保留，不重复发送忙碌中的提交", async () => {
+  let finish,
+    posts = 0;
+  const p = setup(
+    "AdminPickupDrawer",
+    { id: 9, canOperate: true },
+    async (url, options) => {
+      if (!options)
+        return {
+          id: 9,
+          status: "review",
+          lines: [
+            { id: 1, order_id: 7, quantity: 2 },
+            { id: 2, order_id: 8, quantity: 3 },
+          ],
+        };
+      posts++;
+      if (url.endsWith("/review")) {
+        assert.equal(options.body.approve, true);
+        return { ...p.state.selected.value, status: "approved" };
+      }
+      assert.equal(url, "/admin/pickups/9/cancel");
+      return new Promise(
+        (resolve) =>
+          (finish = () =>
+            resolve({
+              ...p.state.selected.value,
+              status: "cancelled",
+              fee_refunded: true,
+            })),
+      );
+    },
+  );
+  await p.state.load();
+  p.state.openAction("approve");
+  p.state.reason.value = "核实通过";
+  await p.state.submit();
+  assert.equal(p.state.selected.value.lines.length, 2);
+  p.state.openAction("cancel");
+  p.state.reason.value = "客户申请取消";
+  const first = p.state.submit();
+  await p.state.submit();
+  assert.equal(posts, 2);
+  finish();
+  await first;
+  assert.equal(p.state.allowedActions.value.length, 0);
+  p.stop();
 });

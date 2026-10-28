@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminPickupDrawer from "./AdminPickupDrawer.vue";
 import AdminUserName from "./AdminUserName.vue";
 import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
@@ -13,15 +14,19 @@ import AdminDatePicker from "./AdminDatePicker.vue";
 import { ShoppingBag } from "lucide-vue-next";
 import { imageUrl } from "../image-url";
 const props = withDefaults(
-  defineProps<{ financeOnly?: boolean; canFinance?: boolean }>(),
-  { financeOnly: false, canFinance: false },
+  defineProps<{
+    financeOnly?: boolean;
+    canFinance?: boolean;
+    canOperate?: boolean;
+  }>(),
+  { financeOnly: false, canFinance: false, canOperate: false },
 );
-const emit = defineEmits<{
-  "open-pickup": [pickup: { id: number; number: string }];
-}>();
+const pickupId = ref<number | null>(null);
+const fulfillmentStale = ref(false);
 interface OrderLine {
   id: number;
   sku_id: number;
+  is_gift?: boolean;
   quantity: number;
   shipped_qty: number;
   refunded_unshipped: number;
@@ -183,6 +188,9 @@ const visible = computed(() => orders.value);
 
 const canShip = computed(
   () =>
+    !props.financeOnly &&
+    props.canOperate &&
+    !fulfillmentStale.value &&
     selected.value &&
     ["paid", "partially_refunded"].includes(selected.value.payment_state) &&
     ["paid", "awaiting_shipment", "shipped"].includes(selected.value.status) &&
@@ -196,6 +204,15 @@ const activePickups = computed(
 );
 const canCollect = computed(() => false);
 
+const pickupLabels: Record<string, string> = {
+  review: "待审核",
+  approved: "待发货",
+  shipped: "已发货",
+  received: "已收货",
+  cancelled: "已取消",
+  rejected: "已驳回",
+  awaiting_payment: "待积分支付",
+};
 const methodNames: Record<string, string> = {
   offline: "线下付款",
   points: "积分订货",
@@ -212,7 +229,7 @@ const statusTabs = [
   { key: "closed", tab: "已关闭" },
 ];
 // 筛选沿用服务端原订单状态，寄存和待审核配送由每单的实际履约信息展示。
-const filterLabels = {
+const filterLabels: Record<string, string> = {
   ...labels,
   pending: "待支付",
   paid: "已支付",
@@ -250,6 +267,7 @@ async function select(id: number) {
       : api<{ order: Order }>("/admin/orders/" + id + "/fulfillment"),
   ]);
   selected.value = fulfillment?.order ?? details.order;
+  fulfillmentStale.value = false;
   payment.value = details;
   shipment.value = {
     carrier: "",
@@ -260,6 +278,43 @@ async function select(id: number) {
   correcting.value = null;
   dialog.value = "";
 }
+function openPickup(id: number) {
+  if (!props.financeOnly && !fulfillmentStale.value) pickupId.value = id;
+}
+async function pickupChanged() {
+  if (!selected.value) return;
+  // 配送成功后保留订单及筛选位置；刷新失败时停用旧履约操作，避免使用过期数量。
+  fulfillmentStale.value = true;
+  const results = await Promise.allSettled([select(selected.value.id), load()]);
+  const failure = results.find((result) => result.status === "rejected");
+  if (failure?.status === "rejected")
+    error.value =
+      "配送办理已成功，订单或列表刷新失败，请刷新查看：" +
+      (failure.reason as Error).message;
+}
+const detailLines = computed(
+  () =>
+    selected.value?.lines.map((line) => ({
+      ...line,
+      product:
+        selected.value?.snapshot.lines.find(
+          (item) =>
+            item.skuId === line.sku_id &&
+            Boolean(item.isGift) === Boolean(line.is_gift),
+        ) ||
+        selected.value?.snapshot.lines.find(
+          (item) => item.skuId === line.sku_id,
+        ),
+    })) || [],
+);
+const detailColumns = [
+  { title: "商品 / 规格", key: "product", width: 300 },
+  { title: "购买数量", dataIndex: "quantity", width: 90 },
+  { title: "已发货", dataIndex: "shipped_qty", width: 80 },
+  { title: "剩余寄存", key: "stored", width: 100 },
+  { title: "新购待配送", key: "held", width: 110 },
+  { title: "可直接发货", key: "remaining", width: 110 },
+];
 function openShipment() {
   shipment.value = {
     carrier: "",
@@ -706,115 +761,260 @@ function statusColor(value: string) {
     <AdminDrawer
       v-if="selected"
       title="订单详情与处理"
-      :busy="busy || Boolean(dialog || correcting)"
+      :busy="busy || Boolean(dialog || correcting || pickupId)"
       wide
       @close="selected = null"
     >
       <div class="order-detail">
-        <header class="section-heading">
+        <header class="order-detail-summary">
           <div>
-            <small class="cell-note">当前处理订单</small>
+            <span class="cell-note">{{
+              selected.kind === "package" ? "入驻产品包" : "商品订单"
+            }}</span>
             <h3>{{ selected.number }}</h3>
+            <div class="order-detail-meta">
+              <AdminUserName :id="selected.user_id" /><span
+                >下单 {{ orderTime(selected.create_time) || "—" }}</span
+              >
+            </div>
+          </div>
+          <div class="order-detail-state">
+            <a-tag
+              :color="statusColor(selected.fulfillmentState || selected.status)"
+              >{{
+                selected.fulfillmentText ||
+                filterLabels[selected.status] ||
+                selected.status
+              }}</a-tag
+            ><strong>{{
+              selected.payment_method === "points"
+                ? money(selected.total_cents) + " 积分"
+                : "¥" + money(selected.total_cents)
+            }}</strong
+            ><span class="cell-note">订单合计</span>
           </div>
         </header>
-        <p v-if="selected.snapshot.address" class="delivery-address">
-          {{ selected.snapshot.address.recipient }} ·
-          {{ selected.snapshot.address.phone }} ·
-          {{ selected.snapshot.address.province
-          }}{{ selected.snapshot.address.city
-          }}{{ selected.snapshot.address.district
-          }}{{ selected.snapshot.address.detail }}
-        </p>
-        <section class="detail-section">
-          <h4>收款与扣款记录</h4>
-          <p>
-            应收：¥{{ money(selected.total_cents) }} ·
-            {{
-              paymentLabels[selected.payment_state] || selected.payment_state
-            }}
-            ·
-            {{
-              selected.payment_method
-                ? methodNames[selected.payment_method] ||
-                  selected.payment_method
-                : "待核实线下收款"
-            }}
-          </p>
-          <p v-if="payment?.receipt">
-            收款 / 扣款流水标识：{{
-              payment.receipt.transaction_id || "无外部流水"
-            }}
-            · 金额 ¥{{ money(payment.receipt.cents) }} · 实际到账 / 扣款时间：{{
-              payment.receipt.paid_at
-            }}
-          </p>
-          <p v-else>尚无积分扣款记录；客户足额积分支付后才可履约。</p>
-          <p v-if="selected.kind === 'package'">
-            产品包由客户扣积分购买后开通身份。
-          </p>
-          <a-button
-            v-if="canCollect"
-            type="primary"
-            :disabled="busy"
-            @click="openReceipt"
-          >
-            登记订单积分支付记录
-          </a-button>
-        </section>
-        <template v-if="!props.financeOnly">
-          <section class="detail-section">
-            <p v-if="selected.storageRemainingQty">
-              剩余寄存
-              {{ selected.storageRemainingQty }}
-              件；留仓货品须通过提货申请安排配送。
-            </p>
-            <p v-for="pickup in activePickups" :key="pickup.id">
-              {{ pickup.status === "review" ? "待审核配送" : "待发货配送" }}
-              {{ pickup.number }}
-              <a-button @click="emit('open-pickup', pickup)"
-                >办理本次配送</a-button
-              >
-            </p>
-            <a-button
-              html-type="button"
-              type="primary"
-              v-if="canShip"
+        <section
+          v-if="!props.financeOnly"
+          class="detail-section fulfillment-panel"
+          aria-label="配送办理"
+        >
+          <div class="detail-section-heading">
+            <h4>配送办理</h4>
+            <span v-if="selected.storageRemainingQty" class="cell-note"
+              >剩余寄存 {{ selected.storageRemainingQty }} 件</span
+            >
+          </div>
+          <p v-if="fulfillmentStale" class="stale-notice">
+            配送已办理，订单信息暂未刷新。请重新加载后继续操作。<a-button
               :disabled="busy"
-              @click="openShipment"
+              @click="act(() => select(selected!.id))"
+              >重新加载订单</a-button
+            >
+          </p>
+          <div
+            v-for="pickup in selected.pickups || []"
+            :key="pickup.id"
+            class="delivery-row"
+          >
+            <div>
+              <strong>{{ pickupLabels[pickup.status] || pickup.status }}</strong
+              ><span class="cell-note">配送单 {{ pickup.number }}</span>
+            </div>
+            <a-button
+              :type="
+                ['review', 'approved'].includes(pickup.status)
+                  ? 'primary'
+                  : 'default'
+              "
+              :disabled="busy || fulfillmentStale"
+              @click="openPickup(pickup.id)"
+              >{{
+                pickup.status === "review"
+                  ? "审核配送"
+                  : pickup.status === "approved"
+                    ? "登记配送发货"
+                    : "查看配送"
+              }}</a-button
+            >
+          </div>
+          <div v-if="canShip" class="delivery-row">
+            <div>
+              <strong>原订单待发货商品</strong
+              ><span class="cell-note">可直接发货的商品和数量见下方明细。</span>
+            </div>
+            <a-button :disabled="busy" type="primary" @click="openShipment"
               >登记品牌仓发货</a-button
             >
-            <p
-              v-else-if="!activePickups.length && !selected.storageRemainingQty"
+          </div>
+          <p v-if="!canShip && !activePickups.length" class="cell-note">
+            {{
+              selected.storageRemainingQty
+                ? "寄存商品等待客户提交提货申请，申请后可在此办理。"
+                : ["unpaid", "paying"].includes(selected.payment_state)
+                  ? "等待客户完成积分支付。"
+                  : "当前没有待办理的配送。"
+            }}
+          </p>
+        </section>
+        <section class="detail-section" aria-label="订单商品明细">
+          <div class="detail-section-heading">
+            <h4>订单商品</h4>
+            <span class="cell-note"
+              >{{
+                selected.lines.reduce((sum, line) => sum + line.quantity, 0)
+              }}
+              件</span
             >
-              当前没有可直接发货数量；未付款订单须先由客户扣积分支付。
-            </p>
-            <p v-if="canShip">
-              本入口处理原订单未分配到有效配送单的货品，包含取消配送后保留的新购未发货商品。
-            </p>
-          </section>
-          <section class="detail-section">
-            <h4>包裹与收货记录</h4>
-            <div v-for="s in selected.shipments" :key="s.id" class="parcel">
-              <div>
-                {{ s.carrier }} · {{ s.tracking }}
-                <small class="cell-note"
-                  >出库 {{ s.shipped_at }} ·
-                  {{
-                    s.received_at ? "收货 " + s.received_at : "尚未确认收货"
-                  }}</small
-                >
-              </div>
-              <a-button
-                html-type="button"
-                :disabled="busy"
-                @click="openCorrection(s)"
+          </div>
+          <a-table
+            :columns="detailColumns"
+            :data-source="detailLines"
+            row-key="id"
+            :pagination="false"
+            size="small"
+            :scroll="{ x: 780 }"
+          >
+            <template #bodyCell="{ column, record: line }">
+              <template v-if="column.key === 'product'"
+                ><div class="mall-order-product">
+                  <div class="mall-product-image">
+                    <img
+                      v-if="line.product?.image"
+                      :src="imageUrl(line.product.image, 'thumb')"
+                      :alt="line.product.name"
+                      width="64"
+                      height="64"
+                      loading="lazy"
+                    /><ShoppingBag v-else :size="24" aria-hidden="true" />
+                  </div>
+                  <div class="mall-product-copy">
+                    <strong>{{
+                      line.product?.name || "商品规格 " + line.sku_id
+                    }}</strong
+                    ><span class="cell-note"
+                      >{{ line.product?.skuName
+                      }}<a-tag
+                        v-if="line.is_gift || line.product?.isGift"
+                        class="mall-gift"
+                        >赠品</a-tag
+                      ></span
+                    ><span
+                      v-if="line.refunded_unshipped || line.refunded_qty"
+                      class="cell-note"
+                      >已退款
+                      {{
+                        (line.refunded_unshipped || 0) +
+                        (line.refunded_qty || 0)
+                      }}
+                      件</span
+                    ><span v-if="line.held_unshipped" class="cell-note"
+                      >售后占用 {{ line.held_unshipped }} 件</span
+                    >
+                  </div>
+                </div></template
               >
-                纠正物流信息
-              </a-button>
-            </div>
-            <p v-if="!selected.shipments.length">尚未登记发货</p>
+              <template v-else-if="column.key === 'stored'">{{
+                line.storage_remaining || 0
+              }}</template>
+              <template v-else-if="column.key === 'held'">{{
+                line.pickup_held || 0
+              }}</template>
+              <template v-else-if="column.key === 'remaining'">{{
+                remaining(line)
+              }}</template>
+            </template>
+          </a-table>
+        </section>
+        <div class="order-detail-facts">
+          <section class="detail-section" aria-label="原订单收货信息">
+            <h4>原订单收货信息</h4>
+            <template v-if="selected.snapshot.address"
+              ><p>
+                <strong>{{ selected.snapshot.address.recipient }}</strong> ·
+                {{ selected.snapshot.address.phone }}
+              </p>
+              <p>
+                {{ selected.snapshot.address.province
+                }}{{ selected.snapshot.address.city
+                }}{{ selected.snapshot.address.district
+                }}{{ selected.snapshot.address.detail }}
+              </p>
+              <span v-if="selected.pickups?.length" class="cell-note"
+                >本次实际配送地址以配送单为准。</span
+              ></template
+            >
+            <p v-else class="cell-note">暂无收货地址记录</p>
           </section>
-        </template>
+          <section class="detail-section" aria-label="支付信息">
+            <h4>支付信息</h4>
+            <p>
+              {{
+                paymentLabels[selected.payment_state] || selected.payment_state
+              }}
+            </p>
+            <p>
+              {{
+                selected.payment_method
+                  ? methodNames[selected.payment_method] ||
+                    selected.payment_method
+                  : "尚未支付"
+              }}
+            </p>
+            <p v-if="payment?.receipt" class="cell-note">
+              {{
+                selected.payment_method === "points" ? "积分扣款" : "实际到账"
+              }}
+              {{ orderTime(payment.receipt.paid_at) }}
+            </p>
+            <details v-if="payment?.receipt" class="payment-history">
+              <summary>查看支付流水</summary>
+              <p class="cell-note">
+                流水标识 {{ payment.receipt.transaction_id || "无外部流水" }}
+              </p>
+              <p class="cell-note">
+                支付金额 {{ money(payment.receipt.cents)
+                }}{{ selected.payment_method === "points" ? " 积分" : " 元" }}
+              </p>
+            </details>
+            <a-button
+              v-if="canCollect"
+              type="primary"
+              :disabled="busy"
+              @click="openReceipt"
+              >登记订单积分支付记录</a-button
+            >
+          </section>
+        </div>
+        <section v-if="!props.financeOnly" class="detail-section">
+          <h4>原订单直接发货记录</h4>
+          <div v-for="s in selected.shipments" :key="s.id" class="parcel">
+            <div>
+              <strong>{{ s.carrier }}</strong> · {{ s.tracking
+              }}<small class="cell-note"
+                >出库 {{ orderTime(s.shipped_at) }} ·
+                {{
+                  s.received_at
+                    ? "收货 " + orderTime(s.received_at)
+                    : "尚未确认收货"
+                }}</small
+              >
+            </div>
+            <a-button
+              v-if="props.canOperate"
+              :disabled="busy"
+              @click="openCorrection(s)"
+              >纠正物流信息</a-button
+            >
+          </div>
+          <p v-if="!selected.shipments.length" class="cell-note">
+            暂无直接发货记录{{
+              selected.pickups?.length
+                ? "，本次配送物流请查看上方配送单。"
+                : "。"
+            }}
+          </p>
+        </section>
         <details class="detail-section payment-evidence">
           <summary>查看历史交易与核查记录（只读）</summary>
           <h4>历史支付尝试与异常到账依据</h4>
@@ -857,7 +1057,7 @@ function statusColor(value: string) {
               size="small"
               ><template #bodyCell="{ column, record: e }"
                 ><template v-if="column.key === 'time'">{{
-                  e.create_time
+                  orderTime(e.create_time)
                 }}</template
                 ><template v-else-if="column.key === 'result'"
                   >{{ e.action }} / {{ e.result }}</template
@@ -873,6 +1073,15 @@ function statusColor(value: string) {
         </details>
       </div>
     </AdminDrawer>
+    <AdminPickupDrawer
+      v-if="selected && pickupId"
+      :id="pickupId"
+      :order-number="selected.number"
+      :can-operate="props.canOperate && !props.financeOnly"
+      :can-finance="props.canFinance"
+      @close="pickupId = null"
+      @changed="pickupChanged"
+    />
     <AdminDialog
       v-if="selected && dialog"
       drawer
@@ -1085,6 +1294,78 @@ function statusColor(value: string) {
   </section>
 </template>
 <style scoped>
+.order-detail-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 4px 0 8px;
+}
+.order-detail-summary h3 {
+  font-size: 18px;
+  margin: 6px 0 12px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.order-detail-meta {
+  display: flex;
+  gap: 20px;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.order-detail-state {
+  flex-shrink: 0;
+  text-align: right;
+}
+.order-detail-state strong {
+  display: block;
+  margin-top: 12px;
+  font-size: 22px;
+  font-weight: 600;
+}
+.detail-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.detail-section-heading h4 {
+  margin: 0;
+}
+.fulfillment-panel {
+  padding: 20px;
+  background: #f8f9fb;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+}
+.delivery-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 0;
+}
+.delivery-row + .delivery-row {
+  border-top: 1px solid var(--admin-border);
+}
+.delivery-row > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.delivery-row :deep(.ant-btn) {
+  flex-shrink: 0;
+}
+.order-detail-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+.stale-notice {
+  color: #ad6800;
+}
+.order-detail :deep(.ant-table-cell) {
+  vertical-align: top;
+}
 .payment-operations {
   display: grid;
   gap: 16px;

@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import AdminOrderLink from "./AdminOrderLink.vue";
-const sourceOrderOpen = ref(false);
+import AdminPickupDrawer from "./AdminPickupDrawer.vue";
+const pickupDialog = ref<{
+  id: number;
+  action?: "approve" | "reject" | "ship" | "cancel" | "refund-fee";
+} | null>(null);
 import AdminUserName from "./AdminUserName.vue";
 import AdminAddressSelect from "./AdminAddressSelect.vue";
 import AdminUserSelect from "./AdminUserSelect.vue";
@@ -14,7 +17,6 @@ import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
 import AdminProductSelect from "./AdminProductSelect.vue";
 import AdminDialog from "./AdminDialog.vue";
-import AdminDrawer from "./AdminDrawer.vue";
 import FeedbackToast from "./FeedbackToast.vue";
 interface Row {
   id: number;
@@ -94,8 +96,6 @@ const tab = ref(props.pickup ? "pickups" : "lots"),
   operation = ref("");
 const reason = ref(""),
   expiry = ref(""),
-  carrier = ref(""),
-  tracking = ref(""),
   lineId = ref(0),
   quantity = ref(1),
   identity = ref("D"),
@@ -173,6 +173,16 @@ onMounted(async () => {
   }
 });
 function open(kind: string, row?: Row) {
+  if (
+    row &&
+    ["approve", "reject", "ship", "cancel", "refund-fee"].includes(kind)
+  ) {
+    pickupDialog.value = {
+      id: row.id,
+      action: kind as "approve" | "reject" | "ship" | "cancel" | "refund-fee",
+    };
+    return;
+  }
   lineId.value = 0;
   manualItems.value = [{ lotId: 0, quantity: 1 }];
   quantity.value = 1;
@@ -222,34 +232,6 @@ function submit() {
       throw new Error("请选择寄存商品并填写有效数量");
     const id = selected.value?.id;
     switch (operation.value) {
-      case "approve":
-      case "reject":
-        return api(`/admin/pickups/${id}/review`, {
-          method: "POST",
-          body: {
-            approve: operation.value === "approve",
-            reason: reason.value,
-          },
-        });
-      case "ship":
-        return api(`/admin/pickups/${id}/ship`, {
-          method: "POST",
-          body: {
-            carrier: carrier.value,
-            tracking: tracking.value,
-            reason: reason.value,
-          },
-        });
-      case "refund-fee":
-        return api(`/admin/pickups/${id}/refund-fee`, {
-          method: "POST",
-          body: { reason: reason.value },
-        });
-      case "cancel":
-        return api(`/admin/pickups/${id}/cancel`, {
-          method: "POST",
-          body: { reason: reason.value },
-        });
       case "extend":
         return api(`/admin/storage/${id}/extend`, {
           method: "POST",
@@ -296,11 +278,14 @@ function submit() {
   });
 }
 async function detail(row: Pick<Row, "id">) {
+  pickupDialog.value = { id: row.id };
+}
+async function pickupChanged() {
   try {
-    selected.value = await api<Row>(`/admin/pickups/${row.id}`);
-    operation.value = "detail";
+    await load();
   } catch (e) {
-    error.value = (e as Error).message;
+    error.value =
+      "配送办理已成功，列表刷新失败，请刷新查看：" + (e as Error).message;
   }
 }
 async function download() {
@@ -319,23 +304,12 @@ async function download() {
   });
 }
 const operationTitles: Record<string, string> = {
-  detail: "提货详情",
-  ship: "登记提货发货",
   manual: "人工办理提货",
   import: "历史未发货转寄存",
   identity: "调整用户身份",
-  approve: "审核提货申请",
-  reject: "驳回提货申请",
-  cancel: "取消本次配送",
   extend: "延长寄存有效期",
   consumption: "确认权益包消耗",
-  "refund-fee": "退回本次运费",
 };
-const pickupLineColumns = [
-  { title: "商品 / 规格", key: "product" },
-  { title: "来源订单", key: "source", width: 150 },
-  { title: "提货数量", key: "quantity", width: 90, align: "right" as const },
-];
 const columns = computed(() =>
   tab.value === "lots"
     ? [
@@ -773,176 +747,22 @@ function stateColor(value?: string) {
         <span>选择客户后可人工提货或调整身份；历史转寄存需核实原订单。</span>
       </div>
     </details>
-    <component
-      :is="operation === 'detail' ? AdminDrawer : AdminDialog"
-      :drawer="['import', 'manual', 'identity', 'ship'].includes(operation)"
+    <AdminPickupDrawer
+      v-if="pickupDialog"
+      :id="pickupDialog.id"
+      :initial-action="pickupDialog.action"
+      :can-operate="canOperate"
+      :can-finance="staff.permissions.includes('finance:manage')"
+      @close="pickupDialog = null"
+      @changed="pickupChanged"
+    />
+    <AdminDialog
       v-if="operation"
+      :drawer="['import', 'manual', 'identity'].includes(operation)"
       :title="operationTitles[operation] || '寄存与身份办理'"
-      :busy="busy || sourceOrderOpen"
+      :busy="busy"
       @close="operation = ''"
     >
-      <div v-if="operation === 'detail' && selected" class="pickup-detail">
-        <header class="pickup-summary">
-          <div>
-            <span class="pickup-caption">提货单号</span
-            ><strong class="pickup-number">{{ selected.number }}</strong>
-          </div>
-          <a-tag
-            :color="
-              selected.status === 'approved'
-                ? 'processing'
-                : ['shipped', 'received'].includes(selected.status || '')
-                  ? 'success'
-                  : 'default'
-            "
-            >{{ states[selected.status || ""] || selected.status }}</a-tag
-          >
-        </header>
-        <a-descriptions size="small" :column="{ xs: 1, sm: 2 }">
-          <a-descriptions-item label="所属用户"
-            ><AdminUserName :id="selected.user_id"
-          /></a-descriptions-item>
-          <a-descriptions-item label="运费积分"
-            >{{
-              selected.fee_cents == null
-                ? "—"
-                : (selected.fee_cents / 100).toFixed(2)
-            }}<span v-if="selected.fee_refunded"
-              >（已退回）</span
-            ></a-descriptions-item
-          >
-          <a-descriptions-item
-            v-if="selected.create_time"
-            label="申请时间"
-            :span="2"
-            >{{
-              new Date(selected.create_time).toLocaleString("zh-CN")
-            }}</a-descriptions-item
-          >
-        </a-descriptions>
-        <section class="pickup-section" aria-label="收货信息">
-          <h3>收货信息</h3>
-          <a-descriptions
-            v-if="selected.address"
-            size="small"
-            :column="{ xs: 1, sm: 2 }"
-          >
-            <a-descriptions-item label="收货人">{{
-              selected.address.recipient
-            }}</a-descriptions-item>
-            <a-descriptions-item label="联系电话">{{
-              selected.address.phone
-            }}</a-descriptions-item>
-            <a-descriptions-item label="收货地址" :span="2"
-              >{{ selected.address.province }}{{ selected.address.city
-              }}{{ selected.address.district
-              }}{{ selected.address.detail }}</a-descriptions-item
-            >
-          </a-descriptions>
-          <p v-else class="pickup-empty">暂无收货地址记录</p>
-        </section>
-        <section class="pickup-section" aria-label="提货商品明细">
-          <div class="pickup-section-heading">
-            <h3>商品明细</h3>
-            <span
-              >共 {{ selected.lines?.length || 0 }} 项 ·
-              {{
-                selected.lines?.reduce((sum, item) => sum + item.quantity, 0) ||
-                0
-              }}
-              件</span
-            >
-          </div>
-          <a-table
-            :columns="pickupLineColumns"
-            :data-source="selected.lines || []"
-            row-key="id"
-            :pagination="false"
-            size="small"
-            :scroll="{ x: 520 }"
-            :locale="{ emptyText: '暂无提货商品记录' }"
-          >
-            <template #bodyCell="{ column, record: item }">
-              <template v-if="column.key === 'product'"
-                ><strong>{{ item.name }}</strong
-                ><a-tag v-if="item.is_gift" class="pickup-gift">赠品</a-tag
-                ><small class="pickup-caption"
-                  >{{ item.sku_name
-                  }}<span v-if="item.unit"> · {{ item.unit }}</span></small
-                ></template
-              >
-              <template v-else-if="column.key === 'source'"
-                ><AdminOrderLink
-                  :id="item.order_id"
-                  @open-change="sourceOrderOpen = $event"
-                /><small class="pickup-caption">{{
-                  item.lot_id ? "寄存提货" : "新购直发"
-                }}</small></template
-              >
-              <template v-else-if="column.key === 'quantity'"
-                ><strong>{{ item.quantity }}</strong></template
-              >
-            </template>
-          </a-table>
-        </section>
-        <section
-          v-if="selected.carrier || selected.tracking || selected.received_at"
-          class="pickup-section"
-          aria-label="物流信息"
-        >
-          <h3>物流信息</h3>
-          <a-descriptions size="small" :column="{ xs: 1, sm: 2 }">
-            <a-descriptions-item label="快递公司">{{
-              selected.carrier || "—"
-            }}</a-descriptions-item>
-            <a-descriptions-item label="快递单号">{{
-              selected.tracking || "—"
-            }}</a-descriptions-item>
-            <a-descriptions-item
-              v-if="selected.received_at"
-              label="收货时间"
-              :span="2"
-              >{{
-                new Date(selected.received_at).toLocaleString("zh-CN")
-              }}</a-descriptions-item
-            >
-          </a-descriptions>
-        </section>
-        <section class="pickup-section" aria-label="审核与处理备注">
-          <h3>审核与处理备注</h3>
-          <p
-            class="pickup-note"
-            :class="{ 'pickup-empty': !selected.review_reason }"
-          >
-            {{ selected.review_reason || "暂无处理备注" }}
-          </p>
-        </section>
-      </div>
-      <template #actions>
-        <a-space v-if="operation === 'detail' && canOperate && selected" wrap>
-          <a-button
-            v-if="selected.status === 'review'"
-            @click="open('approve', selected)"
-            >审核通过</a-button
-          >
-          <a-button
-            v-if="selected.status === 'review'"
-            @click="open('reject', selected)"
-            >驳回</a-button
-          >
-          <a-button
-            v-if="selected.status === 'approved'"
-            type="primary"
-            @click="open('ship', selected)"
-            >登记本次配送发货</a-button
-          >
-          <a-button
-            v-if="['review', 'approved'].includes(selected.status || '')"
-            @click="open('cancel', selected)"
-            >取消本次配送</a-button
-          >
-        </a-space>
-      </template>
       <AdminForm
         v-if="operation !== 'detail'"
         class="storage-form config-form"
@@ -952,19 +772,9 @@ function stateColor(value?: string) {
           <span>当前提货单</span><strong>{{ selected.number }}</strong
           ><AdminUserName :id="selected.user_id" />
         </div>
-        <p v-if="operation === 'cancel' || operation === 'reject'">
-          取消或驳回仅释放寄存提货占用并退本次运费，商品货款不退款。
-          <span v-if="selected?.newGoodsQuantity"
-            >新购商品继续保留在原订单，未发部分从订单管理安排配送，不自动转寄存。</span
-          >
-        </p>
         <label v-if="operation === 'extend'"
           >新到期日<AdminDatePicker v-model="expiry" type="date" required
         /></label>
-        <template v-if="operation === 'ship'"
-          ><label>快递公司<a-input v-model:value="carrier" required /></label
-          ><label>快递单号<a-input v-model:value="tracking" required /></label
-        ></template>
         <template v-if="operation === 'import'"
           ><label
             >原订单商品<AdminProductSelect
@@ -1074,7 +884,7 @@ function stateColor(value?: string) {
           >
         </div>
       </AdminForm>
-    </component>
+    </AdminDialog>
   </section>
 </template>
 <style scoped>
@@ -1261,73 +1071,6 @@ function stateColor(value?: string) {
 .storage-operation-context > span:first-child {
   color: var(--admin-muted);
   font-size: 12px;
-}
-
-.pickup-detail {
-  display: grid;
-  gap: 24px;
-}
-.pickup-summary,
-.pickup-section-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-.pickup-summary > div {
-  min-width: 0;
-}
-.pickup-summary :deep(.ant-tag) {
-  flex-shrink: 0;
-  margin: 0;
-}
-.pickup-caption {
-  display: block;
-  margin-top: 4px;
-  color: var(--admin-muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-.pickup-number {
-  display: block;
-  margin-top: 7px;
-  font-size: 16px;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-  font-variant-numeric: tabular-nums;
-}
-.pickup-section {
-  min-width: 0;
-  padding-top: 22px;
-  border-top: 1px solid var(--admin-border);
-}
-.pickup-section h3 {
-  margin: 0 0 16px;
-  font-size: 14px;
-  font-weight: 600;
-}
-.pickup-section-heading > span {
-  color: var(--admin-muted);
-  font-size: 12px;
-  white-space: nowrap;
-}
-.pickup-detail :deep(.ant-descriptions-item-label) {
-  color: var(--admin-muted);
-}
-.pickup-detail :deep(.ant-table-cell) {
-  vertical-align: top;
-  overflow-wrap: anywhere;
-}
-.pickup-gift {
-  margin-left: 8px;
-}
-.pickup-note {
-  margin: 0;
-  white-space: pre-wrap;
-  line-height: 1.8;
-}
-.pickup-empty {
-  color: var(--admin-muted);
 }
 
 .admin-filter-bar .storage-product-filter {

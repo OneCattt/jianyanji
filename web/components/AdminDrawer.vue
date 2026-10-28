@@ -8,8 +8,9 @@ const props = withDefaults(
     busy?: boolean;
     wide?: boolean;
     showFooter?: boolean;
+    closeText?: string;
   }>(),
-  { busy: false, wide: false, showFooter: true },
+  { busy: false, wide: false, showFooter: true, closeText: "关闭详情" },
 );
 const emit = defineEmits<{ close: [] }>();
 const body = ref<HTMLElement>();
@@ -51,9 +52,9 @@ onBeforeUnmount(() => {
     <div ref="body" class="admin-drawer-body" tabindex="-1"><slot /></div>
     <template v-if="showFooter" #footer>
       <slot name="actions" />
-      <a-button html-type="button" :disabled="busy" @click="close"
-        >关闭详情</a-button
-      >
+      <a-button html-type="button" :disabled="busy" @click="close">{{
+        closeText
+      }}</a-button>
     </template>
   </Drawer>
 </template>
