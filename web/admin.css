@@ -631,7 +631,31 @@
 .admin-login {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(420px, 1fr);
+  grid-template-rows: 1fr auto;
   min-height: 100dvh;
+}
+.login-footer {
+  grid-column: 1 / -1;
+  padding: 8px 24px;
+  background: #fff;
+  text-align: center;
+}
+.login-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 8px;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.login-footer a:hover {
+  color: var(--admin-accent);
+  text-decoration: underline;
+}
+.login-footer a:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 .login-story {
   display: flex;
@@ -751,6 +775,7 @@
   }
   .admin-login {
     grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
   }
   .login-story {
     min-height: 220px;

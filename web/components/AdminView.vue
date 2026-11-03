@@ -560,6 +560,15 @@ async function changePage(value: number) {
         <small class="muted">账号尚未开通？请联系品牌管理员。</small>
       </AdminForm>
     </section>
+    <footer class="login-footer">
+      <a
+        href="https://beian.miit.gov.cn/"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="粤ICP备2026167704号，打开工信部备案查询系统（新窗口）"
+        >粤ICP备2026167704号</a
+      >
+    </footer>
   </main>
   <a-layout v-else class="admin-shell">
     <a-layout-sider class="sidebar" theme="light" :width="216">
