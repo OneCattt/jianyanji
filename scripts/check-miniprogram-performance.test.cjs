@@ -29,6 +29,7 @@ function runtime(name, request, token = "token") {
       if (value.complete) value.complete();
     },
     stopPullDownRefresh() {},
+    setNavigationBarTitle() {},
   };
   const entry = path.join(
     root,
@@ -42,6 +43,10 @@ function runtime(name, request, token = "token") {
     },
   };
   context.require = createRequire(entry, context, request);
+  if (name === "cart")
+    context
+      .require("../../utils/privacy")
+      .recordConsent("测试品牌方", "测试联系方式");
   vm.runInNewContext(fs.readFileSync(entry, "utf8"), context, {
     filename: entry,
   });
@@ -71,6 +76,7 @@ test("身份确认后，邀请与钱包并行，设置和订单无需等待这�
   assert.deepEqual(calls, [
     "/me",
     "/mini/orders/counts",
+    "/mini/package-consumption?limit=100",
     "/invitations/mine",
     "/mini/wallet",
   ]);
@@ -86,7 +92,7 @@ test("身份确认后，邀请与钱包并行，设置和订单无需等待这�
   await loading;
   assert.equal(page.data.availablePoints, "12.34");
   await page.onShow();
-  assert.equal(calls.length, 4, "正常往返复用已读取资料和订单数量");
+  assert.equal(calls.length, 5, "正常往返复用已读取资料、权益包进度和订单数量");
 });
 
 test("种草刷新保留原列表，默认请求二十条，失败后仍能阅读原内容", async () => {
@@ -355,7 +361,10 @@ test("结算页直接读取本人选中地址，不依赖地址列表第一页",
     if (url === "/checkout/quote")
       return {
         id: 1,
-        lines: [],
+        lines: [
+          { skuId: 1, quantity: 3, unitCents: 100 },
+          { skuId: 2, quantity: 1, unitCents: 100 },
+        ],
         goodsCents: 100,
         shippingCents: 0,
         totalCents: 100,
@@ -366,6 +375,7 @@ test("结算页直接读取本人选中地址，不依赖地址列表第一页",
   storage.set("jyj_address", 99);
   await page.onShow();
   assert.equal(page.data.address.id, 99);
+  assert.equal(page.data.quote.pieces, 4);
   assert.deepEqual(calls, ["/mini/address?id=99", "/checkout/quote"]);
 });
 

@@ -1,6 +1,6 @@
 {
   "navigationBarTitleText": "奖励明细",
-  "navigationBarBackgroundColor": "#f8f5ee",
+  "navigationBarBackgroundColor": "#f5f4f2",
   "navigationBarTextStyle": "black",
   "enablePullDownRefresh": true,
   "onReachBottomDistance": 120

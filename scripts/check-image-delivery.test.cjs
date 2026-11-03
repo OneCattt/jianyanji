@@ -64,6 +64,7 @@ test("商品和订单只增加展示地址，保留原图及订单快照", () =>
   assert.equal(decorated.image, original);
   assert.equal(decorated.detailImage, original);
   assert.equal(decorated.imageCard, imageUrl(original, "card"));
+  assert.equal(decorated.imageHero, imageUrl(original, "detail"));
   assert.equal(decorated.detailImageDisplay, imageUrl(original, "detail"));
   const order = {
     snapshot: { lines: [{ image: original, quantity: 1, unitCents: 100 }] },

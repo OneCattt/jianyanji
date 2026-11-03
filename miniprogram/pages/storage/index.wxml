@@ -1,0 +1,334 @@
+<import src="../../templates/list-footer.wxml" />
+<view class="qx storage-page storage-shop">
+  <view class="storage-head">
+    <view class="storage-eyebrow">品牌云仓</view>
+    <view class="storage-title">我的寄存</view>
+    <view class="storage-subtitle"
+      >原货原提，按需分次配送 · 免费寄存12个月</view
+    >
+  </view>
+  <view class="storage-tabs" role="tablist">
+    <button
+      data-tab="lots"
+      bindtap="switchTab"
+      class="{{tab==='lots'?'active':''}}"
+      role="tab"
+      aria-selected="{{tab==='lots'}}"
+      hover-class="storage-pressed"
+    >
+      寄存货品
+    </button>
+    <button
+      data-tab="pickups"
+      bindtap="switchTab"
+      class="{{tab==='pickups'?'active':''}}"
+      role="tab"
+      aria-selected="{{tab==='pickups'}}"
+      hover-class="storage-pressed"
+    >
+      提货记录
+    </button>
+    <button
+      data-tab="messages"
+      bindtap="switchTab"
+      class="{{tab==='messages'?'active':''}}"
+      role="tab"
+      aria-selected="{{tab==='messages'}}"
+      hover-class="storage-pressed"
+    >
+      消息提醒
+    </button>
+  </view>
+  <view wx:if="{{error}}" class="storage-error" role="alert"
+    ><text>{{error}}</text
+    ><button bindtap="load" hover-class="storage-pressed">
+      重新查询
+    </button></view
+  >
+  <block wx:if="{{tab==='lots'}}">
+    <view
+      wx:for="{{progress}}"
+      wx:key="id"
+      class="storage-card storage-progress"
+    >
+      <view>{{item.target_identity==='B'?'19800':'2980'}}店主权益包</view>
+      <view class="storage-muted"
+        >已确认收货 {{item.consumed_qty}} /
+        {{item.total_qty}}{{item.consumption_confirmed?' · 总部已人工确认完成':''}}</view
+      >
+    </view>
+    <view wx:for="{{lots}}" wx:key="id" class="storage-card storage-lot">
+      <view class="storage-product-row">
+        <view class="storage-product-cover">
+          <image
+            wx:if="{{item.imageThumb}}"
+            src="{{item.imageThumb}}"
+            mode="aspectFit"
+            lazy-load
+            aria-label="{{item.name}}"
+          />
+          <image
+            wx:else
+            class="storage-product-placeholder"
+            src="/assets/figma/profile-storage.png"
+            mode="aspectFit"
+            aria-hidden="true"
+          />
+        </view>
+        <view class="storage-product-copy">
+          <view class="storage-product-name"
+            >{{item.name}}<text wx:if="{{item.is_gift}}" class="storage-gift"
+              >赠品</text
+            ></view
+          >
+          <view class="storage-product-sku">{{item.sku_name}}</view>
+          <view class="storage-product-origin">{{item.package_name}}</view>
+          <view
+            class="storage-available {{!item.available_qty?'storage-available-muted':''}}"
+            >当前可提 <text>{{item.available_qty}}</text> 件</view
+          >
+        </view>
+      </view>
+      <view class="storage-lot-summary">
+        <text>寄存 {{item.total_qty}} 件</text
+        ><text>已提 {{item.shipped_qty}} 件</text
+        ><text>剩余 {{item.remaining_qty}} 件</text>
+      </view>
+      <view
+        wx:if="{{item.held_qty||item.refund_held_qty}}"
+        class="storage-hold-note"
+        >提货占用 {{item.held_qty}} 件 · 售后占用 {{item.refund_held_qty}}
+        件</view
+      >
+      <view class="storage-lot-meta">
+        <text>{{item.expires_on}} 到期</text>
+        <button
+          data-id="{{item.order_id}}"
+          bindtap="sourceOrder"
+          hover-class="storage-pressed"
+          aria-label="{{'查看来源订单'+item.order_number}}"
+        >
+          来源订单 <text aria-hidden="true">›</text>
+        </button>
+      </view>
+      <view wx:if="{{item.expired}}" class="storage-expired"
+        >已到期，请联系总部人工提货或延期</view
+      >
+      <view wx:else class="storage-quantity">
+        <text>本次提货</text>
+        <view class="storage-stepper">
+          <button
+            data-id="{{item.id}}"
+            data-step="-1"
+            bindtap="stepQuantity"
+            disabled="{{busy||!item.selectedQuantity}}"
+            aria-label="{{'减少'+item.name+'提货数量'}}"
+            hover-class="storage-pressed"
+          >
+            −
+          </button>
+          <input
+            type="number"
+            value="{{item.selectedQuantity}}"
+            data-id="{{item.id}}"
+            bindinput="quantity"
+            disabled="{{busy||!item.available_qty}}"
+            aria-label="{{item.name+'本次提货数量'}}"
+          />
+          <button
+            data-id="{{item.id}}"
+            data-step="1"
+            bindtap="stepQuantity"
+            disabled="{{busy||item.selectedQuantity>=item.available_qty}}"
+            aria-label="{{'增加'+item.name+'提货数量'}}"
+            hover-class="storage-pressed"
+          >
+            ＋
+          </button>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{lotsLoaded&&!lots.length&&!error}}" class="storage-empty">
+      <view class="storage-empty-icon"
+        ><image
+          src="/assets/figma/profile-storage.png"
+          mode="aspectFit"
+          aria-hidden="true"
+      /></view>
+      <view class="storage-empty-title">还没有寄存货品</view>
+      <view class="storage-empty-copy"
+        >购买支持寄存的商品后，<view
+          >可在这里查看余量、申请分次配送。</view
+        ></view
+      >
+      <button
+        class="storage-outline"
+        bindtap="toMall"
+        hover-class="storage-pressed"
+      >
+        去商城逛逛<text aria-hidden="true"> →</text>
+      </button>
+    </view>
+    <template
+      wx:if="{{lotsLoading||lots.length}}"
+      is="list-footer"
+      data="{{loading:lotsLoading,loaded:lotsLoaded,hasMore:lotsHasMore,error:error}}"
+    />
+    <button
+      wx:if="{{!selectMode&&selectedCount>0}}"
+      class="storage-outline"
+      bindtap="addresses"
+    >
+      选择或更换收货地址
+    </button>
+    <view class="storage-guide">
+      <button
+        class="storage-guide-toggle"
+        bindtap="toggleFreight"
+        aria-expanded="{{showFreight}}"
+        hover-class="storage-pressed"
+      >
+        <text class="storage-guide-title">寄存与配送</text
+        ><view class="storage-guide-action"
+          >运费规则<text aria-hidden="true"
+            >{{showFreight?' −':' ＋'}}</text
+          ></view
+        >
+      </button>
+      <view class="storage-guide-copy"
+        >提货不再收取商品货款，运费在提交前确认。</view
+      >
+      <view wx:if="{{showFreight}}" class="storage-freight">
+        <view
+          ><text>普通顾客 / 2980店主</text><view>寄存提货免运费。</view></view
+        >
+        <view
+          ><text>19800店主</text
+          ><view
+            >按原寄存成交金额满1000元免运费，否则扣10积分；赠品不凑额。</view
+          ></view
+        >
+        <view
+          ><text>合并新购商品</text
+          ><view>新购满1000元，可合并寄存货品包邮。</view></view
+        >
+      </view>
+    </view>
+    <view
+      wx:if="{{lots.length||selectedCount||selectMode}}"
+      class="storage-dock"
+    >
+      <view class="storage-selection"
+        ><view>本次提货 <text>{{selectedCount}}</text> 件</view
+        ><view class="storage-muted">确认后可查看运费</view></view
+      >
+      <button
+        class="storage-submit"
+        bindtap="submit"
+        disabled="{{busy||(!selectMode&&!selectedCount)}}"
+        loading="{{busy}}"
+        hover-class="storage-pressed"
+      >
+        {{selectMode?'合并到本次购买':'提交提货申请'}}
+      </button>
+    </view>
+  </block>
+  <block wx:elif="{{tab==='pickups'}}">
+    <button
+      wx:for="{{pickups}}"
+      wx:key="id"
+      class="storage-card storage-record"
+      data-id="{{item.id}}"
+      bindtap="detail"
+      hover-class="storage-pressed"
+    >
+      <view class="storage-record-head"
+        ><text>品牌仓配送</text
+        ><text
+          class="storage-status {{item.statusMuted?'storage-status-muted':''}}"
+          >{{item.statusText}}</text
+        ></view
+      >
+      <view
+        wx:for="{{item.previewLines}}"
+        wx:for-item="line"
+        wx:key="id"
+        class="storage-product-row storage-record-product"
+      >
+        <view class="storage-product-cover">
+          <image
+            wx:if="{{line.imageThumb}}"
+            src="{{line.imageThumb}}"
+            mode="aspectFit"
+            lazy-load
+            aria-label="{{line.name}}"
+          />
+          <image
+            wx:else
+            class="storage-product-placeholder"
+            src="/assets/figma/profile-storage.png"
+            mode="aspectFit"
+            aria-hidden="true"
+          />
+        </view>
+        <view class="storage-product-copy"
+          ><view class="storage-product-name"
+            >{{line.name}}<text wx:if="{{line.is_gift}}" class="storage-gift"
+              >赠品</text
+            ></view
+          ><view class="storage-product-sku">{{line.sku_name}}</view></view
+        >
+        <text class="storage-product-count">×{{line.quantity}}</text>
+      </view>
+      <view wx:if="{{item.moreKinds}}" class="storage-record-more"
+        >另有 {{item.moreKinds}} 款商品，查看全部明细</view
+      >
+      <view class="storage-record-number">提货单 {{item.number}}</view>
+      <view wx:if="{{item.review_reason}}" class="storage-record-reason"
+        >{{item.review_reason}}</view
+      >
+      <view class="storage-record-footer"
+        ><text>共 {{item.quantity}} 件 · 运费 {{item.feeText}} 积分</text
+        ><text class="storage-record-link"
+          >查看详情 <text aria-hidden="true">›</text></text
+        ></view
+      >
+    </button>
+    <view wx:if="{{!pickups.length&&!error}}" class="storage-empty"
+      ><view class="storage-empty-icon"
+        ><image
+          src="/assets/figma/profile-order-shipped.png"
+          mode="aspectFit"
+          aria-hidden="true" /></view
+      ><view class="storage-empty-title">暂无提货记录</view
+      ><view class="storage-empty-copy"
+        >申请提货后，可在这里跟进审核与物流。</view
+      ></view
+    >
+  </block>
+  <block wx:else>
+    <view class="storage-subscription"
+      ><view
+        ><view class="storage-card-title">不错过寄存提醒</view
+        ><view class="storage-muted">到期与审核结果，及时知晓。</view></view
+      ><button
+        class="storage-outline"
+        bindtap="subscribe"
+        hover-class="storage-pressed"
+      >
+        订阅提醒
+      </button></view
+    >
+    <view wx:for="{{messages}}" wx:key="id" class="storage-card"
+      ><view class="storage-card-title">{{item.title}}</view
+      ><view class="storage-muted">{{item.body}}</view></view
+    >
+    <view wx:if="{{!messages.length&&!error}}" class="storage-empty"
+      ><view class="storage-empty-title">暂时没有新消息</view
+      ><view class="storage-empty-copy"
+        >寄存到期与提货审核提醒会显示在这里。</view
+      ></view
+    >
+  </block>
+</view>
+<brand-dialog id="brand-dialog" />

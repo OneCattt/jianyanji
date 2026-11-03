@@ -1,42 +1,46 @@
 page {
-  background: #f8f5ee;
-  color: #251d1a;
+  background: #f5f4f2;
+  color: #2c221e;
 }
 .privacy-page {
-  padding: 44rpx 36rpx calc(48rpx + env(safe-area-inset-bottom));
+  padding: 20px 8px calc(24px + env(safe-area-inset-bottom));
   font-family: "PingFang SC", sans-serif;
 }
 .privacy-eyebrow {
-  color: #8e8178;
+  color: #796f68;
   font:
-    18rpx/1.5 Georgia,
-    serif;
+    18rpx/1.5 -apple-system,
+    "PingFang SC",
+    sans-serif;
   letter-spacing: 3rpx;
 }
 .privacy-title {
-  margin-top: 20rpx;
+  margin-top: 8px;
   font:
-    44rpx/1.5 STSong,
-    "Songti SC",
-    serif;
+    44rpx/1.5 -apple-system,
+    "PingFang SC",
+    sans-serif;
+  font-size: 22px;
+  font-weight: 600;
 }
 .privacy-version {
   margin-top: 14rpx;
-  color: #8e8178;
+  color: #796f68;
   font-size: 23rpx;
 }
 .privacy-summary {
   margin: 28rpx 0;
-  font-size: 28rpx;
+  font-size: 14px;
   line-height: 1.9;
 }
 .privacy-card {
-  padding: 30rpx;
-  background: #fffdfa;
+  padding: 18px 16px;
+  background: #ffffff;
+  border-radius: 12px;
 }
 .privacy-label {
   margin-bottom: 12rpx;
-  color: #8e8178;
+  color: #796f68;
   font-size: 23rpx;
 }
 .privacy-value {
@@ -49,6 +53,10 @@ page {
 }
 .privacy-section {
   padding-top: 36rpx;
+  padding: 18px 16px;
+  margin-top: 10px;
+  border-radius: 12px;
+  background: #fff;
 }
 .privacy-heading {
   margin-bottom: 22rpx;
@@ -64,12 +72,16 @@ page {
   white-space: pre-wrap;
 }
 .privacy-page button {
+  width: 100%;
+  height: auto;
+  box-sizing: border-box;
   margin: 18rpx 0 0;
-  border-radius: 0;
+  border-radius: 24px;
   padding: 16rpx 24rpx;
   font-size: 26rpx;
   line-height: 1.8;
   white-space: normal;
+  min-height: 44px;
 }
 .privacy-page button::after {
   border: 0;
@@ -78,16 +90,16 @@ page {
   min-height: 72rpx;
   padding-left: 0;
   text-align: left;
-  color: #8d1724;
+  color: #7a1c1c;
   background: transparent;
 }
 .privacy-page .privacy-primary {
-  color: #fffdfa;
-  background: #8d1724;
+  color: #ffffff;
+  background: #7a1c1c;
 }
 .privacy-page .privacy-secondary {
-  color: #6d4d3e;
-  background: #eee7de;
+  color: #7a1c1c;
+  background: #f5e9e9;
 }
 .privacy-page button[disabled] {
   opacity: 0.5;
@@ -102,7 +114,7 @@ page {
 }
 .privacy-consent {
   margin-top: 36rpx;
-  border-top: 1rpx solid #4530261f;
+  border-top: 1rpx solid #eee9e4;
   padding-top: 28rpx;
 }
 .privacy-check {
@@ -123,6 +135,7 @@ page {
 }
 .privacy-error {
   padding: 24rpx;
-  color: #8d1724;
-  background: #f7e6e2;
+  color: #7a1c1c;
+  background: #f5e9e9;
+  border-radius: 8px;
 }

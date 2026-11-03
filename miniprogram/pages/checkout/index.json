@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "确认订单"
+  "navigationBarTitleText": "提交订单",
+  "navigationBarBackgroundColor": "#F5F4F2",
+  "backgroundColor": "#F5F4F2"
 }

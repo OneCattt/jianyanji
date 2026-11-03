@@ -1,0 +1,108 @@
+/* 仅由首页、商城、个人中心引用，保留这三个页面原有的共享视觉。 */
+page {
+  color: #233d38;
+}
+.qx {
+  background: #f8f5ee;
+  color: #251d1a;
+  font-family: "PingFang SC", sans-serif;
+  font-size: 23.936rpx;
+}
+.qx-hero-title {
+  font:
+    77.793rpx/1.35 STSong,
+    "Songti SC",
+    serif;
+}
+.qx-caption {
+  font:
+    15.957rpx/23.936rpx Georgia,
+    serif;
+  letter-spacing: 5.186rpx;
+  color: #ac8a62;
+}
+.qx-h2 {
+  font:
+    43.883rpx/65.824rpx STSong,
+    "Songti SC",
+    serif;
+  letter-spacing: 3.989rpx;
+  margin: 7.979rpx 0 0;
+}
+.qx .qx-text {
+  color: #8e8178;
+  font-size: 21.941rpx;
+  display: block;
+  min-height: 0;
+  align-items: normal;
+}
+.qx-badge {
+  font-size: 17.952rpx;
+  padding: 7.979rpx 13.963rpx;
+  background: #8d172414;
+  color: #8d1724;
+  border-radius: 0;
+}
+.qx-muted {
+  color: #8e8178;
+  font-size: 19.947rpx;
+}
+.qx-price {
+  font:
+    bold 31.915rpx/47.872rpx Georgia,
+    serif;
+  color: #8d1724;
+}
+.qx .qx-primary {
+  background: #8d1724;
+  padding: 15.957rpx 39.894rpx;
+  font-size: 21.941rpx;
+  min-height: 0;
+  display: block;
+  align-items: normal;
+  justify-content: normal;
+  border-radius: 0;
+  line-height: 1.5;
+}
+.qx-about {
+  font-size: 23.936rpx;
+  line-height: 1.9;
+  color: #786a62;
+  margin: 27.926rpx 0;
+}
+.qx .qx-info {
+  font:
+    35.904rpx/53.856rpx STSong,
+    "Songti SC",
+    serif;
+}
+.qx-empty {
+  padding: 127.66rpx 43.883rpx;
+  color: #8e8178;
+  font-size: inherit;
+  line-height: inherit;
+}
+.error {
+  background: #fff0ec;
+  color: #9c3b2d;
+  padding: 24rpx;
+  border-radius: 12rpx;
+}
+.list-footer {
+  color: #8e8178;
+}
+.list-footer button {
+  color: #8d1724;
+  min-height: 0;
+}
+.qx-count-badge {
+  border: 3rpx solid #fffdfa;
+  background: #8d1724;
+  color: #fffdfa;
+}
+input {
+  height: 90rpx;
+  border: 1rpx solid #d9e3de;
+  background: white;
+  border-radius: 12rpx;
+}

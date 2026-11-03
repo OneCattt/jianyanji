@@ -1,8 +1,70 @@
-<view class="qx qx-flow"><view wx:if="{{product}}"><image class="qx-detail-image" src="{{product.detailImageDisplay}}" mode="aspectFill"/><view class="qx-detail-section"><text class="qx-badge">{{sku.priceLabel}}</text><view class="qx-h1">{{product.name}}</view><view class="qx-muted">{{product.subtitle}}</view><view wx:if="{{sku.productType !== 'welfare'}}" class="qx-muted">零售价 {{sku.retailText}}</view><view class="qx-price qx-large">{{sku.priceText}} <text>/ {{sku.unit}}</text></view></view><view class="qx-detail-section"><view class="qx-label">规格</view><view class="qx-specs"><button wx:for="{{product.skus}}" wx:key="id" class="{{sku.id===item.id?'chosen':''}}" data-id="{{item.id}}" bindtap="select">{{item.name}} · {{item.unit}}</button></view><view class="qx-section-row"><text>购买数量</text><view class="qx-quantity"><button data-delta="-1" bindtap="change" disabled="{{quantity===1}}">−</button><text>{{quantity}}</text><button data-delta="1" bindtap="change" disabled="{{quantity>=sku.stock}}">+</button></view></view><view class="qx-muted">{{sku.available ? '可用库存：'+sku.stock+sku.unit : sku.priceCents===null ? '当前身份价格尚未配置' : '该规格暂不可售'}}</view></view><view class="qx-detail-section"><button wx:if="{{!ownSalesCode}}" class="qx-text" bindtap="prepareSalesShare">代理生成销售分享</button><button wx:else class="qx-text" open-type="share">分享给顾客</button></view><view class="qx-notes"><view class="qx-caption">PRODUCT NOTES</view><view class="qx-h2">产品说明</view><view class="qx-about">{{product.description}}</view></view></view><view wx:if="{{error}}" class="error">{{error}}</view><view wx:if="{{product}}" class="qx-fixed product-actions">
-  <button class="product-action-cart" bindtap="cart" hover-class="product-action-pressed" aria-label="打开购物袋">
-    <image src="/assets/figma/shop-imgIcon.png" mode="aspectFit" aria-hidden="true" />
-    <text>购物袋</text>
-  </button>
-  <button class="product-action-add" bindtap="add" disabled="{{!sku.available}}" hover-class="product-action-pressed">加入购物袋</button>
-  <button class="qx-primary product-action-buy" bindtap="buy" disabled="{{!sku.available}}" hover-class="product-action-pressed">立即订货</button>
-</view></view>
+<view class="qx product-page">
+  <view class="product-nav" style="top: {{navTop}}px;">
+    <button bindtap="back" hover-class="product-pressed" aria-label="返回上一页"><view class="product-back-icon" aria-hidden="true" /></button>
+    <view class="product-nav-divider" />
+    <button bindtap="home" hover-class="product-pressed" aria-label="返回首页"><image src="/pages/product/assets/home.png" mode="aspectFit" aria-hidden="true" /></button>
+  </view>
+  <block wx:if="{{product}}">
+    <button class="product-hero" bindtap="previewImage" aria-label="查看{{product.name}}大图" hover-class="none">
+      <image src="{{product.imageHero}}" mode="aspectFill" />
+      <text class="product-image-hint">查看大图</text>
+    </button>
+    <view class="product-content">
+      <view class="product-card product-overview">
+        <text class="product-price-label">{{sku.priceLabel}}</text>
+        <view class="product-price-row">
+          <view class="product-price">{{sku.priceText}}<text wx:if="{{sku.priceCents !== null}}" class="product-unit"> / {{sku.unit}}</text></view>
+          <button class="product-overview-share" open-type="share" hover-class="product-pressed" aria-label="分享商品"><image src="/assets/figma/profile-share.png" mode="aspectFit" aria-hidden="true" /><text>分享</text></button>
+        </view>
+        <view class="product-meta">
+          <text wx:if="{{sku.productType !== 'welfare'}}" class="product-retail {{sku.priceCents !== null && sku.retailCents > sku.priceCents ? 'product-retail-discounted' : ''}}">零售价 {{sku.retailText}}</text>
+          <text>可用库存 {{sku.stock}}{{sku.unit}}</text>
+        </view>
+        <view class="product-name">{{product.name}}</view>
+        <view wx:if="{{product.subtitle}}" class="product-subtitle">{{product.subtitle}}</view>
+      </view>
+      <view class="product-card product-options">
+        <view class="product-option-row"><text class="product-option-label">规格</text><text class="product-selected-spec">{{sku.name}} · {{sku.unit}}</text></view>
+        <view class="product-specs">
+          <button wx:for="{{product.skus}}" wx:key="id" class="product-spec {{sku.id === item.id ? 'product-spec-selected' : ''}}" data-id="{{item.id}}" bindtap="select" disabled="{{!!pendingAction}}" aria-pressed="{{sku.id === item.id}}" hover-class="product-pressed">{{item.name}} · {{item.unit}}</button>
+        </view>
+        <view class="product-option-row product-quantity-row">
+          <text class="product-option-label">购买数量</text>
+          <view class="product-quantity">
+            <button data-delta="-1" bindtap="change" disabled="{{quantity <= 1 || !!pendingAction}}" aria-label="减少购买数量" hover-class="product-pressed">−</button>
+            <text aria-live="polite">{{quantity}}</text>
+            <button data-delta="1" bindtap="change" disabled="{{quantity >= sku.stock || quantity >= 999 || !!pendingAction}}" aria-label="增加购买数量" hover-class="product-pressed">+</button>
+          </view>
+        </view>
+        <view wx:if="{{!sku.available}}" class="product-unavailable">{{sku.priceCents === null ? '当前身份价格尚未配置，请联系品牌方' : '该规格暂不可售，请选择其他规格'}}</view>
+      </view>
+      <view class="product-card product-agent-share">
+        <text>代理销售分享</text>
+        <button wx:if="{{!ownSalesCode}}" bindtap="prepareSalesShare" disabled="{{shareBusy}}" loading="{{shareBusy}}" hover-class="product-pressed">生成专属分享 <text aria-hidden="true">›</text></button>
+        <button wx:else open-type="share" hover-class="product-pressed">分享给顾客 <text aria-hidden="true">›</text></button>
+      </view>
+      <view class="product-card product-description">
+        <view class="product-section-title">商品详情</view>
+        <button wx:if="{{product.detailImage}}" class="product-detail-image-button" bindtap="previewDetailImage" hover-class="none" aria-label="查看商品详情大图"><image class="product-detail-image" src="{{product.detailImageDisplay}}" mode="widthFix" lazy-load /></button>
+        <view wx:if="{{product.description || !product.detailImage}}" class="product-description-text">{{product.description || '商品说明待补充，可联系品牌方了解详情。'}}</view>
+      </view>
+    </view>
+  </block>
+  <view wx:if="{{error}}" class="product-error {{!product ? 'product-load-error' : ''}}" aria-live="polite">{{error}}<button wx:if="{{!product}}" bindtap="onShow">重新加载</button></view>
+  <view wx:elif="{{!product}}" class="product-loading">正在加载商品…</view>
+  <view wx:if="{{product}}" class="qx-fixed product-actions">
+    <view class="product-shortcuts">
+      <button class="product-shortcut" open-type="share" hover-class="product-pressed" aria-label="分享商品"><image src="/assets/figma/profile-share.png" mode="aspectFit" aria-hidden="true" /><text>分享</text></button>
+      <button class="product-shortcut" bindtap="home" hover-class="product-pressed" aria-label="返回首页"><image src="/pages/product/assets/home.png" mode="aspectFit" aria-hidden="true" /><text>首页</text></button>
+      <button class="product-shortcut product-action-cart" bindtap="cart" hover-class="product-pressed" aria-label="{{cartCount === null ? '打开购物袋' : '购物袋，共' + cartCount + '件商品'}}">
+        <view class="product-cart-icon"><image src="/assets/figma/shop-imgIcon.png" mode="aspectFit" aria-hidden="true" /><text wx:if="{{cartCount > 0}}" class="product-cart-badge">{{cartCount > 99 ? '99+' : cartCount}}</text></view><text>购物袋</text>
+      </button>
+    </view>
+    <view class="product-purchase-actions">
+      <button class="product-action-add" bindtap="add" disabled="{{!sku.available || !!pendingAction}}" loading="{{pendingAction === 'add'}}" hover-class="product-pressed">加入购物袋</button>
+      <button class="product-action-buy" bindtap="buy" disabled="{{!sku.available || !!pendingAction}}" loading="{{pendingAction === 'buy'}}" hover-class="product-pressed">立即订货</button>
+    </view>
+  </view>
+</view>
+
+<login-sheet id="login-sheet" />

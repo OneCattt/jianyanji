@@ -1,4 +1,4 @@
-<view class="tab-navigation {{brand ? 'tab-navigation-brand' : ''}}" style="height:{{navigationHeight}}px;padding-top:{{statusBarHeight}}px;">
+<view class="tab-navigation {{brand ? 'tab-navigation-brand' : ''}} {{original ? 'tab-navigation-original' : ''}} {{overlay ? 'tab-navigation-overlay' : ''}}" style="height:{{navigationHeight}}px;padding-top:{{statusBarHeight}}px;">
   <view class="tab-navigation-title">
     <text class="tab-navigation-name">{{title}}</text>
   </view>

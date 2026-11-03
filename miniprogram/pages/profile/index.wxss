@@ -1,3 +1,4 @@
+@import "../main-original.wxss";
 page {
   background: #f8f5ee;
   color: #251d1a;
@@ -167,8 +168,6 @@ page {
 }
 .mine-balance {
   padding-top: 39.894rpx;
-  height: 170.545rpx;
-  box-sizing: border-box;
 }
 .mine-balance-label {
   display: block;
@@ -177,12 +176,41 @@ page {
   color: #8e8178;
   padding-bottom: 9.973rpx;
 }
-.mine-balance-number {
-  display: block;
+.mine-balance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
   padding-top: 7.979rpx;
+}
+.mine-balance-number {
+  min-width: 0;
+  overflow-wrap: break-word;
   font:
     61.835rpx/92.753rpx Georgia,
     serif;
+}
+.mine .mine-wallet-detail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 24rpx;
+  border: 1rpx solid rgba(141, 23, 36, 0.12);
+  border-radius: 999rpx;
+  background: #f7eeeb;
+  color: #8d1724;
+  font-size: 22rpx;
+  line-height: 32rpx;
+}
+.mine-wallet-detail-arrow {
+  font-size: 30rpx;
+  line-height: 1;
+}
+.mine .mine-wallet-detail-active {
+  background: #efdfda;
 }
 .mine-wallet-actions {
   display: flex;
@@ -386,4 +414,37 @@ page {
   font-size: 15.957rpx;
   line-height: 23.936rpx;
   letter-spacing: 1.197rpx;
+}
+
+.mine-package-progress {
+  margin-top: 24rpx;
+  padding: 28rpx 32rpx;
+  background: #fffdfa;
+  color: #746a63;
+  font-size: 24rpx;
+  line-height: 1.8;
+}
+.mine-progress-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+.mine-progress-heading text:first-child {
+  color: #302824;
+  font-size: 26rpx;
+  font-weight: 500;
+}
+.mine-progress-heading text:last-child {
+  font-size: 22rpx;
+}
+.mine-progress-count {
+  margin-top: 12rpx;
+}
+.mine-progress-count text {
+  margin: 0 8rpx;
+  color: #7a1c1c;
+  font-family: Georgia, serif;
+  font-size: 36rpx;
 }

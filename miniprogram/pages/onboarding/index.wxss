@@ -2,7 +2,7 @@
   height: 100vh;
   overflow: hidden;
   padding-bottom: 0;
-  background: #f8f5ee;
+  background: #f5f4f2;
 }
 .ob-background {
   position: absolute;
@@ -24,8 +24,8 @@
   left: 0;
   width: 100%;
   height: 86vh;
-  background: #f8f5ee;
-  border-radius: 47.872rpx 47.872rpx 0 0;
+  background: #f5f4f2;
+  border-radius: 16px 16px 0 0;
   box-shadow: 0 -31.915rpx 99.734rpx #190f0c33;
   overflow: hidden;
   padding-top: 57.846rpx;
@@ -41,12 +41,12 @@
 }
 .qx .ob-close {
   position: absolute;
-  right: 31.915rpx;
-  top: 43.883rpx;
+  right: 8px;
+  top: 12px;
   border-radius: 50%;
-  background: #eee8e1;
-  width: 67.819rpx;
-  height: 67.819rpx;
+  background: #fff;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -60,53 +60,64 @@
   height: 100%;
 }
 .ob-inner {
-  padding: 0 39.894rpx calc(189.495rpx + env(safe-area-inset-bottom));
+  padding: 0 8px calc(96px + env(safe-area-inset-bottom));
 }
 .ob-overline {
   font:
-    15.957rpx/23.936rpx Georgia,
-    serif;
-  letter-spacing: 5.386rpx;
-  color: #ad845b;
+    15.957rpx/23.936rpx -apple-system,
+    "PingFang SC",
+    sans-serif;
+  letter-spacing: 2px;
+  color: #796f68;
   height: 47.872rpx;
   padding-top: 19.947rpx;
+  font-size: 10px;
+  padding-left: 8px;
 }
 .ob-title {
   font:
-    49.867rpx/74.8rpx STSong,
-    "Songti SC",
-    serif;
-  letter-spacing: 3.989rpx;
+    49.867rpx/74.8rpx -apple-system,
+    "PingFang SC",
+    sans-serif;
+  letter-spacing: 0;
   padding-top: 9.973rpx;
+  font-size: 22px;
+  font-weight: 600;
+  padding: 4px 8px 0;
 }
 .ob-sub {
-  font-size: 19.947rpx;
+  font-size: 12px;
   line-height: 29.92rpx;
-  color: #8e8178;
+  color: #796f68;
   margin-top: 13.963rpx;
+  padding: 0 8px;
 }
 .ob-tabs {
   display: flex;
-  margin-top: 37.899rpx;
-  padding: 5.984rpx;
-  background: #ebe3da;
+  margin-top: 16px;
+  padding: 4px;
+  background: #fff;
+  border-radius: 24px;
 }
 .ob-tabs button {
   flex: 1;
-  color: #8e8178;
-  padding: 19.947rpx;
-  font-size: 21.941rpx;
+  color: #796f68;
+  padding: 10px;
+  font-size: 14px;
   line-height: 32.912rpx;
+  min-height: 44px;
+  border-radius: 24px;
 }
 .ob-tabs button.active {
-  background: #8d1724;
+  background: #7a1c1c;
   color: #fff;
 }
 .ob-stats {
   display: flex;
-  padding: 29.92rpx 9.973rpx;
-  background: #fffdfa;
-  margin-top: 29.92rpx;
+  padding: 18px 8px;
+  background: #ffffff;
+  margin-top: 10px;
+  border-radius: 12px;
 }
 .ob-stats > view {
   flex: 1;
@@ -118,32 +129,34 @@
   min-width: 0;
 }
 .ob-stats > view + view {
-  border-left: 1.995rpx solid #4530261f;
+  border-left: 1.995rpx solid #eee9e4;
 }
 .ob-stats text {
-  font-size: 15.957rpx;
+  font-size: 11px;
   line-height: 23.936rpx;
-  color: #8e8178;
+  color: #796f68;
 }
 .ob-stats .ob-number {
   font:
-    bold 25.931rpx/38.896rpx Georgia,
+    bold 25.931rpx/38.896rpx -apple-system,
     "PingFang SC",
-    serif;
-  color: #8d1724;
+    sans-serif;
+  color: #7a1c1c;
   overflow-wrap: anywhere;
+  font-size: 14px;
 }
 .ob-relationship {
-  padding: 27.926rpx;
-  background: #f1e9df;
-  border: 1.995rpx solid #4530261f;
-  margin-top: 29.92rpx;
+  padding: 16px;
+  background: #fff;
+  border: 0;
+  margin-top: 10px;
+  border-radius: 12px;
 }
 .ob-section-label {
-  font-size: 19.947rpx;
+  font-size: 14px;
   font-weight: 600;
   line-height: 29.92rpx;
-  color: #7d5d49;
+  color: #2c221e;
   margin: 11.968rpx 0;
 }
 .ob-columns {
@@ -154,19 +167,19 @@
 .ob-columns > view {
   flex: 1;
   min-width: 0;
-  font-size: 19.947rpx;
+  font-size: 13px;
   line-height: 29.92rpx;
 }
 .ob-columns text {
   display: block;
-  font-size: 15.957rpx;
+  font-size: 12px;
   line-height: 23.936rpx;
-  color: #8e8178;
+  color: #796f68;
   margin-bottom: 7.979rpx;
 }
 .ob-columns input {
-  font-size: 19.947rpx;
-  height: 43.883rpx;
+  font-size: 13px;
+  height: 44px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -175,8 +188,8 @@
 }
 .ob-footnote {
   color: #9a8a80;
-  font-size: 15.957rpx;
-  line-height: 23.936rpx;
+  font-size: 12px;
+  line-height: 1.7;
   padding-top: 11.968rpx;
 }
 .ob-rights-image {
@@ -191,37 +204,40 @@
 .ob-transfer {
   display: block;
   width: 100%;
-  padding: 27.926rpx;
-  border: 1.995rpx solid #4530261f;
-  margin-top: 29.92rpx;
+  padding: 16px;
+  border: 0;
+  margin-top: 10px;
   text-align: left;
-  background: #fffdfa;
+  background: #ffffff;
+  border-radius: 12px;
 }
 .qx .ob-address {
-  padding: 27.926rpx;
-  background: #fffdfa;
-  border: 1.995rpx solid #4530261f;
-  margin-top: 29.92rpx;
+  padding: 16px;
+  background: #ffffff;
+  border: 0;
+  margin-top: 10px;
   text-align: left;
+  border-radius: 12px;
 }
 .ob-body {
-  font-size: 19.947rpx;
+  font-size: 13px;
   line-height: 1.85;
   white-space: pre-line;
-  color: #786a62;
+  color: #796f68;
   overflow-wrap: anywhere;
 }
 .ob-line {
   display: flex;
   justify-content: space-between;
   gap: 19.947rpx;
-  font-size: 19.947rpx;
+  font-size: 13px;
   padding: 19.947rpx 0;
-  border-bottom: 1.995rpx solid #4530261f;
+  border-bottom: 1.995rpx solid #eee9e4;
+  flex-wrap: wrap;
 }
 .ob-line text {
-  font-size: 15.957rpx;
-  color: #8e8178;
+  font-size: 12px;
+  color: #796f68;
 }
 .ob-agree {
   display: flex;
@@ -238,9 +254,9 @@
   margin-top: 7.979rpx;
 }
 .ob-agree text {
-  font-size: 15.957rpx;
-  line-height: 25.532rpx;
-  color: #8e8178;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #796f68;
   flex: 1;
 }
 .ob-error {
@@ -255,10 +271,10 @@
   left: 0;
   width: 100%;
   display: flex;
-  gap: 27.926rpx;
-  padding: 25.931rpx 39.894rpx calc(35.904rpx + env(safe-area-inset-bottom));
-  border-top: 1.995rpx solid #4530261f;
-  background: #f8f5eef5;
+  gap: 12px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1.995rpx solid #eee9e4;
+  background: #fff;
   backdrop-filter: blur(19.947rpx);
   align-items: center;
 }
@@ -268,58 +284,145 @@
 }
 .ob-fixed text {
   display: block;
-  font-size: 15.957rpx;
+  font-size: 12px;
   line-height: 23.936rpx;
-  color: #8e8178;
+  color: #796f68;
 }
 .ob-fixed .ob-number {
   display: block;
   font:
-    bold 35.904rpx/53.856rpx Georgia,
-    serif;
-  color: #8d1724;
+    bold 35.904rpx/53.856rpx -apple-system,
+    "PingFang SC",
+    sans-serif;
+  color: #7a1c1c;
+  font-size: 20px;
 }
 .qx .ob-apply {
-  width: 343.55rpx;
-  min-height: 81.782rpx;
-  padding: 21.941rpx 23.936rpx;
-  background: #8d1724;
+  width: auto;
+  min-height: 44px;
+  padding: 10px 16px;
+  background: #7a1c1c;
   color: #fff;
-  font-size: 21.941rpx;
+  font-size: 14px;
   line-height: 32.912rpx;
+  min-width: 44%;
+  border-radius: 24px;
 }
 .qx .ob-apply[disabled] {
   background: #ddd4cc;
-  color: #a99b93;
+  color: #7b6b5e;
   opacity: 1;
 }
 .ob-empty {
   padding: 99.734rpx 0;
   text-align: center;
-  color: #8e8178;
+  color: #796f68;
   font-size: 23.936rpx;
 }
 .ob-progress button {
   margin-top: 19.947rpx !important;
-  color: #8d1724 !important;
+  color: #7a1c1c !important;
   font-size: 19.947rpx !important;
 }
 .qx .ob-transfer-toggle {
   font-size: 19.947rpx;
-  color: #8d1724;
+  color: #7a1c1c;
   padding: 27.926rpx 0;
   width: 100%;
   text-align: left;
 }
 .ob-transfer {
   margin-top: 0;
-  font-size: 21.941rpx;
+  font-size: 13px;
   line-height: 1.8;
 }
 .ob-account {
   font:
-    25.931rpx Georgia,
-    serif;
+    25.931rpx -apple-system,
+    "PingFang SC",
+    sans-serif;
   overflow-wrap: anywhere;
   margin: 15.957rpx 0;
+}
+.ob-relationship button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 24px;
+  background: #f5e9e9;
+  color: #7a1c1c;
+  font-size: 13px;
+}
+
+.ob-line {
+  display: block;
+}
+.ob-line-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+.ob-line .ob-gift {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f0e7dc;
+  color: #7b5643;
+  font-size: 11px;
+}
+.ob-ship-quantity {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+.ob-ship-quantity input {
+  width: 80px;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0.5px solid #ded4cc;
+  border-radius: 8px;
+  background: #fff;
+  text-align: center;
+}
+.qx .ob-combine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  margin: 8px 0;
+  color: #7a1c1c;
+  text-align: left;
+  font-size: 13px;
+}
+.ob-delivery-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ob-delivery-option {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 108px;
+  min-height: 48px;
+  padding: 8px;
+  border: 0.5px solid #e5dcd3;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.ob-delivery-option radio {
+  flex-shrink: 0;
+  transform: scale(0.8);
+}
+.ob-delivery-selected {
+  background: #f6eeea;
+  border-color: #b59a88;
+  color: #7a1c1c;
+}
+.qx .ob-pressed {
+  opacity: 0.7;
 }

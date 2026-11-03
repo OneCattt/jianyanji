@@ -1,0 +1,126 @@
+<view class="qx storage-page pickup-page">
+  <view wx:if="{{error}}" class="storage-error" role="alert"
+    >{{error}}<button bindtap="load" hover-class="storage-pressed">
+      重新查询
+    </button></view
+  >
+  <view wx:if="{{loading&&!pickup}}" class="storage-empty"
+    >正在读取提货详情…</view
+  >
+  <block wx:if="{{pickup}}">
+    <view class="storage-head"
+      ><view class="storage-eyebrow">寄存提货</view
+      ><view class="storage-title">{{pickup.statusText}}</view
+      ><view class="storage-source">{{pickup.number}}</view></view
+    >
+    <view class="storage-card"
+      ><view class="pickup-section-title">收货信息</view
+      ><view>{{pickup.address.recipient}} · {{pickup.address.phone}}</view
+      ><view class="storage-muted"
+        >{{pickup.address.province}}{{pickup.address.city}}{{pickup.address.district}}{{pickup.address.detail}}</view
+      ></view
+    >
+    <view class="storage-card pickup-products">
+      <view class="pickup-section-title"
+        >本次提货商品 <text>共 {{pickup.quantity}} 件</text></view
+      >
+      <view wx:for="{{pickup.lines}}" wx:key="id" class="pickup-product-item">
+        <view class="storage-product-row">
+          <view class="storage-product-cover">
+            <image
+              wx:if="{{item.imageThumb}}"
+              src="{{item.imageThumb}}"
+              mode="aspectFit"
+              lazy-load
+              aria-label="{{item.name}}"
+            />
+            <image
+              wx:else
+              class="storage-product-placeholder"
+              src="/assets/figma/profile-storage.png"
+              mode="aspectFit"
+              aria-hidden="true"
+            />
+          </view>
+          <view class="storage-product-copy"
+            ><view class="storage-product-name"
+              >{{item.name}}<text wx:if="{{item.is_gift}}" class="storage-gift"
+                >赠品</text
+              ></view
+            ><view class="storage-product-sku">{{item.sku_name}}</view
+            ><view class="storage-product-origin"
+              >{{item.lot_id?'寄存商品 · 不重复收费':'本单新购商品'}}</view
+            ></view
+          >
+          <text class="storage-product-count">×{{item.quantity}}</text>
+        </view>
+        <button
+          class="pickup-order-link"
+          data-id="{{item.order_id}}"
+          bindtap="order"
+          hover-class="storage-pressed"
+        >
+          原购买订单与售后<text aria-hidden="true"> ›</text>
+        </button>
+      </view>
+    </view>
+    <view class="storage-card"
+      ><view class="pickup-section-title">运费与配送</view
+      ><view class="pickup-fee-row"
+        ><text>本次运费</text><text>{{pickup.feeText}} 积分</text></view
+      ><view
+        wx:if="{{pickup.fee_refunded||pickup.status==='awaiting_payment'||pickup.status==='cancelled'&&pickup.fee_cents>0}}"
+        class="storage-muted"
+        >{{pickup.fee_refunded?'运费积分已退回':'运费积分未扣减'}}</view
+      ><view wx:if="{{pickup.review_reason}}" class="pickup-review"
+        >{{pickup.review_reason}}</view
+      ><view wx:if="{{pickup.tracking}}" class="pickup-tracking"
+        ><view>{{pickup.carrier}}</view
+        ><view class="storage-source">{{pickup.tracking}}</view
+        ><button
+          class="storage-outline"
+          bindtap="copy"
+          hover-class="storage-pressed"
+        >
+          复制快递单号
+        </button></view
+      ></view
+    >
+    <view
+      wx:if="{{pickup.status==='cancelled'||pickup.status==='rejected'}}"
+      class="storage-card"
+    >
+      <view class="storage-muted">{{pickup.cancelText}}</view>
+      <view wx:if="{{pickup.newGoodsQuantity>0}}" class="storage-muted"
+        >可点击上方“原购买订单与售后”查看新购商品。</view
+      >
+    </view>
+    <view
+      wx:if="{{pickup.status==='review'||pickup.status==='approved'||pickup.status==='shipped'}}"
+      class="pickup-actions"
+      ><button
+        wx:if="{{pickup.status==='review'||pickup.status==='approved'}}"
+        class="storage-outline"
+        data-action="cancel"
+        bindtap="action"
+        disabled="{{busy}}"
+        hover-class="storage-pressed"
+      >
+        取消提货</button
+      ><button
+        wx:if="{{pickup.status==='shipped'}}"
+        class="storage-primary"
+        data-action="receive"
+        bindtap="action"
+        disabled="{{busy}}"
+        loading="{{busy}}"
+        hover-class="storage-pressed"
+      >
+        确认收到整个包裹</button
+      ><view class="storage-muted pickup-action-note"
+        >{{pickup.status==='shipped'?'请确认本次包裹中的所有商品均已收到。':pickup.cancelText}}</view
+      ></view
+    >
+  </block>
+</view>
+<brand-dialog id="brand-dialog" />

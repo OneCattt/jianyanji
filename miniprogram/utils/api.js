@@ -10,6 +10,7 @@ function isPublic(path, method) {
       /^\/products(?:\/[1-9]\d*)?$/.test(route) ||
       route === "/mini/products" ||
       route === "/membership" ||
+      route === "/offers" ||
       route === "/sales/candidate" ||
       route === "/invitations/candidate")
   );
@@ -81,15 +82,35 @@ async function request(path, method = "GET", data) {
   });
 }
 let loginPending = null;
-function login(account = "visitor") {
+function login(account = "visitor", options = {}) {
   if (loginPending) return loginPending;
-  loginPending = loginOnce(account).finally(() => {
+  const pages = getCurrentPages();
+  const page = pages[pages.length - 1];
+  const sheet = page && page.selectComponent("#login-sheet");
+  if (!sheet)
+    return Promise.reject(new Error("登录面板尚未就绪，请重新进入页面"));
+  loginPending = sheet.open({ account, ...options }).finally(() => {
     loginPending = null;
   });
   return loginPending;
 }
 
-async function loginOnce(account) {
+let authenticatePending = null;
+// 仅由用户操作后的登录面板调用；公开浏览和后台读取不发起登录。
+function authenticate(
+  account = "visitor",
+  phoneCode = "",
+  active = () => true,
+) {
+  if (authenticatePending) return authenticatePending;
+  authenticatePending = authenticateOnce(account, phoneCode, active).finally(
+    () => {
+      authenticatePending = null;
+    },
+  );
+  return authenticatePending;
+}
+async function authenticateOnce(account, phoneCode, active) {
   await privacy.ensureConsent();
   await privacy.requireWechatPrivacy();
   if (!privacy.hasConsent()) throw privacy.privacyError();
@@ -109,10 +130,15 @@ async function loginOnce(account) {
         },
       }),
     );
+    if (!active()) throw cancelledLogin();
     if (generation !== privacy.sessionGeneration() || !privacy.hasConsent())
       throw privacy.privacyError();
-    result = await request("/auth/wechat", "POST", { code });
+    result = await request("/auth/wechat", "POST", {
+      code,
+      ...(phoneCode ? { phoneCode } : {}),
+    });
   }
+  if (!active()) throw cancelledLogin();
   if (generation !== privacy.sessionGeneration() || !privacy.hasConsent())
     throw privacy.privacyError();
   // 主动切换已有账号时清掉前一账号的业务选择，首次登录保留本人刚确认的分享候选。
@@ -122,4 +148,9 @@ async function loginOnce(account) {
   invalidate();
   return result.user;
 }
-module.exports = { request, login };
+function cancelledLogin() {
+  const error = new Error("已取消登录，你仍可继续浏览");
+  error.code = "LOGIN_CANCELLED";
+  return error;
+}
+module.exports = { request, login, authenticate, cancelledLogin };

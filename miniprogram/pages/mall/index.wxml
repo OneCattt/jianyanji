@@ -1,5 +1,5 @@
 <view class="qx qx-mall">
-  <tab-navigation class="mall-navigation" title="臻选商城" />
+  <tab-navigation original class="mall-navigation" title="臻选商城" />
   <view class="mall-search-bar">
     <view class="mall-search-field">
       <view class="mall-search-icon" aria-hidden="true"></view>

@@ -1,1 +1,163 @@
-<view class="qx qx-flow"><view class="qx-flow-content"><view class="qx-sheet qx-address" bindtap="addresses"><view wx:if="{{address}}"><view>{{address.recipient}} {{address.phone}}</view><view class="qx-muted">{{address.province}} {{address.city}} {{address.district}} {{address.detail}}</view></view><view wx:else>请选择收货地址 ›</view></view><view wx:if="{{sales}}" class="qx-sheet"><view>本单销售代理：{{sales.name}}（{{sales.identity === 'B' ? '主理人' : '店主'}}）</view><checkbox-group bindchange="confirmSales"><label><checkbox value="confirmed" checked="{{salesConfirmed}}" />确认本单销售归属</label></checkbox-group><button class="qx-text" bindtap="removeSales">移除代理，按无代理购买</button></view><view wx:if="{{hasSalesCode && !sales}}" class="qx-sheet"><view>销售分享暂不可用，请核对提示后选择是否移除。</view><button class="qx-text" bindtap="removeSales">移除分享，按无代理购买</button></view><view wx:if="{{quote}}"><view class="qx-sheet"><view class="qx-label">清欣简妍肌品牌仓</view><view wx:for="{{quote.lines}}" wx:key="skuId" class="qx-order-line"><image src="{{item.imageThumb}}" mode="aspectFill"/><view><view>{{item.name}}</view><view class="qx-muted">{{item.skuName}}{{item.productType === 'welfare' ? ' · 福利品统一价' : ''}}</view></view><view class="qx-line-end">{{item.priceText}}<view class="qx-muted">×{{item.quantity}}</view></view></view><view class="qx-info-row"><text>配送说明</text><text>{{quote.shippingInstructions}}</text></view></view><view class="qx-sheet"><view class="qx-info-row"><text>商品合计</text><text>{{quote.goodsText}}</text></view><view class="qx-info-row"><text>运费</text><text>{{quote.shippingText}}</text></view><view class="qx-info-row"><text>应付总额</text><text class="qx-price">{{quote.totalText}}</text></view></view><view class="qx-notice">确认后生成待核款订单并暂时占用库存；请按订单说明线下付款，财务核款后发货。代理可使用已有积分订货，同身份两种方式同价。仅创建订单不会扣款或扣积分。</view></view><view wx:if="{{error}}" class="error">{{error}}</view></view><view wx:if="{{quote}}" class="qx-fixed"><view><view class="qx-muted">需支付</view><view class="qx-price">{{quote.totalText}}</view></view><button class="qx-primary" bindtap="submit" disabled="{{busy}}" loading="{{busy}}">确认并生成订单</button></view></view>
+<view class="qx checkout-page">
+  <view class="checkout-content">
+    <button
+      class="checkout-card checkout-address"
+      bindtap="addresses"
+      hover-class="checkout-pressed"
+      aria-label="{{address ? '更换收货地址' : '添加收货地址'}}"
+    >
+      <view wx:if="{{address}}" class="checkout-address-copy">
+        <view class="checkout-region"
+          >{{address.province}}{{address.city}}{{address.district}}</view
+        >
+        <view class="checkout-address-detail">{{address.detail}}</view>
+        <view class="checkout-recipient"
+          >{{address.recipient}} <text>{{address.phone}}</text></view
+        >
+      </view>
+      <view wx:else class="checkout-address-copy"
+        ><view class="checkout-address-detail">请选择收货地址</view
+        ><view class="checkout-address-hint"
+          >选择地址后确认商品价格与运费</view
+        ></view
+      >
+      <text class="checkout-address-switch">{{address ? '切换' : '添加'}}</text>
+      <view class="checkout-address-stripe" aria-hidden="true" />
+    </button>
+
+    <view wx:if="{{sales}}" class="checkout-card checkout-sales">
+      <view class="checkout-section-title">本单销售代理</view>
+      <view class="checkout-sales-name"
+        >{{sales.name}} · {{sales.identity === 'B' ? '主理人' : '店主'}}</view
+      >
+      <checkbox-group bindchange="confirmSales"
+        ><label class="checkout-sales-confirm"
+          ><checkbox
+            value="confirmed"
+            color="#7a1c1c"
+            checked="{{salesConfirmed}}"
+          />确认本单销售归属</label
+        ></checkbox-group
+      >
+      <button class="checkout-text-button" bindtap="removeSales">
+        移除代理，按无代理购买
+      </button>
+    </view>
+    <view
+      wx:if="{{hasSalesCode && !sales}}"
+      class="checkout-card checkout-sales"
+      ><view class="checkout-help"
+        >销售分享暂不可用，请核对提示后选择是否移除。</view
+      ><button class="checkout-text-button" bindtap="removeSales">
+        移除分享，按无代理购买
+      </button></view
+    >
+
+    <block wx:if="{{displayQuote}}">
+      <view class="checkout-card checkout-goods">
+        <view class="checkout-store"
+          ><view class="checkout-brand-mark" aria-hidden="true" /><text
+            >清欣简妍肌 · 品牌仓</text
+          ></view
+        >
+        <view
+          wx:for="{{displayQuote.lines}}"
+          wx:key="skuId"
+          class="checkout-item"
+        >
+          <image
+            class="checkout-image"
+            src="{{item.imageThumb}}"
+            mode="aspectFill"
+          />
+          <view class="checkout-item-copy">
+            <view class="checkout-item-name">{{item.name}}</view>
+            <view class="checkout-item-meta"
+              ><text
+                >{{item.skuName}}{{item.productType === 'welfare' ? ' · 福利品统一价' : ''}}</text
+              ><text class="checkout-quantity">×{{item.quantity}}</text></view
+            >
+            <view class="checkout-item-price">{{item.priceText}}</view
+            ><label wx:if="{{item.storageEnabled}}" class="checkout-storage"
+              ><text>本次发货数量</text
+              ><input
+                type="number"
+                value="{{item.shipQuantity}}"
+                data-index="{{index}}"
+                bindblur="shippingQuantity"
+                aria-label="{{item.name+'本次发货数量'}}"
+              /><text class="checkout-storage-help"
+                >其余寄存，有效期12个月</text
+              ></label
+            >
+          </view>
+        </view>
+        <view class="checkout-subtotal"
+          >共{{displayQuote.pieces}}件 <text>商品小计：</text
+          ><text class="checkout-subtotal-value"
+            >{{displayQuote.goodsText}}</text
+          ></view
+        >
+      </view>
+      <view class="checkout-card checkout-delivery"
+        ><button
+          class="checkout-combine"
+          bindtap="chooseStored"
+          hover-class="checkout-pressed"
+        >
+          <view
+            ><view>合并寄存提货</view
+            ><view class="checkout-help"
+              >{{combinedCount ? '已选'+combinedCount+'件寄存货品' : '可与本次购买的商品一起配送'}}</view
+            ></view
+          ><text aria-hidden="true">›</text>
+        </button>
+        <view class="checkout-info-row"
+          ><text class="checkout-info-label">配送方式</text
+          ><text class="checkout-info-value"
+            >{{displayQuote.shippingInstructions}}</text
+          ></view
+        >
+        <view class="checkout-info-row"
+          ><text class="checkout-info-label">运费</text
+          ><text class="checkout-info-value"
+            >{{displayQuote.shippingText}}</text
+          ></view
+        >
+      </view>
+      <view class="checkout-card checkout-notice"
+        ><view class="checkout-section-title">下单说明</view
+        ><view class="checkout-help"
+          >提交后生成待积分支付订单并预占库存，不会立即扣款或扣积分；请在订单页确认积分支付。所有客户均使用积分支付，余额不足请联系总部微信充值。寄存商品只收取一次货款，后续提货不重复收费。</view
+        ></view
+      >
+    </block>
+    <view wx:if="{{quoting}}" class="checkout-help" aria-live="polite"
+      >正在重新确认发货数量与费用…</view
+    >
+    <view wx:if="{{error}}" class="checkout-error" aria-live="polite"
+      >{{error}}<button
+        wx:if="{{address}}"
+        bindtap="retryQuote"
+        disabled="{{quoting||busy}}"
+      >
+        重新确认报价
+      </button></view
+    >
+  </view>
+  <view wx:if="{{quote}}" class="checkout-dock">
+    <view class="checkout-total"
+      ><text>合计：</text
+      ><text class="checkout-total-value">{{quote.totalText}}</text></view
+    >
+    <button
+      class="checkout-submit"
+      bindtap="submit"
+      disabled="{{busy||quoting}}"
+      loading="{{busy}}"
+      hover-class="checkout-pressed"
+    >
+      提交订单
+    </button>
+  </view>
+</view>

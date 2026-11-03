@@ -1,17 +1,24 @@
 page {
-  background: #f8f5ee;
-  color: #251d1a;
+  background: #f5f4f2;
+  color: #2c221e;
 }
 .settings-page {
   min-height: 100vh;
-  padding: 43.883rpx 35.904rpx calc(63.83rpx + env(safe-area-inset-bottom));
+  padding: 20px 8px calc(24px + env(safe-area-inset-bottom));
   font-family: "PingFang SC", sans-serif;
 }
 .settings-page button {
-  border-radius: 0;
-  font-size: 25.931rpx;
-  line-height: 79.787rpx;
-  padding: 0 23.936rpx;
+  width: 100%;
+  height: auto;
+  margin-left: 0;
+  margin-right: 0;
+  box-sizing: border-box;
+  border-radius: 24px;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 12px 16px;
+  min-height: 44px;
+  white-space: normal;
 }
 .settings-page button::after {
   border: 0;
@@ -20,24 +27,29 @@ page {
   opacity: 0.55;
 }
 .settings-eyebrow {
-  color: #ac8a62;
+  color: #796f68;
   font:
-    17.952rpx/26.928rpx Georgia,
-    serif;
-  letter-spacing: 5.186rpx;
+    17.952rpx/26.928rpx -apple-system,
+    "PingFang SC",
+    sans-serif;
+  letter-spacing: 2px;
+  padding: 0 8px;
 }
 .settings-title {
-  margin: 15.957rpx 0 35.904rpx;
+  margin: 8px 8px 16px;
   font:
-    49.867rpx/74.8rpx STSong,
-    "Songti SC",
-    serif;
-  letter-spacing: 3.989rpx;
+    49.867rpx/74.8rpx -apple-system,
+    "PingFang SC",
+    sans-serif;
+  letter-spacing: 0;
+  font-size: 22px;
+  font-weight: 600;
 }
 .settings-card {
-  padding: 35.904rpx;
-  margin-bottom: 27.926rpx;
-  background: #fffdfa;
+  padding: 18px 16px;
+  margin-bottom: 10px;
+  background: #ffffff;
+  border-radius: 12px;
 }
 .settings-identity {
   display: flex;
@@ -45,16 +57,21 @@ page {
   gap: 27.926rpx;
 }
 .settings-avatar {
+  flex-shrink: 0;
   width: 103.723rpx;
   height: 103.723rpx;
   border-radius: 50%;
   text-align: center;
   font:
-    43.883rpx/103.723rpx STSong,
-    "Songti SC",
-    serif;
-  color: #6b2025;
-  background: linear-gradient(145deg, #f7e7d8, #c7a889);
+    43.883rpx/103.723rpx -apple-system,
+    "PingFang SC",
+    sans-serif;
+  color: #7a1c1c;
+  background: #f5e9e9;
+}
+.settings-identity-text {
+  flex: 1;
+  min-width: 0;
 }
 .settings-name {
   font-size: 29.92rpx;
@@ -63,12 +80,12 @@ page {
 }
 .settings-role {
   font-size: 21.941rpx;
-  color: #8d1724;
+  color: #7a1c1c;
   margin-top: 11.968rpx;
 }
 .settings-help {
-  color: #8e8178;
-  font-size: 21.941rpx;
+  color: #796f68;
+  font-size: 13px;
   line-height: 1.8;
   margin-top: 27.926rpx;
 }
@@ -76,52 +93,65 @@ page {
   font-size: 27.926rpx;
   font-weight: 600;
 }
+.settings-card {
+  display: block;
+}
+.settings-phone {
+  font-size: 14px;
+  line-height: 24px;
+}
 .settings-label {
   margin: 27.926rpx 0 11.968rpx;
   font-size: 23.936rpx;
   color: #6d4d3e;
 }
 .settings-page input {
-  height: 87.766rpx;
+  width: 100%;
+  height: 44px;
   padding: 0 23.936rpx;
-  border: 1.995rpx solid #4530261f;
-  border-radius: 0;
-  background: #f8f5ee;
-  font-size: 25.931rpx;
-  color: #251d1a;
+  border: 1.995rpx solid #eee9e4;
+  border-radius: 8px;
+  background: #f5f4f2;
+  font-size: 14px;
+  color: #2c221e;
 }
 .settings-page .settings-primary {
   margin-top: 31.915rpx;
   color: #fff;
-  background: #8d1724;
+  background: #7a1c1c;
 }
 .settings-page .settings-logout {
   margin-top: 23.936rpx;
-  color: #8e8178;
+  color: #796f68;
   background: transparent;
 }
 .settings-page .settings-secondary {
   margin-top: 23.936rpx;
-  color: #8d1724;
-  background: #eee7de;
+  color: #7a1c1c;
+  background: #f5e9e9;
 }
 .settings-page .settings-inline {
   display: inline;
+  width: auto;
   padding: 0;
-  color: #8d1724;
+  color: #7a1c1c;
   background: transparent;
   font-size: inherit;
   line-height: inherit;
+  min-height: 0;
+  border-radius: 0;
 }
 .settings-error {
   padding: 23.936rpx;
-  color: #8d1724;
-  background: #f7e6e2;
+  color: #7a1c1c;
+  background: #f5e9e9;
   font-size: 23.936rpx;
   line-height: 1.8;
+  border-radius: 8px;
 }
 .settings-dev {
   margin-top: 43.883rpx;
   padding: 31.915rpx;
   border: 1.995rpx dashed #caa786;
+  border-radius: 12px;
 }

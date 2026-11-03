@@ -2,7 +2,11 @@
 <view class="qx ob-page">
   <view class="ob-background"
     ><view class="qx-brand"
-      ><image class="qx-brand-logo" src="/assets/brand/logo-horizontal-red.png" mode="aspectFit" aria-label="清欣简妍肌" /></view
+      ><image
+        class="qx-brand-logo"
+        src="/assets/brand/logo-horizontal-red.png"
+        mode="aspectFit"
+        aria-label="清欣简妍肌" /></view
     ><image
       class="ob-hero"
       src="/assets/figma/Home-imgImage.png"
@@ -27,13 +31,13 @@
             data-target="C"
             bindtap="changeTarget"
           >
-            调肤店主</button
+            2980店主</button
           ><button
             class="{{target==='B'?'active':''}}"
             data-target="B"
             bindtap="changeTarget"
           >
-            调肤主理人
+            19800店主
           </button></view
         >
         <view wx:if="{{selected}}">
@@ -83,14 +87,56 @@
             ><view class="ob-body">{{selected.benefits}}</view
             ><view class="ob-section-label">入驻条件</view
             ><view class="ob-body">{{selected.conditions}}</view
-            ><view class="ob-section-label">实际交付商品</view
-            ><view wx:for="{{selected.lines}}" wx:key="skuId" class="ob-line"
-              ><view
-                >{{item.name||'商品规格'}} · {{item.skuName||item.skuId}} ×
-                {{item.quantity}}</view
-              ><text>{{item.priceText}} / {{item.unit||'件'}}</text></view
-            ></view
-          >
+            ><view class="ob-section-label">实际交付商品</view>
+            <view class="ob-body"
+              >产品包货品固定不可调换，未发部分寄存12个月。</view
+            >
+            <button
+              class="ob-combine"
+              bindtap="chooseStored"
+              hover-class="ob-pressed"
+            >
+              <text>合并提取寄存货品</text><text aria-hidden="true">›</text>
+            </button>
+            <radio-group class="ob-delivery-options" bindchange="deliveryMode"
+              ><label
+                class="ob-delivery-option {{deliveryMode==='ship'?'ob-delivery-selected':''}}"
+                ><radio
+                  value="ship"
+                  color="#7a1c1c"
+                  checked="{{deliveryMode==='ship'}}"
+                /><text>按下方数量发货</text></label
+              ><label
+                class="ob-delivery-option {{deliveryMode==='store'?'ob-delivery-selected':''}}"
+                ><radio
+                  value="store"
+                  color="#7a1c1c"
+                  checked="{{deliveryMode==='store'}}"
+                /><text>全部寄存</text></label
+              ></radio-group
+            >
+            <view wx:for="{{selected.lines}}" wx:key="lineKey" class="ob-line">
+              <view class="ob-line-title"
+                >{{item.name}}<text wx:if="{{item.isGift}}" class="ob-gift"
+                  >赠品</text
+                ></view
+              >
+              <view class="ob-body"
+                >{{item.skuName}} · 共{{item.quantity}}件 · {{item.priceText}} /
+                {{item.unit||'件'}}</view
+              >
+              <label class="ob-ship-quantity"
+                ><text>本次发货数量</text
+                ><input
+                  type="number"
+                  value="{{item.shipQuantity}}"
+                  data-index="{{index}}"
+                  bindblur="shipQuantity"
+                  disabled="{{busy}}"
+                  aria-label="{{item.name+'本次发货数量'}}"
+              /></label>
+            </view>
+          </view>
           <button class="ob-address" bindtap="addresses">
             <view class="ob-section-label">产品包收货地址 ›</view
             ><view wx:if="{{address}}" class="ob-body"
@@ -108,7 +154,7 @@
               ><checkbox
                 value="yes"
                 checked="{{agreed}}"
-                color="#8d1724"
+                color="#7a1c1c"
               /><text
                 >我已阅读并同意《代理入驻协议》，确认符合入驻条件、产品包明细及本次邀请归属</text
               ></label
@@ -124,7 +170,10 @@
             {{item.active?'有效':'已撤销'}} ·
             {{item.source_kind==='existing'?'首批存量核验':'产品包入驻#'+item.onboarding_id}}</view
           ></view
-        ><template is="list-footer" data="{{loading:qualificationsLoading,loaded:qualificationsLoaded,hasMore:qualificationsHasMore,error:error}}" /><view wx:if="{{current}}" class="ob-progress"
+        ><template
+          is="list-footer"
+          data="{{loading:qualificationsLoading,loaded:qualificationsLoaded,hasMore:qualificationsHasMore,error:error}}"
+        /><view wx:if="{{current}}" class="ob-progress"
           ><view class="ob-section-label">最近入驻申请 #{{current.id}}</view
           ><view class="ob-body"
             >{{current.statusText}}<view
@@ -135,12 +184,21 @@
             ><view wx:if="{{current.receipt}}"
               >原收款：{{current.receipt.external_transaction_id}}</view
             ></view
-          ><view wx:if="{{current.status==='submitted'}}" class="ob-body">请按申请编号 #{{current.id}} 线下转款 {{current.amountText}}，注明产品包用途，并联系财务核款；核实到账后激活身份。</view><button
+          ><view wx:if="{{current.status==='submitted'}}" class="ob-body"
+            >产品包固定货品不可调换。使用 {{current.amountText}}
+            积分购买后开通身份；充值本身不会开通身份。</view
+          ><button
             wx:if="{{current.status==='submitted'}}"
             bindtap="reconfirm"
             disabled="{{busy}}"
           >
             重新确认邀请归属</button
+          ><button
+            wx:if="{{current.status==='submitted'}}"
+            bindtap="purchaseWithPoints"
+            disabled="{{busy}}"
+          >
+            扣积分购买权益包</button
           ><button wx:if="{{current.order}}" bindtap="order">
             查看商品交付订单 ›
           </button></view
@@ -156,7 +214,7 @@
           ><view class="ob-body"
             >{{transfer.transferNotes}}<view>{{transfer.customerService}}</view
             ><view
-              >产品包仅线下付款，财务核款后激活身份。货款仅用于商品交付，不发订货积分。提交申请或转款截图均不代表公司已核实到账。</view
+              >先联系总部微信充值，由总部核款增加积分；购买固定产品包时扣除积分并开通身份，不重复赠送等额积分。</view
             ></view
           ></view
         >
@@ -179,3 +237,5 @@
   </view>
 </view>
 <brand-dialog id="brand-dialog" />
+
+<login-sheet id="login-sheet" />

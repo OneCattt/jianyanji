@@ -1,3 +1,4 @@
+@import "../main-original.wxss";
 page {
   overflow: hidden;
   background: #fff;

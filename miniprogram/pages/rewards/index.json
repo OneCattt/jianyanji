@@ -3,7 +3,7 @@
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "dark",
   "navigationBarTitleText": "收益台账",
-  "navigationBarBackgroundColor": "#f8f5ee",
+  "navigationBarBackgroundColor": "#f5f4f2",
   "navigationBarTextStyle": "black",
   "onReachBottomDistance": 120
 }

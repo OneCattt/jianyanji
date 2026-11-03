@@ -1,10 +1,11 @@
 // 政策实质变化时更新版本；只保存用户主动同意的结果，不用浏览行为代替同意。
-const POLICY_VERSION = "2026-10-22";
+const POLICY_VERSION = "2026-11-03";
 const CONSENT_KEY = "jyj_privacy_consent";
 const SESSION_KEYS = [
   "jyj_token",
   "jyj_address",
   "jyj_checkout",
+  "jyj_pickup_selection",
   "jyj_sales_candidate",
   "jyj_invitation_candidate",
 ];
@@ -76,7 +77,7 @@ function ensureConsent(force = false) {
   return promise;
 }
 
-function recordConsent(operator, contact) {
+function recordConsent(operator, contact, buttonId = "privacy-agree") {
   if (!operator || !contact)
     throw privacyError("隐私主体与联系方式尚未配置，请联系品牌方");
   wx.setStorageSync(CONSENT_KEY, {
@@ -86,8 +87,7 @@ function recordConsent(operator, contact) {
     contact,
   });
   // 微信要求在同意按钮仍挂载时传回按钮 ID，不能用本地记录代替平台授权。
-  for (const resolve of nativeResolvers)
-    resolve({ event: "agree", buttonId: "privacy-agree" });
+  for (const resolve of nativeResolvers) resolve({ event: "agree", buttonId });
   nativeResolvers.clear();
 }
 

@@ -1,6 +1,6 @@
 @import "common.wxss";
 .jy-transfer {
-  font-size: 20rpx;
+  font-size: 13px;
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
@@ -10,5 +10,105 @@
 }
 .jy-transfer button {
   display: inline;
-  color: #8d1724;
+  color: #7a1c1c;
+}
+
+.qx .jy-pickup-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 0;
+  text-align: left;
+  color: #7a1c1c;
+  font-size: 14px;
+}
+.jy-pickup-link + .jy-pickup-link {
+  border-top: 0.5px solid #eee9e4;
+}
+.jy-pickup-link > view {
+  flex: 1;
+  min-width: 0;
+}
+.jy-pickup-link > view > text {
+  display: block;
+  margin-top: 4px;
+  color: #796f68;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.jy-pickup-link > text {
+  font-size: 24px;
+}
+.qx .jy-pressed {
+  opacity: 0.7;
+}
+.jy-combined-note,
+.jy-combined-copy > text {
+  color: #796f68;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.jy-combined .jy-store {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.jy-combined-note {
+  padding-top: 12px;
+}
+.jy-combined-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid #eee9e4;
+  line-height: 1.5;
+}
+.jy-combined-copy {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.jy-combined-copy > text {
+  display: block;
+  margin-top: 6px;
+}
+.jy-combined-line > text {
+  flex-shrink: 0;
+}
+.jy-combined-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f5f4f2;
+}
+.jy-combined-cover image {
+  width: 100%;
+  height: 100%;
+}
+.jy-combined-cover .jy-combined-placeholder {
+  width: 28px;
+  height: 28px;
+  opacity: 0.45;
+}
+.jy-combined-error {
+  color: #7a1c1c;
+  font-size: 13px;
+  padding-top: 12px;
+  line-height: 1.6;
+}
+.jy-combined-error button {
+  display: inline-block;
+  min-height: 48px;
+  margin-top: 8px;
+  margin-right: 16px;
+  color: #7a1c1c;
 }

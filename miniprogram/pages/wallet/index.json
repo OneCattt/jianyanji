@@ -1,10 +1,10 @@
 {
   "navigationStyle": "default",
   "navigationBarTitleText": "积分明细",
-  "navigationBarBackgroundColor": "#f8f5ee",
+  "navigationBarBackgroundColor": "#f5f4f2",
   "navigationBarTextStyle": "black",
   "enablePullDownRefresh": true,
-  "backgroundColor": "#f2ece4",
+  "backgroundColor": "#f5f4f2",
   "usingComponents": {
     "brand-dialog": "/components/brand-dialog/index"
   },

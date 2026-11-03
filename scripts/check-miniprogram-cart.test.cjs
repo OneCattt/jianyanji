@@ -83,6 +83,9 @@ function runtime(count = 41, intercept) {
     Page: (value) => (definition = value),
   };
   context.require = createRequire(entry, context, request);
+  context
+    .require("../../utils/privacy")
+    .recordConsent("测试品牌方", "测试联系方式");
   vm.runInNewContext(fs.readFileSync(entry, "utf8"), context, {
     filename: entry,
   });
@@ -98,6 +101,19 @@ function runtime(count = 41, intercept) {
 const event = (id, extra = {}, value) => ({
   currentTarget: { dataset: { id, ...extra } },
   detail: { value },
+});
+
+test("管理切换只控制移除入口，读取或提交期间不切换且不发送网络请求", () => {
+  const r = runtime(1);
+  r.page.toggleManage();
+  assert.equal(r.page.data.managing, true);
+  r.page.data.itemsLoading = true;
+  r.page.toggleManage();
+  assert.equal(r.page.data.managing, true);
+  r.page.data.itemsLoading = false;
+  r.page.toggleManage();
+  assert.equal(r.page.data.managing, false);
+  assert.equal(r.calls.length, 0);
 });
 
 test("全选与取消只发一次批量请求，覆盖尚未展示的21项，金额采用整袋汇总", async () => {

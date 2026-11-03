@@ -1,0 +1,145 @@
+<view
+  wx:if="{{visible}}"
+  class="login-mask"
+  catchtap="cancel"
+  catchtouchmove="stop"
+>
+  <view
+    class="login-panel"
+    catchtap="stop"
+    role="dialog"
+    aria-modal="true"
+    aria-label="微信登录"
+  >
+    <button
+      class="login-close"
+      bindtap="cancel"
+      disabled="{{busy}}"
+      aria-label="关闭登录面板"
+    >
+      ×
+    </button>
+    <scroll-view scroll-y class="login-scroll">
+      <view class="login-brand">清欣简妍肌</view>
+      <view class="login-title"
+        >{{stage === 'profile' ? '让我们更好地认识你' : mode === 'phone' ?
+        '绑定微信手机号' : '欢迎来到清欣'}}</view
+      >
+      <view class="login-note"
+        >{{stage === 'profile' ?
+        '总部会同时核对昵称和手机号，为你确认充值与积分。' :
+        '登录后查看订单、积分与寄存，继续刚才的操作。'}}</view
+      >
+      <block wx:if="{{stage === 'consent'}}">
+        <view class="login-note"
+          >{{loading ? '正在确认隐私授权信息…' : operator}}</view
+        >
+        <view wx:if="{{contact}}" class="login-contact"
+          >隐私联系：{{contact}}</view
+        >
+        <checkbox-group bindchange="toggleAgreement">
+          <label class="login-agreement"
+            ><checkbox
+              value="privacy"
+              color="#7a1c1c"
+              checked="{{agreed}}"
+              disabled="{{loading || !configured}}"
+            /><text>我已阅读并同意隐私政策及微信用户隐私保护指引</text></label
+          >
+        </checkbox-group>
+        <view class="login-links"
+          ><button bindtap="openPolicy">阅读隐私政策</button
+          ><button bindtap="openContract">查看微信隐私指引</button></view
+        >
+        <button
+          wx:if="{{needAuthorization}}"
+          id="login-privacy-agree"
+          class="login-primary"
+          open-type="agreePrivacyAuthorization"
+          bindagreeprivacyauthorization="agree"
+          disabled="{{loading || !agreed || !configured}}"
+        >
+          同意并继续
+        </button>
+        <button
+          wx:else
+          class="login-primary"
+          bindtap="agree"
+          disabled="{{loading || !agreed || !configured}}"
+        >
+          同意并继续
+        </button>
+        <button
+          wx:if="{{!loading && !configured}}"
+          class="login-secondary"
+          bindtap="prepare"
+        >
+          重新加载
+        </button>
+        <button class="login-secondary" bindtap="cancel">
+          暂不登录，继续浏览
+        </button>
+      </block>
+      <block wx:elif="{{stage === 'login'}}">
+        <view class="login-note"
+          >手机号用于品牌业务联系与充值核款，由你确认授权后填写。</view
+        >
+        <button
+          wx:if="{{!devAuth}}"
+          class="login-primary"
+          open-type="getPhoneNumber"
+          bindgetphonenumber="phoneLogin"
+          disabled="{{busy}}"
+          loading="{{busy}}"
+        >
+          {{mode === 'phone' ? '授权绑定手机号' : '微信手机号快捷登录'}}
+        </button>
+        <button
+          wx:if="{{mode !== 'phone'}}"
+          class="login-secondary"
+          bindtap="plainLogin"
+          disabled="{{busy}}"
+        >
+          {{devAuth ? '使用本地调试账号登录' : '暂不绑定手机号，微信登录'}}
+        </button>
+        <button class="login-secondary" bindtap="cancel" disabled="{{busy}}">
+          {{mode === 'phone' ? '暂不修改' : '继续浏览'}}
+        </button>
+      </block>
+      <form wx:elif="{{stage === 'profile'}}" bindsubmit="saveProfile">
+        <view class="login-label">昵称</view>
+        <input
+          name="nickname"
+          type="nickname"
+          value="{{nickname}}"
+          maxlength="30"
+          placeholder="点此选用微信昵称，也可自行填写"
+          disabled="{{busy}}"
+        />
+        <view class="login-label">联系电话</view>
+        <view class="login-phone"
+          >{{user.phone || '暂未绑定，可在个人设置补充'}}<text
+            wx:if="{{user.phoneVerified}}"
+            >微信授权</text
+          ></view
+        >
+        <button
+          class="login-primary"
+          form-type="submit"
+          disabled="{{busy}}"
+          loading="{{busy}}"
+        >
+          保存并继续
+        </button>
+        <button
+          class="login-secondary"
+          bindtap="skipProfile"
+          disabled="{{busy}}"
+        >
+          稍后完善，继续操作
+        </button>
+      </form>
+      <view wx:if="{{error}}" class="login-error" role="alert">{{error}}</view>
+    </scroll-view>
+  </view>
+</view>

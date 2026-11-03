@@ -3,13 +3,19 @@ const { decorate } = require("../../utils/catalog");
 const { imageUrl } = require("../../utils/image");
 const { isFresh, remember } = require("../../utils/state");
 Page({
+  shopPackages() {
+    wx.navigateTo({ url: "/pages/onboarding/index" });
+  },
+  shopOffers() {
+    wx.navigateTo({ url: "/pages/offers/index" });
+  },
   data: {
-    content: null,
     featured: null,
     error: "",
     heroTitle: "让肌肤，回到\n它本来的光",
     heroSubtitle: "专业调肤方案 · 精准护理 · 长效陪伴",
-    heroImage: "/assets/figma/Home-imgImage.png",
+    heroImage: "",
+    heroImageReady: false,
   },
   async onShow() {
     const tabBar = this.getTabBar && this.getTabBar();
@@ -20,18 +26,23 @@ Page({
       this.setData({ error: "" });
       const results = await Promise.all(
         [
-          request("/public/content").then((r) =>
+          request("/public/content").then((r) => {
+            const heroImage = r.content
+              ? imageUrl(r.content.heroImage, "detail") || ""
+              : "";
             this.setData({
-              content: r.content,
+              heroImage,
+              ...(heroImage !== this.data.heroImage
+                ? { heroImageReady: false }
+                : {}),
               ...(r.content
                 ? {
                     heroTitle: r.content.heroTitle,
                     heroSubtitle: r.content.heroSubtitle,
-                    heroImage: imageUrl(r.content.heroImage, "detail"),
                   }
                 : {}),
-            }),
-          ),
+            });
+          }),
           request("/mini/products?featured=true&limit=1&page=1").then((r) =>
             this.setData({
               featured: r.items[0] ? decorate(r.items[0]) : null,
@@ -54,6 +65,12 @@ Page({
       this._loading = false;
     }
   },
+  onHeroImageLoad() {
+    this.setData({ heroImageReady: true });
+  },
+  onHeroImageError() {
+    this.setData({ heroImageReady: false });
+  },
   toMall() {
     wx.switchTab({ url: "/pages/mall/index" });
   },
@@ -65,5 +82,11 @@ Page({
   },
   toInfo() {
     wx.navigateTo({ url: "/pages/info/index" });
+  },
+  onShareAppMessage() {
+    return {
+      title: "清欣简妍肌 · 东方肌肤管理美学",
+      path: "/pages/home/index",
+    };
   },
 });

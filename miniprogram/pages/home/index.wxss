@@ -1,7 +1,19 @@
+@import "../main-original.wxss";
 /* 首页采用品牌画报排版，样式限定在首页。 */
 page,
 .qx-home {
   background: #faf8f5;
+}
+.qx-home {
+  min-height: 0;
+  /* 按底部导航实际高度避让，仅额外保留 16px 间距。 */
+  padding-bottom: calc(130rpx + max(24rpx, env(safe-area-inset-bottom)) + 16px);
+}
+.home-cover {
+  position: relative;
+  overflow: hidden;
+  /* 图片未加载时保留稳定底色，避免先闪出与后台配置无关的示例图。 */
+  background: #78685e;
 }
 .qx-home .qx-hero {
   height: 52vh;
@@ -11,8 +23,12 @@ page,
   top: 0;
   right: auto;
   bottom: auto;
-  width: 112%;
-  height: 150%;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+.qx-home .qx-hero-image.home-hero-image-ready {
+  opacity: 1;
 }
 .qx-home .qx-shade {
   background: linear-gradient(
@@ -65,46 +81,6 @@ page,
 .qx-home .qx-hero-button text {
   font-size: 20px;
   line-height: 1;
-}
-.qx-home .qx-shortcuts {
-  height: 96px;
-  padding: 20px 16px;
-  align-items: center;
-  gap: 0;
-  background: #faf8f5;
-  border-bottom: 0.5px solid #eae4df;
-}
-.qx-home .qx-shortcuts button {
-  min-width: 0;
-  min-height: 56px;
-  text-align: center;
-}
-.home-entry-caption {
-  color: #a68b7c;
-  font-size: 10px;
-  line-height: 14px;
-  letter-spacing: 2px;
-  white-space: nowrap;
-}
-.home-entry-title {
-  margin-top: 4px;
-  color: #2c221e;
-  font-family: STSong, "Songti SC", serif;
-  font-size: 16px;
-  line-height: 22px;
-  letter-spacing: 1px;
-}
-.qx-home .qx-shortcuts text {
-  margin-top: 3px;
-  color: #8c827d;
-  font-size: 12px;
-  line-height: 16px;
-}
-.home-entry-divider {
-  flex-shrink: 0;
-  height: 44px;
-  width: 1px;
-  background: #eae4df;
 }
 .qx-home .qx-section {
   padding: 22px 28px 0;
@@ -160,11 +136,8 @@ page,
   padding-top: 32px;
   border-top: 0.5px solid #eae4df;
 }
-.qx-home .qx-about {
-  font-size: 12px;
-  line-height: 2;
-}
 .qx-home .qx-info {
+  margin-top: 16px;
   padding: 16px 0;
   border-top: 0.5px solid #eae4df;
   background: transparent;
@@ -196,4 +169,48 @@ page,
   .qx-home .qx-hero-button {
     margin-top: 18px;
   }
+}
+
+/* 业务入口沿用品牌栏目宋体与细线分隔，两列文字独立居中。 */
+.qx-home .home-package-entry {
+  display: flex;
+  align-items: center;
+  padding: 20px 16px;
+  background: #faf8f5;
+  border-bottom: 0.5px solid #eae4df;
+}
+.qx-home .home-package-entry button {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 56px;
+  text-align: center;
+}
+.home-package-copy {
+  width: 100%;
+  min-width: 0;
+}
+.home-package-title {
+  color: #2c221e;
+  font-family: STSong, "Songti SC", serif;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.home-package-note {
+  margin-top: 3px;
+  color: #8c827d;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.home-package-divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 44px;
+  background: #eae4df;
 }

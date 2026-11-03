@@ -1,46 +1,75 @@
-<tab-navigation title="清欣简妍肌" brand />
 <view class="qx qx-tabpage qx-home">
-  <view class="qx-hero">
-    <image class="qx-hero-image" src="{{heroImage}}" mode="aspectFill" />
+  <view class="home-cover">
+    <image
+      wx:if="{{heroImage}}"
+      class="qx-hero-image {{heroImageReady ? 'home-hero-image-ready' : ''}}"
+      src="{{heroImage}}"
+      mode="aspectFill"
+      bindload="onHeroImageLoad"
+      binderror="onHeroImageError"
+    />
     <view class="qx-shade" />
-    <view class="qx-hero-copy">
-      <view class="qx-overline">东方肌肤管理美学</view>
-      <view class="qx-hero-title">{{heroTitle}}</view>
-      <view class="qx-hero-sub">{{heroSubtitle}}</view>
-      <button class="qx-hero-button" bindtap="toMall" hover-class="home-entry-pressed">开启肌肤之旅 <text aria-hidden="true">→</text></button>
+    <tab-navigation original overlay title="清欣简妍肌" brand />
+    <view class="qx-hero">
+      <view class="qx-hero-copy">
+        <view class="qx-overline">东方肌肤管理美学</view>
+        <view class="qx-hero-title">{{heroTitle}}</view>
+        <view class="qx-hero-sub">{{heroSubtitle}}</view>
+        <button
+          class="qx-hero-button"
+          bindtap="toMall"
+          hover-class="home-entry-pressed"
+        >
+          开启肌肤之旅 <text aria-hidden="true">→</text>
+        </button>
+      </view>
     </view>
   </view>
 
-  <view class="qx-shortcuts">
-    <button bindtap="toMall" hover-class="home-entry-pressed">
-      <view class="home-entry-caption">COLLECTION</view>
-      <view class="home-entry-title">臻选奢护</view>
-      <text>探索全系高定单品</text>
+  <view class="home-package-entry">
+    <button
+      bindtap="shopPackages"
+      hover-class="home-entry-pressed"
+      aria-label="店主产品包，2980或19800积分"
+    >
+      <view class="home-package-copy"
+        ><view class="home-package-title">店主产品包</view
+        ><view class="home-package-note">2980 / 19800 积分</view></view
+      >
     </button>
-    <view class="home-entry-divider" aria-hidden="true" />
-    <button bindtap="toInfo" hover-class="home-entry-pressed">
-      <view class="home-entry-caption">BRAND PHILOSOPHY</view>
-      <view class="home-entry-title">东方美学</view>
-      <text>品牌哲思与授权标准</text>
+    <view class="home-package-divider" aria-hidden="true" />
+    <button bindtap="shopOffers" hover-class="home-entry-pressed">
+      <view class="home-package-copy"
+        ><view class="home-package-title">活动套餐</view
+        ><view class="home-package-note">固定组合 · 主品买赠</view></view
+      >
     </button>
   </view>
-
   <view wx:if="{{featured}}" class="qx-section home-selected">
     <view class="qx-section-row">
       <view>
         <view class="qx-caption">SELECTED FOR YOU</view>
         <view class="qx-h2">今日臻选</view>
       </view>
-      <button class="qx-text" bindtap="toMall" hover-class="home-entry-pressed">查看全部 <text aria-hidden="true">›</text></button>
+      <button class="qx-text" bindtap="toMall" hover-class="home-entry-pressed">
+        查看全部 <text aria-hidden="true">›</text>
+      </button>
     </view>
-    <view class="qx-feature" bindtap="toProduct" aria-role="link" aria-label="查看{{featured.name}}">
-      <image src="{{featured.imageCard}}" mode="aspectFill" lazy-load />
+    <view
+      class="qx-feature"
+      bindtap="toProduct"
+      aria-role="link"
+      aria-label="查看{{featured.name}}"
+    >
+      <image src="{{featured.imageHero}}" mode="aspectFill" lazy-load />
       <view class="qx-feature-copy">
         <text class="qx-badge">明星单品</text>
         <view class="qx-h2">{{featured.name}}</view>
         <text class="qx-muted">{{featured.subtitle}}</text>
         <view class="qx-price">{{featured.priceText}}</view>
-        <button class="qx-primary" hover-class="home-entry-pressed">立即选购</button>
+        <button class="qx-primary" hover-class="home-entry-pressed">
+          立即选购
+        </button>
       </view>
     </view>
   </view>
@@ -48,9 +77,9 @@
   <view class="qx-section home-about">
     <view class="qx-caption">ABOUT QINGXIN</view>
     <view class="qx-h2">与品牌，共成长</view>
-    <view class="qx-about">{{content ? content.introduction : '品牌资料尚未配置'}}</view>
-    <button class="qx-info" bindtap="toInfo" hover-class="home-entry-pressed">品牌介绍与购买说明 <view class="qx-info-arrow" aria-hidden="true" /></button>
+    <button class="qx-info" bindtap="toInfo" hover-class="home-entry-pressed">
+      品牌介绍与购买说明 <view class="qx-info-arrow" aria-hidden="true" />
+    </button>
   </view>
   <view wx:if="{{error}}" class="error">{{error}}</view>
-  <content-recommendations />
 </view>

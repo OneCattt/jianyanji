@@ -1,7 +1,9 @@
-const { request } = require("../../utils/api");
+const { request, login } = require("../../utils/api");
 const { isFresh, remember, session } = require("../../utils/state");
 const { loadBadge } = require("../../utils/badges");
 const destinations = {
+  offers: "/pages/offers/index",
+  storage: "/pages/storage/index",
   orders: "/pages/orders/index",
   team: "/pages/team/index",
   addresses: "/pages/addresses/index",
@@ -17,6 +19,7 @@ const destinations = {
 Page({
   data: {
     user: null,
+    packageProgress: [],
     avatarText: "妍",
     shareCode: "",
     isAgent: false,
@@ -38,6 +41,24 @@ Page({
       { tab: 4, name: "已完成", icon: "completed" },
     ],
     menuItems: [
+      {
+        key: "offers",
+        title: "活动套餐",
+        hint: "固定套餐与买赠优惠",
+        icon: "gift",
+      },
+      {
+        key: "storage",
+        title: "我的寄存",
+        hint: "寄存货品、提货申请与记录",
+        icon: "storage",
+      },
+      {
+        key: "wallet",
+        title: "积分钱包",
+        hint: "微信充值到账后积分购物",
+        icon: "wallet",
+      },
       {
         key: "team",
         title: "我的团队",
@@ -88,7 +109,6 @@ Page({
         title: "积分余额退款",
         hint: "公司转款退款记录",
         icon: "wallet",
-        agentOnly: true,
       },
       {
         key: "info",
@@ -132,7 +152,7 @@ Page({
     const changed = !user || !this.data.user || user.id !== this.data.user.id;
     this.setData({
       user,
-      ...(!user ? { orderCounts: null } : {}),
+      ...(!user ? { orderCounts: null, packageProgress: [] } : {}),
       avatarText: Array.from(((user && user.nickname) || "").trim())[0] || "妍",
       isAgent: !!user && ["B", "C"].includes(user.identity),
       ...(changed
@@ -162,10 +182,31 @@ Page({
       const user = await request("/me");
       if (session() !== identity) return;
       this.setUser(user);
+      request("/mini/package-consumption?limit=100")
+        .then((result) => {
+          if (session() === identity)
+            this.setData({ packageProgress: result.items });
+        })
+        .catch(() => {});
       // 身份已确认即可操作入口，邀请和积分独立加载。
       this.setData({ busy: false });
       if (!this.data.isAgent) {
         this.setData({ shareCode: "" });
+        try {
+          const wallet = await request("/mini/wallet");
+          if (session() !== identity) return;
+          this.setData({
+            availablePoints: (wallet.availableCents / 100).toFixed(2),
+            walletLoaded: true,
+            transferConfigured: !!(
+              wallet.transfer && wallet.transfer.configured
+            ),
+            walletError: "",
+          });
+        } catch (error) {
+          if (session() === identity)
+            this.setData({ walletError: error.message });
+        }
         remember(this);
         return;
       }
@@ -217,7 +258,7 @@ Page({
       this.setData({ busy: false });
     }
   },
-  onNavigate(event) {
+  async onNavigate(event) {
     if (this.data.navigating) return;
     const key = event.currentTarget.dataset.key;
     if (this.data.busy && !["settings", "info", "courses"].includes(key))
@@ -226,16 +267,24 @@ Page({
     if (!url) return;
     const tab = Number(event.currentTarget.dataset.tab);
     if (key === "orders" && tab >= 1 && tab <= 4) url += "?tab=" + tab;
-    if (key !== "info" && key !== "settings" && key !== "courses") {
-      if (!this.data.user || !wx.getStorageSync("jyj_token")) {
-        url = destinations.settings + "?next=" + encodeURIComponent(url);
-      } else if (
-        ["wallet", "rewards", "cashRefunds"].includes(key) &&
-        !this.data.isAgent
-      ) {
+    if (
+      !["info", "courses"].includes(key) &&
+      (!this.data.user || !wx.getStorageSync("jyj_token"))
+    ) {
+      this.setData({ navigating: true, error: "" });
+      try {
+        this.setUser(await login());
+        await this.refresh();
+      } catch (error) {
+        if (error.code !== "LOGIN_CANCELLED")
+          this.setData({ error: error.message });
         return;
+      } finally {
+        this.setData({ navigating: false });
       }
+      if (key === "settings") return;
     }
+    if (key === "rewards" && !this.data.isAgent) return;
     this.setData({ navigating: true, error: "" });
     wx.navigateTo({
       url,

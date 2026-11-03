@@ -76,9 +76,20 @@ function runtime(options = {}) {
               ? { id: 7, nickname: "测试", phone: "", identity: "D" }
               : route === "/mini/addresses"
                 ? { items: [], nextPage: null, hasMore: false }
-                : route === "/orders"
-                  ? { id: 8 }
-                  : {};
+                : route === "/mini/cart"
+                  ? {
+                      items: [],
+                      nextPage: null,
+                      hasMore: false,
+                      kinds: 0,
+                      pieces: 0,
+                      totalKinds: 0,
+                      allSelected: false,
+                      totalCents: 0,
+                    }
+                  : route === "/orders"
+                    ? { id: 8 }
+                    : {};
       value.success({ statusCode: 200, data });
     },
     navigateTo: (value) => {
@@ -124,6 +135,8 @@ function runtime(options = {}) {
   }
   const privacy = load(path.join(root, "utils/privacy.js"));
   const api = load(path.join(root, "utils/api.js"));
+  // 本文件覆盖底层身份交换的隐私边界；登录面板的原生操作另由 quick-login.test.cjs 覆盖。
+  api.login = api.authenticate;
   function accept() {
     privacy.recordConsent(content.privacyOperator, content.privacyContact);
   }
@@ -197,6 +210,66 @@ test("未同意时公开内容不携带旧身份；地址、订单、积分等�
     });
   assert.equal(r.network.length, 5);
   assert.equal(r.navigation.length, 0, "后台读取不能强弹授权");
+});
+
+test("未登录进入购物袋不请求个人数据，退出后清空旧商品和合计", async () => {
+  const r = runtime();
+  const page = r.page("cart");
+  page.data.items = [{ skuId: 1 }];
+  page.data.totalText = "¥338.00";
+  page.data.kinds = 1;
+  page.data.pieces = 2;
+  await page.onShow();
+  await page.onReachBottom();
+  assert.equal(page.data.loggedIn, false);
+  assert.equal(page.data.items.length, 0);
+  assert.equal(page.data.totalText, "¥0.00");
+  assert.equal(page.data.kinds, 0);
+  assert.equal(page.data.pieces, 0);
+  assert.equal(page.data.error, "");
+  assert.equal(r.network.length, 0);
+  assert.equal(r.navigation.length, 0);
+});
+
+test("购物袋主动登录先确认隐私，同意后加载购物袋，拒绝后仍可浏览", async () => {
+  for (const accepted of [false, true]) {
+    const r = runtime();
+    const page = r.page("cart");
+    await page.onShow();
+    const action = page.onLogin();
+    const policy = await r.policy();
+    await page.onShow();
+    assert.equal(r.loginCalls.length, 0);
+    if (accepted) r.agree(policy);
+    else policy.decline();
+    await action;
+    assert.equal(page.data.loggedIn, accepted);
+    assert.equal(page.data.busy, false);
+    assert.equal(
+      r.network.filter((req) => req.url.includes("/mini/cart?")).length,
+      accepted ? 1 : 0,
+    );
+    if (accepted) assert.equal(page.data.itemsLoaded, true);
+    else assert.match(page.data.error, /暂未同意/);
+  }
+});
+
+test("购物袋登录失效后切回登录引导，网络失败仍保留重试状态", async () => {
+  for (const statusCode of [401, 500]) {
+    const r = runtime({
+      storage: { jyj_token: "token" },
+      deferRequest: (url) => url.includes("/mini/cart?"),
+    });
+    r.accept();
+    const page = r.page("cart");
+    const loading = page.onShow();
+    await tick();
+    r.network[0].success({ statusCode, data: { message: "请求失败" } });
+    await loading;
+    assert.equal(page.data.loggedIn, statusCode !== 401);
+    assert.equal(page.data.itemsLoading, false);
+    assert.equal(page.data.error, statusCode === 401 ? "" : "请求失败");
+  }
 });
 
 test("首次登录先阅读政策，拒绝及系统返回均不登录、不留同意记录", async () => {
@@ -517,7 +590,7 @@ test("已同意且微信状态有效时，真实地址保存及订单提交仍�
   const page = r.page("settings");
   page.setUser({ id: 7, nickname: "原昵称", phone: "", identity: "D" });
   page.data.nickname = "新昵称";
-  await page.onSave();
+  await page.onSave({ detail: { value: { nickname: "新昵称" } } });
   assert.equal(r.network.filter((call) => call.method === "PATCH").length, 1);
   assert.equal(r.network.at(-1).data.nickname, "新昵称");
   assert.equal(r.toasts[0].title, "个人资料已保存");

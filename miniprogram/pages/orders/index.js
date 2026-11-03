@@ -1,11 +1,11 @@
 const { request } = require("../../utils/api");
-const { decorate } = require("../order/view");
+const { decorateList } = require("../order/view");
 const { listData, loadPage } = require("../../utils/list");
 const { isFresh, remember } = require("../../utils/state");
 Page({
   data: {
     ...listData("orders"),
-    tabs: ["全部", "待核款", "待发货", "运输中", "已完成"],
+    tabs: ["全部", "待积分支付", "待发货", "运输中", "已完成", "含寄存"],
     tab: 0,
     error: "",
     loading: false,
@@ -23,7 +23,7 @@ Page({
       key: "orders",
       reset,
       url: "/mini/orders?tab=" + this.data.tab,
-      map: decorate,
+      map: (order) => decorateList(order, this.data.tab),
     });
     if (ok) remember(this);
   },

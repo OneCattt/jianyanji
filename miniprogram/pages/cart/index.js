@@ -1,8 +1,9 @@
-const { request } = require("../../utils/api");
+const { request, login } = require("../../utils/api");
+const { hasConsent } = require("../../utils/privacy");
 const { money } = require("../../utils/catalog");
 const { imageUrl } = require("../../utils/image");
 const { listData, loadPage } = require("../../utils/list");
-const { isFresh, remember } = require("../../utils/state");
+const { isFresh, remember, session } = require("../../utils/state");
 
 function summary(result) {
   return {
@@ -17,6 +18,8 @@ function summary(result) {
 Page({
   data: {
     ...listData(),
+    loggedIn: false,
+    managing: false,
     totalText: "¥0.00",
     kinds: 0,
     pieces: 0,
@@ -27,10 +30,56 @@ Page({
     busy: false,
   },
   async onShow() {
+    if (!this.updateLoginState()) return;
     if (!isFresh(this) && !this.data.itemsLoading) await this.load();
+  },
+  updateLoginState() {
+    const loggedIn = !!session() && hasConsent();
+    this.setData({
+      loggedIn,
+      ...(!loggedIn
+        ? {
+            ...listData(),
+            itemsNextPage: null,
+            itemsHasMore: false,
+            ...summary({
+              kinds: 0,
+              pieces: 0,
+              totalKinds: 0,
+              allSelected: false,
+              totalCents: 0,
+            }),
+            swipeSkuId: 0,
+            managing: false,
+            error: "",
+          }
+        : {}),
+    });
+    return loggedIn;
+  },
+  async onLogin() {
+    if (this.data.busy) return;
+    this.setData({ busy: true, error: "" });
+    try {
+      await login();
+    } catch (error) {
+      this.setData({ error: error.message });
+      return;
+    } finally {
+      this.setData({ busy: false });
+    }
+    await this.load();
+  },
+  toMall() {
+    wx.switchTab({ url: "/pages/mall/index" });
+  },
+  toggleManage() {
+    if (!this.data.busy && !this.data.itemsLoading)
+      this.setData({ managing: !this.data.managing, swipeSkuId: 0 });
   },
   async load(reset = true) {
     if (this.data.busy) return;
+    if (!this.updateLoginState()) return;
     this.setData({ swipeSkuId: 0 });
     if (
       await loadPage(this, {
@@ -45,6 +94,7 @@ Page({
       })
     )
       remember(this);
+    this.updateLoginState();
   },
   onReachBottom() {
     return this.load(false);

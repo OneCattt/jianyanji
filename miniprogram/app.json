@@ -22,18 +22,21 @@
     "pages/seeds/index",
     "pages/post/index",
     "pages/courses/index",
-    "pages/team/index"
+    "pages/team/index",
+    "pages/storage/index",
+    "pages/pickup/index",
+    "pages/offers/index"
   ],
   "window": {
     "navigationBarTitleText": "清欣简妍肌",
-    "navigationBarBackgroundColor": "#f8f5ee",
+    "navigationBarBackgroundColor": "#f5f4f2",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#f8f5ee"
+    "backgroundColor": "#f5f4f2"
   },
   "tabBar": {
-    "color": "#8e8178",
-    "selectedColor": "#8d1724",
-    "backgroundColor": "#fffdfa",
+    "color": "#796f68",
+    "selectedColor": "#7a1c1c",
+    "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [
       {
@@ -54,6 +57,9 @@
       }
     ],
     "custom": true
+  },
+  "usingComponents": {
+    "login-sheet": "/components/login-sheet/index"
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

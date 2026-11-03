@@ -1,8 +1,8 @@
 {
   "navigationBarTitleText": "个人设置",
-  "navigationBarBackgroundColor": "#f8f5ee",
+  "navigationBarBackgroundColor": "#f5f4f2",
   "navigationBarTextStyle": "black",
-  "backgroundColor": "#f8f5ee",
+  "backgroundColor": "#f5f4f2",
   "usingComponents": {
     "brand-dialog": "/components/brand-dialog/index"
   }

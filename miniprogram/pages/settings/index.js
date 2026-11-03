@@ -7,6 +7,7 @@ const accounts = ["visitor", "store", "principal"];
 Page({
   data: {
     user: null,
+    avatarText: "妍",
     nickname: "",
     phone: "",
     busy: false,
@@ -20,7 +21,7 @@ Page({
     // 只接受首期已有页面作为登录后的去向。
     const next = options.next ? decodeURIComponent(options.next) : "";
     this.next =
-      /^\/pages\/(orders|addresses|onboarding|wallet|rewards|refunds|cash-refunds)\/index$/.test(
+      /^\/pages\/(orders|addresses|onboarding|wallet|rewards|refunds|cash-refunds|storage|offers)\/index$/.test(
         next,
       ) ||
       /^\/pages\/orders\/index\?tab=[1-4]$/.test(next) ||
@@ -50,15 +51,14 @@ Page({
   setUser(user) {
     this.setData({
       user,
+      avatarText: Array.from(((user && user.nickname) || "").trim())[0] || "妍",
       nickname: user ? user.nickname : "",
       phone: user ? user.phone : "",
     });
   },
   onNickname(event) {
+    // 仅保留页面草稿；实际保存仍取微信昵称组件提交的最终值。
     this.setData({ nickname: event.detail.value });
-  },
-  onPhone(event) {
-    this.setData({ phone: event.detail.value });
   },
   onAccount(event) {
     if (!this.data.busy)
@@ -80,13 +80,10 @@ Page({
   },
   continueAfterLogin() {
     if (!this.next) return;
-    const agentOnly = /\/pages\/(wallet|rewards|cash-refunds)\//.test(
-      this.next,
-    );
+    const agentOnly = /\/pages\/(rewards)\//.test(this.next);
     if (agentOnly && !["B", "C"].includes(this.data.user.identity)) {
       this.setData({
-        error:
-          "该入口仅对调肤店主、调肤主理人开放；游客可在商城下单后线下付款购买商品",
+        error: "奖励入口仅对有效店主开放；普通顾客也可充值积分购物和寄存提货",
       });
       this.next = "";
       return;
@@ -99,21 +96,31 @@ Page({
         this.setData({ error: "登录成功，页面暂未打开，请返回我的页重试" }),
     });
   },
-  async onSave() {
+  async bindPhone() {
     if (this.data.busy || !this.data.user) return;
-    const nickname = this.data.nickname.trim(),
-      phone = this.data.phone.trim();
+    const nickname = this.data.nickname;
+    this.setData({ busy: true, error: "" });
+    try {
+      this.setUser(await login("visitor", { mode: "phone" }));
+      this.setData({ nickname });
+      wx.showToast({ title: "手机号已绑定", icon: "success" });
+    } catch (error) {
+      if (error.code !== "LOGIN_CANCELLED")
+        this.setData({ error: error.message });
+    } finally {
+      this.setData({ busy: false });
+    }
+  },
+  async onSave(event) {
+    if (this.data.busy || !this.data.user) return;
+    const nickname = (event.detail.value.nickname || "").trim();
     if (!nickname) {
       this.setData({ error: "请填写昵称" });
       return;
     }
-    if (!/^$|^1[3-9]\d{9}$/.test(phone)) {
-      this.setData({ error: "请填写正确的联系电话" });
-      return;
-    }
     this.setData({ busy: true, error: "" });
     try {
-      this.setUser(await request("/me", "PATCH", { nickname, phone }));
+      this.setUser(await request("/me", "PATCH", { nickname }));
       wx.showToast({ title: "个人资料已保存", icon: "success" });
     } catch (error) {
       this.setData({ error: error.message });

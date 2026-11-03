@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+const { request, login: signIn } = require("../../utils/api");
 Page({
   data: {
     loading: true,
@@ -44,11 +44,13 @@ Page({
     const value = e.currentTarget.dataset.contact;
     if (value) wx.setClipboardData({ data: value });
   },
-  login() {
-    wx.navigateTo({
-      url:
-        "/pages/settings/index?next=" +
-        encodeURIComponent("/pages/courses/index"),
-    });
+  async login() {
+    try {
+      await signIn();
+      await this.onShow();
+    } catch (error) {
+      if (error.code !== "LOGIN_CANCELLED")
+        this.setData({ error: error.message });
+    }
   },
 });

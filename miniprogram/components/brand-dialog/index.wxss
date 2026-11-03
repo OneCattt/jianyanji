@@ -1,9 +1,9 @@
 :host {
-  --dialog-surface: #fffdfa;
-  --dialog-accent: #8d1724;
-  --dialog-text: #251d1a;
-  --dialog-muted: #706259;
-  --dialog-line: #dfd3c8;
+  --dialog-surface: #ffffff;
+  --dialog-accent: #7a1c1c;
+  --dialog-text: #2c221e;
+  --dialog-muted: #796f68;
+  --dialog-line: #eee9e4;
 }
 .dialog-layer {
   position: fixed;
@@ -52,7 +52,7 @@
   box-sizing: border-box;
   margin: 0;
   border: 0;
-  border-radius: 12rpx;
+  border-radius: 24px;
   padding: 16rpx 24rpx;
   min-height: 48px;
   font-size: 28rpx;
@@ -114,8 +114,8 @@
   width: auto;
 }
 .dialog-secondary {
-  background: #f5eee6;
-  color: var(--dialog-text);
+  background: #f5e9e9;
+  color: #7a1c1c;
 }
 .dialog-primary {
   background: var(--dialog-accent);

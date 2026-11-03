@@ -39,8 +39,11 @@ function pageHarness(page, options = {}) {
   };
   const request = async (url, method = "GET") => {
     calls.push({ url, method });
-    if (url === "/wallet" || url === "/mini/wallet")
+    if (url === "/wallet" || url === "/mini/wallet") {
+      if (options.refreshFailure && order.payment_state === "paid")
+        throw new Error("余额读取失败");
       return { availableCents: options.available ?? 20000, ledger: [] };
+    }
     if (url.startsWith("/mini/wallet/ledger?"))
       return {
         items: (options.ledger || []).filter(
@@ -73,6 +76,7 @@ function pageHarness(page, options = {}) {
     throw new Error("出现未经约定的接口调用：" + method + " " + url);
   };
   const wx = {
+    setNavigationBarTitle: (value) => navigation.push(value),
     getStorageSync: () => "token",
     setStorageSync() {},
     setClipboardData: (value) => clipboard.push(value.data),
@@ -136,7 +140,7 @@ function pageHarness(page, options = {}) {
     assert.equal(selector, "#brand-dialog");
     return dialog;
   };
-  instance.onLoad({ id: 7, orderId: 7 });
+  instance.onLoad({ id: 7, orderId: options.orderId ?? 7 });
   return {
     page: instance,
     calls,
@@ -150,12 +154,12 @@ function pageHarness(page, options = {}) {
   };
 }
 
-test("线下订单显示真实核款状态；只有服务端已确认到账才显示已核款", async () => {
+test("新订单使用积分支付，历史线下订单保留真实核款状态", async () => {
   const { page, calls, view } = pageHarness("order", { identity: "D" });
   await page.load();
-  assert.equal(page.data.order.receiptText, "待核款");
-  assert.equal(page.data.order.methodText, "线下付款");
-  assert.equal(page.data.canUsePoints, false);
+  assert.equal(page.data.order.receiptText, "待积分支付");
+  assert.equal(page.data.order.methodText, "积分支付");
+  assert.equal(page.data.canUsePoints, true);
   assert.equal(page.data.transfer.bankAccount, "123456");
   assert.equal(
     calls.every((call) => call.method === "GET"),
@@ -218,7 +222,7 @@ test("历史未决交易不显示已核款、不允许改积分或从页面取�
   }
 });
 
-test("积分不足不扣款，保留返回原订单整笔线下付款入口", async () => {
+test("积分不足不扣款，提示联系总部充值并保留原订单", async () => {
   const { page, calls, navigation, toasts } = pageHarness("wallet", {
     available: 11999,
   });
@@ -226,20 +230,62 @@ test("积分不足不扣款，保留返回原订单整笔线下付款入口", as
   await page.pay();
   page.order();
   assert.equal(page.data.insufficient, true);
-  assert.match(page.data.error, /整笔线下付款/);
+  assert.match(page.data.error, /总部微信充值/);
   assert.equal(
     calls.some((call) => call.method === "POST"),
     false,
   );
   assert.equal(toasts.length, 0);
-  assert.equal(navigation[0].url, "/pages/order/index?id=7");
+  assert.ok(
+    navigation.some((route) => route.url === "/pages/order/index?id=7"),
+  );
 });
 
-test("直接进入钱包也不能用积分购买产品包、处理未决交易或使用游客身份付款", async () => {
+test("付款视图只读取本单与余额，不加载积分流水，普通钱包仍可查流水", async () => {
+  const payment = pageHarness("wallet");
+  await payment.page.load();
+  await payment.page.onReachBottom();
+  assert.equal(payment.page.data.paymentMode, true);
+  assert.equal(payment.page.data.afterPayText, "80.00");
+  assert.equal(payment.page.data.paymentLoading, false);
+  assert.ok(!payment.calls.some((call) => call.url.includes("/ledger")));
+  assert.ok(payment.navigation.some((route) => route.title === "订单付款"));
+  payment.page.walletDetails();
+  assert.ok(
+    payment.navigation.some((route) => route.url === "/pages/wallet/index"),
+  );
+  const wallet = pageHarness("wallet", { orderId: 0 });
+  await wallet.page.load();
+  assert.equal(wallet.page.data.paymentMode, false);
+  assert.ok(wallet.calls.some((call) => call.url.includes("/ledger")));
+  assert.ok(!wallet.calls.some((call) => call.url === "/orders/7"));
+});
+
+test("付款余额不足明确展示差额，付款成功后切换成功标题", async () => {
+  const insufficient = pageHarness("wallet", { available: 11999 });
+  await insufficient.page.load();
+  assert.equal(insufficient.page.data.shortfallText, "0.01");
+  const paid = pageHarness("wallet");
+  await paid.page.load();
+  await paid.page.pay();
+  assert.ok(paid.navigation.some((route) => route.title === "付款成功"));
+  assert.equal(paid.page.data.canPay, false);
+});
+
+test("付款成功后刷新失败仍保留付款结果及订单展示信息", async () => {
+  const { page, toasts } = pageHarness("wallet", { refreshFailure: true });
+  await page.load();
+  await page.pay();
+  assert.equal(page.data.paid, true);
+  assert.equal(page.data.canPay, false);
+  assert.equal(page.data.order.goodsPointsText, "120.00");
+  assert.match(page.data.error, /付款已成功.*刷新失败/);
+  assert.equal(toasts[0].title, "积分付款成功");
+});
+
+test("未决交易和关闭订单不能通过钱包扣积分", async () => {
   for (const options of [
-    { order: { kind: "package" } },
     { order: { payment_state: "unknown" } },
-    { identity: "D" },
     { order: { status: "closed" } },
   ]) {
     const { page, calls } = pageHarness("wallet", options);
@@ -250,6 +296,17 @@ test("直接进入钱包也不能用积分购买产品包、处理未决交易�
       calls.some((call) => call.method === "POST"),
       false,
     );
+  }
+});
+
+test("普通顾客和权益包都允许使用足额积分支付", async () => {
+  for (const options of [{ identity: "D" }, { order: { kind: "package" } }]) {
+    const { page, calls } = pageHarness("wallet", options);
+    await page.load();
+    assert.equal(page.data.canPay, true);
+    await page.pay();
+    assert.equal(calls.filter((call) => call.method === "POST").length, 1);
+    assert.equal(page.data.paid, true);
   }
 });
 
@@ -310,6 +367,7 @@ test("页面离开会关闭确认框，积分付款不会悬挂或在返回后�
 
 test("积分筛选显示当前选项，取消保留原筛选，选择后更新明细", async () => {
   const { page, dialog } = pageHarness("wallet", {
+    orderId: 0,
     deferModal: true,
     ledger: [
       {

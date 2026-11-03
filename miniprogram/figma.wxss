@@ -1,8 +1,9 @@
+/* 共享视觉：浅灰背景、白色圆角卡片、酒红色主操作，与商品详情、购物袋及提交订单保持一致。 */
 .qx {
-  background: #f8f5ee;
-  color: #251d1a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 23.936rpx;
+  background: #f5f4f2;
+  color: #2c221e;
+  font-family: -apple-system, "PingFang SC", sans-serif;
+  font-size: 14px;
   min-height: 100vh;
   padding-bottom: 51.862rpx;
 }
@@ -69,9 +70,9 @@
 }
 .qx-hero-title {
   font:
-    77.793rpx/1.35 STSong,
-    "Songti SC",
-    serif;
+    77.793rpx/1.35 -apple-system,
+    "PingFang SC",
+    sans-serif;
   letter-spacing: 7.979rpx;
   margin-top: 39.894rpx;
   white-space: pre-line;
@@ -100,10 +101,10 @@
   font-size: 33.91rpx;
 }
 .qx-shortcuts {
-  background: #fffdfa;
+  background: #ffffff;
   display: flex;
   padding: 45.878rpx 27.926rpx;
-  border-bottom: 1.995rpx solid #4530261f;
+  border-bottom: 1.995rpx solid #eee9e4;
   gap: 23.936rpx;
 }
 .qx-shortcuts button {
@@ -125,26 +126,27 @@
 .qx-shortcuts text {
   display: block;
   font-size: 17.952rpx;
-  color: #8e8178;
+  color: #796f68;
   margin-top: 7.979rpx;
 }
 .qx-section {
-  padding: 59.84rpx 39.894rpx 0;
+  padding: 20px 8px 0;
 }
 .qx-caption {
   font:
-    15.957rpx/23.936rpx Georgia,
-    serif;
-  letter-spacing: 5.186rpx;
-  color: #ac8a62;
+    10px/1.5 -apple-system,
+    "PingFang SC",
+    sans-serif;
+  letter-spacing: 2px;
+  color: #796f68;
 }
 .qx-h2 {
   font:
-    43.883rpx/65.824rpx STSong,
-    "Songti SC",
-    serif;
-  letter-spacing: 3.989rpx;
-  margin: 7.979rpx 0 0;
+    600 18px/1.5 -apple-system,
+    "PingFang SC",
+    sans-serif;
+  letter-spacing: 0;
+  margin: 4px 0 8px;
 }
 .qx-section-row {
   display: flex;
@@ -153,8 +155,11 @@
   gap: 15.957rpx;
 }
 .qx .qx-text {
-  color: #8e8178;
-  font-size: 21.941rpx;
+  color: #7a1c1c;
+  font-size: 13px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 .qx-feature {
   display: flex;
@@ -174,11 +179,12 @@
   padding: 47.872rpx 27.926rpx 31.915rpx 13.963rpx;
 }
 .qx-badge {
-  font-size: 17.952rpx;
-  padding: 7.979rpx 13.963rpx;
-  background: #8d172414;
-  color: #8d1724;
+  font-size: 11px;
+  padding: 3px 8px;
+  background: #f5e9e9;
+  color: #7a1c1c;
   display: inline-block;
+  border-radius: 6px;
 }
 .qx-feature .qx-h2 {
   font-size: 47.872rpx;
@@ -186,32 +192,39 @@
   margin-top: 21.941rpx;
 }
 .qx-muted {
-  color: #8e8178;
-  font-size: 19.947rpx;
+  color: #796f68;
+  font-size: 12px;
   line-height: 1.7;
 }
 .qx-price {
   font:
-    bold 31.915rpx/47.872rpx Georgia,
-    serif;
-  color: #8d1724;
+    600 18px/1.5 -apple-system,
+    "PingFang SC",
+    sans-serif;
+  color: #7a1c1c;
 }
 .qx-feature .qx-price {
   margin: 27.926rpx 0;
   font-size: 37.899rpx;
 }
 .qx .qx-primary {
-  background: #8d1724;
+  background: #7a1c1c;
   color: #fff;
-  padding: 15.957rpx 39.894rpx;
-  font-size: 21.941rpx;
+  padding: 10px 20px;
+  font-size: 14px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  line-height: 1.5;
 }
 .qx-about {
   white-space: pre-line;
-  font-size: 23.936rpx;
-  line-height: 1.9;
-  color: #786a62;
-  margin: 27.926rpx 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #796f68;
+  margin: 12px 0;
   overflow-wrap: anywhere;
 }
 .qx .qx-info {
@@ -219,9 +232,9 @@
   background: linear-gradient(135deg, #55161c, #8a2630);
   color: #f9ede0;
   font:
-    35.904rpx/53.856rpx STSong,
-    "Songti SC",
-    serif;
+    35.904rpx/53.856rpx -apple-system,
+    "PingFang SC",
+    sans-serif;
   letter-spacing: 3.989rpx;
   width: 100%;
   display: flex;
@@ -243,11 +256,11 @@
 }
 .qx-h1 {
   font:
-    57.846rpx/1.5 STSong,
-    "Songti SC",
-    serif;
-  letter-spacing: 5.984rpx;
-  margin: 11.968rpx 0 13.963rpx;
+    600 22px/1.5 -apple-system,
+    "PingFang SC",
+    sans-serif;
+  letter-spacing: 0;
+  margin: 8px 0 16px;
 }
 .qx-role {
   background: #59131b;
@@ -280,7 +293,7 @@
   border: 1rpx solid #d5c6b8;
   border-radius: 999rpx;
   margin-right: 16rpx;
-  background: #fffdfa;
+  background: #ffffff;
   color: #655348;
   font-size: 26rpx;
   font-weight: 500;
@@ -294,19 +307,20 @@
   opacity: 0.7;
 }
 .qx button.chosen {
-  background: #8d1724;
+  background: #7a1c1c;
   color: #fff;
-  border-color: #8d1724;
+  border-color: #7a1c1c;
 }
 .qx-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 35.904rpx 23.936rpx;
-  padding: 0 35.904rpx 55.851rpx;
+  gap: 10px;
+  padding: 0 8px 24px;
 }
 .qx-product {
-  background: #fffdfa;
+  background: #ffffff;
   overflow: hidden;
+  border-radius: 12px;
 }
 .qx-product > image,
 .qx-product > img {
@@ -317,7 +331,7 @@
   border-radius: 5.984rpx;
 }
 .qx-product-copy {
-  padding: 23.936rpx 7.979rpx 17.952rpx;
+  padding: 12px;
 }
 .qx-product-copy > .qx-muted {
   font-size: 15.957rpx;
@@ -326,10 +340,10 @@
 }
 .qx-product-name {
   font:
-    29.92rpx/44.88rpx STSong,
-    "Songti SC",
-    serif;
-  letter-spacing: 1.995rpx;
+    500 14px/1.6 -apple-system,
+    "PingFang SC",
+    sans-serif;
+  letter-spacing: 0;
   margin-top: 9.973rpx;
 }
 .qx-product .qx-section-row {
@@ -339,14 +353,16 @@
   width: 59.84rpx;
   height: 59.84rpx;
   box-sizing: border-box;
-  background: #8d1724;
+  background: #7a1c1c;
   border-radius: 50%;
   padding: 11.968rpx;
 }
 .qx-empty {
-  padding: 127.66rpx 43.883rpx;
+  padding: 64px 16px;
   text-align: center;
-  color: #8e8178;
+  color: #796f68;
+  font-size: 14px;
+  line-height: 1.8;
 }
 .qx-detail-image {
   display: block;
@@ -356,7 +372,7 @@
 }
 .qx-detail-section {
   padding: 43.883rpx 39.894rpx 39.894rpx;
-  background: #fffdfa;
+  background: #ffffff;
   margin-bottom: 19.947rpx;
 }
 .qx-detail-section .qx-h1 {
@@ -373,7 +389,7 @@
   font:
     19.947rpx "PingFang SC",
     sans-serif;
-  color: #8e8178;
+  color: #796f68;
 }
 .qx-label {
   font-weight: 600;
@@ -387,56 +403,67 @@
   margin-bottom: 35.904rpx;
 }
 .qx-specs button {
-  border: 1.995rpx solid #4530261f;
+  border: 1.995rpx solid #eee9e4;
   padding: 17.952rpx 27.926rpx;
   font-size: 19.947rpx;
 }
 .qx-specs button.chosen {
-  color: #8d1724;
-  border-color: #8d1724;
+  color: #7a1c1c;
+  border-color: #7a1c1c;
   background: #f8ecea;
 }
 .qx-quantity {
   display: flex;
   align-items: center;
 }
+.qx-quantity button,
+.qx-quantity text {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 .qx-quantity button {
   width: 59.84rpx;
   height: 55.851rpx;
   background: #f6f1eb;
-  border: 1.995rpx solid #4530261f;
+  border: 1.995rpx solid #eee9e4;
 }
 .qx-quantity text {
   width: 67.819rpx;
   height: 55.851rpx;
-  line-height: 55.851rpx;
+  line-height: 1.5;
   text-align: center;
-  border-block: 1.995rpx solid #4530261f;
+  border-top: 1.995rpx solid #eee9e4;
+  border-bottom: 1.995rpx solid #eee9e4;
 }
 .qx-notes {
   background: #eee2d3;
   padding: 47.872rpx 39.894rpx 63.83rpx;
 }
 .qx-flow {
-  background: #f2ece4;
+  background: #f5f4f2;
   min-height: 100vh;
-  padding-bottom: calc(199.468rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
 .qx-flow-content {
-  padding: 23.936rpx 27.926rpx 0;
+  padding: 8px 8px 0;
 }
 .qx-sheet {
-  background: #fffdfa;
-  padding: 31.915rpx;
-  margin-bottom: 19.947rpx;
+  background: #ffffff;
+  padding: 18px 16px;
+  margin-bottom: 10px;
+  border-radius: 12px;
 }
 .qx-notice {
-  background: #eaddcc;
-  padding: 25.931rpx 31.915rpx;
-  color: #785541;
-  font-size: 19.947rpx;
+  background: #f7eceb;
+  padding: 12px 14px;
+  color: #79615d;
+  font-size: 12px;
   line-height: 1.8;
-  margin-bottom: 19.947rpx;
+  margin-bottom: 10px;
+  border-radius: 8px;
 }
 .qx-fixed {
   position: fixed;
@@ -448,18 +475,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 19.947rpx;
-  min-height: 143.617rpx;
-  padding: 21.941rpx 35.904rpx calc(27.926rpx + env(safe-area-inset-bottom));
-  background: #fffdfaf7;
-  box-shadow: 0 -15.957rpx 47.872rpx #3f2a210d;
-  border-top: 1.995rpx solid #4530261f;
+  min-height: 68px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: none;
+  border-top: 1.995rpx solid #eee9e4;
 }
 .qx-fixed .qx-primary {
-  min-width: 309.176rpx;
-  min-height: 85.771rpx;
+  min-width: 0;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
 }
 .qx-fixed > .qx-text {
   flex-shrink: 0;
@@ -469,7 +497,7 @@
   align-items: center;
   gap: 21.941rpx;
   padding: 33.91rpx 0;
-  border-bottom: 1.995rpx solid #4530261f;
+  border-bottom: 1.995rpx solid #eee9e4;
 }
 .qx-cart-line > image {
   width: 171.543rpx;
@@ -521,11 +549,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 27.926rpx;
-  border-top: 1.995rpx solid #4530261f;
-  min-height: 87.766rpx;
-  font-size: 19.947rpx;
+  border-top: 1.995rpx solid #eee9e4;
+  min-height: 44px;
+  font-size: 13px;
   line-height: 1.8;
-  padding: 15.957rpx 0;
+  padding: 10px 0;
 }
 .qx-info-row > text:last-child {
   text-align: right;
@@ -534,19 +562,22 @@
 }
 .qx .qx-wide {
   width: 100%;
-  min-height: 85.771rpx;
-  margin: 27.926rpx 0;
+  min-height: 44px;
+  margin: 14px 0 0;
 }
 .qx-sheet input {
-  background: #f8f5ee;
-  border-color: #4530261f;
-  margin-bottom: 35.904rpx;
-  height: 83.777rpx;
-  border-radius: 0;
-  font-size: 23.936rpx;
+  width: 100%;
+  background: #f5f4f2;
+  border-color: #eee9e4;
+  margin-bottom: 16px;
+  height: 44px;
+  border-radius: 8px;
+  font-size: 14px;
 }
 .qx-label {
-  margin-top: 19.947rpx;
+  margin-top: 10px;
+  font-size: 14px;
+  margin-bottom: 10px;
 }
 .qx-address {
   min-height: 147.606rpx;

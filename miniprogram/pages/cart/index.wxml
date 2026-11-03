@@ -1,14 +1,39 @@
 <view class="qx boutique-cart">
   <view class="cart-content">
+    <view class="cart-panel">
     <view class="cart-brand">
       <view class="cart-brand-name"
         ><view class="cart-brand-line" aria-hidden="true" /><text
           >清欣简妍肌 · 品牌直发仓</text
         ></view
       >
-      <text class="cart-brand-shipping">统一顺丰/专配发货</text>
+      <button wx:if="{{loggedIn && items.length}}" class="cart-manage" bindtap="toggleManage" disabled="{{busy || itemsLoading}}">{{managing ? '完成' : '管理'}}</button>
     </view>
 
+    <view wx:if="{{!loggedIn}}" class="cart-login">
+      <image
+        class="cart-login-icon"
+        src="/assets/figma/shop-imgIcon.png"
+        mode="aspectFit"
+        aria-hidden="true"
+      />
+      <view class="cart-login-title">登录后查看购物袋</view>
+      <view class="cart-login-hint">登录后可查看已选商品，继续挑选与订货</view>
+      <button
+        class="cart-login-button"
+        bindtap="onLogin"
+        loading="{{busy}}"
+        disabled="{{busy}}"
+      >
+        微信登录
+      </button>
+      <button class="cart-browse-button" bindtap="toMall">先逛逛商城</button>
+      <view wx:if="{{error}}" class="cart-login-error" aria-live="polite"
+        >{{error}}</view
+      >
+    </view>
+
+    <block wx:else>
     <view class="cart-list">
       <view wx:for="{{items}}" wx:key="skuId" class="cart-swipe">
         <button
@@ -56,6 +81,7 @@
             <view class="cart-heading">
               <text class="cart-name">{{item.name}}</text>
               <button
+                wx:if="{{managing}}"
                 class="cart-remove"
                 data-id="{{item.skuId}}"
                 data-action="remove"
@@ -126,7 +152,7 @@
       >
     </view>
 
-    <view class="cart-list-footer" aria-live="polite">
+    <view wx:if="{{itemsLoading || error || items.length > 20}}" class="cart-list-footer" aria-live="polite">
       <text wx:if="{{itemsLoading}}">正在加载…</text>
       <button
         wx:elif="{{error && itemsHasMore}}"
@@ -140,21 +166,12 @@
       >
     </view>
     <view wx:if="{{error}}" class="error">{{error}}</view>
+    </block>
+    </view>
+    <button wx:if="{{loggedIn && items.length}}" class="cart-pricing-info" bindtap="showPricingInfo">价格与结算说明 <text aria-hidden="true">ⓘ</text></button>
   </view>
 
-  <view class="cart-dock">
-    <view class="cart-summary">
-      <text class="cart-selection-count"
-        >已选 {{kinds}} 种 · 共 {{pieces}} 件</text
-      >
-      <button
-        class="cart-pricing-info"
-        bindtap="showPricingInfo"
-        aria-label="结算时按代理商等级自动核价，查看核价说明"
-      >
-        结算时按代理商等级自动核价 <text aria-hidden="true">ⓘ</text>
-      </button>
-    </view>
+  <view wx:if="{{loggedIn}}" class="cart-dock">
     <view class="cart-action-bar">
       <button
         class="cart-select-all"
@@ -180,8 +197,10 @@
         disabled="{{!kinds || busy || itemsLoading}}"
         hover-class="cart-checkout-pressed"
       >
-        去结算
+        结算{{pieces ? '（' + pieces + '）' : ''}}
       </button>
     </view>
   </view>
 </view>
+
+<login-sheet id="login-sheet" />

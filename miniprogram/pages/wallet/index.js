@@ -1,5 +1,5 @@
 const { showDialog } = require("../../utils/dialog");
-const { request } = require("../../utils/api");
+const { request, login: signIn } = require("../../utils/api");
 const { decorate } = require("../order/view");
 const format = (n) =>
   (n / 100).toLocaleString("en-US", {
@@ -29,9 +29,15 @@ Page({
     paid: false,
     canPay: false,
     insufficient: false,
+    paymentMode: false,
+    paymentLoading: false,
+    shortfallText: "",
+    afterPayText: "",
   },
   onLoad(options) {
     this.orderId = Number(options.orderId) || 0;
+    this.setData({ paymentMode: Boolean(this.orderId) });
+    wx.setNavigationBarTitle({ title: this.orderId ? "订单付款" : "积分明细" });
   },
   onShow() {
     if (this.orderId || !isFresh(this)) return this.load();
@@ -46,7 +52,7 @@ Page({
   async load() {
     if (this._loading) return;
     this._loading = true;
-    this.setData({ canPay: false });
+    this.setData({ canPay: false, paymentLoading: true, error: "" });
     const identity = session();
     if (!identity) {
       this.setData({
@@ -55,13 +61,22 @@ Page({
         ledger: [],
         order: null,
         paid: false,
-        error: "请先登录后查看本人积分钱包",
+        error: this.orderId
+          ? "请先登录后支付订单"
+          : "请先登录后查看本人积分钱包",
+        paymentLoading: false,
       });
       this._loading = false;
       return;
     }
     if (this._loadedSession !== undefined && this._loadedSession !== identity)
-      this.setData({ wallet: null, user: null, ledger: [], order: null });
+      this.setData({
+        wallet: null,
+        user: null,
+        ledger: [],
+        order: null,
+        paid: false,
+      });
     try {
       const [wallet, user, order, ledgerOk] = await Promise.all([
         request("/mini/wallet"),
@@ -69,7 +84,7 @@ Page({
         this.orderId
           ? request("/orders/" + this.orderId)
           : Promise.resolve(null),
-        this.loadLedger(),
+        this.orderId ? Promise.resolve(true) : this.loadLedger(),
       ]);
       if (session() !== identity) return;
       this.setData({
@@ -83,28 +98,44 @@ Page({
           spentText: format(wallet.spentCents),
         },
       });
-      if (order)
+      if (order) {
+        const view = decorate(order);
+        const paid =
+          order.payment_method === "points" && order.payment_state === "paid";
         this.setData({
-          order: { ...order, totalText: format(order.total_cents) },
-          paid:
-            order.payment_method === "points" && order.payment_state === "paid",
-          canPay:
-            decorate(order).canPay &&
-            order.kind === "goods" &&
-            ["B", "C"].includes(user.identity),
+          order: {
+            ...view,
+            totalText: format(order.total_cents),
+            goodsPointsText: format(order.goods_cents),
+            shippingPointsText: format(order.shipping_cents),
+          },
+          paid,
+          canPay: view.canPay && ["goods", "package"].includes(order.kind),
           insufficient: wallet.availableCents < order.total_cents,
+          shortfallText: format(
+            Math.max(0, order.total_cents - wallet.availableCents),
+          ),
+          afterPayText: format(
+            Math.max(0, wallet.availableCents - order.total_cents),
+          ),
         });
+        wx.setNavigationBarTitle({ title: paid ? "付款成功" : "订单付款" });
+      }
       if (ledgerOk) remember(this);
     } catch (e) {
       if (session() === identity || e.status === 401)
         this.setData({
-          error: e.message,
+          error:
+            this.data.paid && e.status !== 401
+              ? "付款已成功，最新余额或订单刷新失败，请重新查询：" + e.message
+              : e.message,
           ...(e.status === 401
             ? { user: null, wallet: null, ledger: [], order: null }
             : {}),
         });
     } finally {
       this._loading = false;
+      this.setData({ paymentLoading: false });
     }
   },
   async loadLedger(reset = true) {
@@ -131,6 +162,7 @@ Page({
     return ok;
   },
   onReachBottom() {
+    if (this.orderId) return;
     return this.loadLedger(false);
   },
   async filter() {
@@ -170,11 +202,23 @@ Page({
     if (getCurrentPages().length > 1) wx.navigateBack();
     else wx.switchTab({ url: "/pages/profile/index" });
   },
-  login() {
-    wx.switchTab({ url: "/pages/profile/index" });
+  async login() {
+    try {
+      await signIn();
+      await this.load();
+    } catch (error) {
+      if (error.code !== "LOGIN_CANCELLED")
+        this.setData({ error: error.message });
+    }
+  },
+  completeProfile() {
+    wx.navigateTo({ url: "/pages/settings/index" });
   },
   cashRefunds() {
     wx.navigateTo({ url: "/pages/cash-refunds/index" });
+  },
+  walletDetails() {
+    wx.navigateTo({ url: "/pages/wallet/index" });
   },
   order() {
     if (this.orderId)
@@ -188,7 +232,7 @@ Page({
     if (this.data.busy || !this.data.canPay || !this.data.order) return;
     if (this.data.insufficient) {
       this.setData({
-        error: "积分不足，请线下充值并核款，或返回订单整笔线下付款",
+        error: "积分不足，请联系总部微信充值，积分到账后再支付",
       });
       return;
     }
@@ -199,7 +243,7 @@ Page({
         content:
           "本次扣减 " +
           this.data.order.totalText +
-          " 积分。退款积分按原批次退回；积分不足可线下充值或整笔线下付款。",
+          " 积分。退款积分按原批次退回；积分不足请联系总部微信充值，足额后一次支付。",
         confirmText: "确认扣减",
         cancelText: "暂不付款",
       });
@@ -218,8 +262,14 @@ Page({
       this.setData({
         paid: true,
         canPay: false,
-        order: { ...result.order, totalText: format(result.order.total_cents) },
+        wallet: null,
+        order: {
+          ...this.data.order,
+          ...result.order,
+          totalText: format(result.order.total_cents),
+        },
       });
+      wx.setNavigationBarTitle({ title: "付款成功" });
       await this.load();
       wx.showToast({ title: "积分付款成功", icon: "success" });
     } catch (e) {

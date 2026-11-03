@@ -1,1 +1,333 @@
-/* pages/checkout/index.wxss */
+/* 提交订单沿用详情页的白色卡片与酒红色主操作。 */
+.checkout-page {
+  min-height: 100vh;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  background: #f5f4f2;
+  color: #2c221e;
+  font-size: 14px;
+}
+.checkout-content {
+  padding: 8px;
+}
+.checkout-card {
+  margin-bottom: 10px;
+  padding: 18px 16px;
+  border-radius: 12px;
+  background: #fff;
+}
+.checkout-page .checkout-address {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 18px 16px 22px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+}
+.checkout-address-copy {
+  flex: 1;
+  min-width: 0;
+}
+.checkout-region {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.checkout-address-detail {
+  margin-top: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+.checkout-recipient {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.checkout-recipient text {
+  margin-left: 8px;
+}
+.checkout-address-hint {
+  margin-top: 8px;
+  color: #796f68;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.checkout-address-switch {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: 0.5px solid #e7e1dc;
+  border-radius: 20px;
+  color: #65584e;
+  font-size: 12px;
+  line-height: 20px;
+}
+.checkout-address-stripe {
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  left: 12px;
+  height: 3px;
+  background: repeating-linear-gradient(
+    110deg,
+    #b4c8e1 0,
+    #b4c8e1 14px,
+    transparent 14px,
+    transparent 28px,
+    #e5bbb5 28px,
+    #e5bbb5 42px,
+    transparent 42px,
+    transparent 56px
+  );
+}
+.checkout-store {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.checkout-brand-mark {
+  width: 2px;
+  height: 14px;
+  background: #7a1c1c;
+}
+.checkout-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.checkout-image {
+  flex-shrink: 0;
+  width: 88px;
+  height: 88px;
+  border-radius: 10px;
+  background: #f5f0eb;
+}
+.checkout-item-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 88px;
+}
+.checkout-item-name {
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+.checkout-item-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  color: #796f68;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.checkout-quantity {
+  flex-shrink: 0;
+  color: #2c221e;
+}
+.checkout-item-price {
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.checkout-subtotal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 2px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.checkout-subtotal-value {
+  font-size: 17px;
+  font-weight: 600;
+}
+.checkout-delivery {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.checkout-info-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 0;
+  line-height: 1.7;
+}
+.checkout-info-row + .checkout-info-row {
+  border-top: 0.5px solid #f0ece8;
+}
+.checkout-info-label {
+  flex-shrink: 0;
+}
+.checkout-info-value {
+  min-width: 0;
+  max-width: 70%;
+  text-align: right;
+  overflow-wrap: break-word;
+}
+.checkout-section-title {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.checkout-help {
+  color: #796f68;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.checkout-sales-name {
+  margin: 8px 0;
+  font-size: 15px;
+}
+.checkout-sales-confirm {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+}
+.checkout-sales-confirm checkbox {
+  transform: scale(0.8);
+}
+.checkout-page .checkout-text-button {
+  min-height: 44px;
+  color: #7a1c1c;
+  font-size: 12px;
+  line-height: 44px;
+  text-align: left;
+}
+.checkout-error {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f7eceb;
+  color: #7a1c1c;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.checkout-dock {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  min-height: 72px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 0.5px solid #eee9e4;
+  background: #fff;
+}
+.checkout-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 0;
+  font-size: 14px;
+}
+.checkout-total-value {
+  color: #7a1c1c;
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+.checkout-page .checkout-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 128px;
+  min-height: 44px;
+  border-radius: 24px;
+  background: #7a1c1c;
+  color: #fff;
+  font-size: 15px;
+}
+.checkout-page .checkout-pressed {
+  opacity: 0.7;
+}
+@media (max-width: 360px) {
+  .checkout-card {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+  .checkout-dock {
+    gap: 10px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+  .checkout-page .checkout-submit {
+    width: 112px;
+  }
+  .checkout-total-value {
+    font-size: 21px;
+  }
+}
+
+/* 寄存配送与商品数量保持同一表单层级。 */
+.checkout-storage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 0.5px solid #eee9e4;
+  font-size: 12px;
+}
+.checkout-storage input {
+  width: 72px;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0.5px solid #ded4cc;
+  border-radius: 8px;
+  text-align: center;
+  background: #fff;
+  font-size: 14px;
+}
+.checkout-storage-help {
+  width: 100%;
+  color: #796f68;
+  line-height: 1.7;
+}
+.qx.checkout-page .checkout-combine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 0;
+  border-bottom: 0.5px solid #eee9e4;
+  color: #7a1c1c;
+  text-align: left;
+  font-size: 14px;
+}
+.checkout-combine .checkout-help {
+  margin-top: 4px;
+}
+.checkout-combine > text {
+  flex-shrink: 0;
+  color: #8b7566;
+  font-size: 24px;
+}

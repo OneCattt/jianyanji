@@ -1,29 +1,43 @@
 @import "../order/common.wxss";
+.jy-scope-count {
+  margin-bottom: 8rpx;
+  color: #5f544e;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
 .jy-tabs {
   display: flex;
   justify-content: space-around;
-  background: #fffdfa;
-  border-bottom: 1.995rpx solid #4530261f;
-  padding: 0 17.952rpx;
+  background: #ffffff;
+  border-bottom: 0;
+  padding: 4px;
+  margin: 8px;
+  border-radius: 12px;
 }
 .jy-tabs button {
   flex: 1;
-  font-size: 17.952rpx;
-  color: #8e8178;
+  font-size: 12px;
+  color: #796f68;
   position: relative;
-  padding: 27.926rpx 3.989rpx 23.936rpx;
+  padding: 10px 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .jy-tabs button.selected {
-  color: #8d1724;
+  color: #7a1c1c;
   font-weight: 600;
+  background: #f5e9e9;
+  border-radius: 24px;
 }
 .jy-tabs button.selected:after {
   content: "";
-  display: block;
+  display: none;
   position: absolute;
   bottom: 0;
   left: 28%;
   right: 28%;
   height: 3.989rpx;
-  background: #8d1724;
+  background: #7a1c1c;
 }

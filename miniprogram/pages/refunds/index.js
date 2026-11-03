@@ -108,6 +108,10 @@ Page({
       wx.stopPullDownRefresh();
     }
   },
+  returnMode(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    this.setData({ ["lines[" + index + "].returnShipped"]: e.detail.value });
+  },
   quantity(e) {
     if (this.data.busy) return;
     const index = Number(e.currentTarget.dataset.index),
@@ -137,7 +141,11 @@ Page({
     if (this.data.busy) return;
     const items = this.data.lines
       .filter((line) => Number(line.selectedQty) > 0)
-      .map((line) => ({ lineId: line.id, quantity: Number(line.selectedQty) }));
+      .map((line) => ({
+        lineId: line.id,
+        quantity: Number(line.selectedQty),
+        ...(line.returnShipped ? { unshippedQuantity: 0 } : {}),
+      }));
     if (!items.length || !this.data.reason.trim())
       return this.setData({ error: "请选择商品数量并填写售后原因" });
     if (

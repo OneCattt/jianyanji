@@ -1,6 +1,6 @@
 const { showDialog } = require("../../utils/dialog");
 const { request } = require("../../utils/api");
-const { decorate } = require("./view");
+const { decorate, decorateCombinedPickup } = require("./view");
 Page({
   data: {
     order: null,
@@ -10,6 +10,10 @@ Page({
     transfer: null,
     transferConfigured: false,
     canUsePoints: false,
+    hasCombined: false,
+    combinedPickup: null,
+    combinedLoading: false,
+    combinedError: "",
   },
   onLoad(options) {
     this.orderId = Number(options.id);
@@ -19,6 +23,7 @@ Page({
   },
   async load() {
     if (!this.orderId) return;
+    const revision = (this.loadRevision = (this.loadRevision || 0) + 1);
     this.setData({ canUsePoints: false });
     try {
       const [payment, content, user] = await Promise.all([
@@ -26,6 +31,7 @@ Page({
         request("/public/content"),
         request("/me"),
       ]);
+      if (revision !== this.loadRevision) return;
       const order = decorate(payment.order);
       const transfer = content.content;
       this.setData({
@@ -38,15 +44,41 @@ Page({
           transfer.bankName &&
           transfer.bankAccount
         ),
-        canUsePoints:
-          order.canPay &&
-          order.kind === "goods" &&
-          ["B", "C"].includes(user.identity),
+        canUsePoints: order.canPay && ["goods", "package"].includes(order.kind),
         error: "",
+        hasCombined: !!order.snapshot.storedItems?.length,
+        combinedPickup: null,
+        combinedError: "",
+        combinedLoading: false,
       });
+      await this.loadCombined(order, revision);
     } catch (e) {
-      this.setData({ error: e.message });
+      if (revision === this.loadRevision) this.setData({ error: e.message });
     }
+  },
+  async loadCombined(order, revision) {
+    if (!order.snapshot.storedItems?.length) return;
+    this.setData({ combinedLoading: true, combinedError: "" });
+    try {
+      // 后端按提货单ID升序返回；建单时生成的首发合并单先于后续分次提货。
+      const first = order.pickups[0];
+      if (!first) throw Error("暂未找到合并提货单，请在我的寄存查看提货记录");
+      const pickup = await request("/pickups/" + first.id);
+      if (Number(pickup.purchase_order_id) !== Number(order.id))
+        throw Error("合并提货单与本订单不一致，请重新查询");
+      if (revision === this.loadRevision)
+        this.setData({ combinedPickup: decorateCombinedPickup(pickup) });
+    } catch (e) {
+      if (revision === this.loadRevision)
+        this.setData({ combinedError: e.message });
+    } finally {
+      if (revision === this.loadRevision)
+        this.setData({ combinedLoading: false });
+    }
+  },
+  retryCombined() {
+    if (this.data.combinedLoading || !this.data.order) return;
+    return this.loadCombined(this.data.order, this.loadRevision);
   },
   back() {
     if (getCurrentPages().length > 1) wx.navigateBack();
@@ -54,6 +86,14 @@ Page({
   },
   copy() {
     wx.setClipboardData({ data: this.data.order.number });
+  },
+  pickup(e) {
+    wx.navigateTo({
+      url: "/pages/pickup/index?id=" + e.currentTarget.dataset.id,
+    });
+  },
+  storage() {
+    wx.navigateTo({ url: "/pages/storage/index" });
   },
   logistics() {
     wx.navigateTo({ url: "/pages/order/logistics?id=" + this.orderId });
@@ -71,8 +111,7 @@ Page({
     try {
       const confirm = await showDialog(this, {
         title: "取消购买",
-        content:
-          "取消后将释放预占库存。如已线下转款，请先联系品牌方核实款项，避免重复付款。",
+        content: "取消后释放未付款订单的商品及寄存提货占用，不扣积分。",
         confirmText: "取消订单",
         cancelText: "保留订单",
       });

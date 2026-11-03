@@ -1,1 +1,11 @@
-/* pages/info/index.wxss */
+.info-page {
+  padding: 20px 8px calc(24px + env(safe-area-inset-bottom));
+}
+.info-heading {
+  padding: 0 8px;
+}
+.qx .info-privacy {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}

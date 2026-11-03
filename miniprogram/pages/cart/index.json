@@ -1,7 +1,7 @@
 {
   "navigationBarTitleText": "购物袋",
-  "navigationBarBackgroundColor": "#F6F3EE",
-  "backgroundColor": "#F6F3EE",
+  "navigationBarBackgroundColor": "#F5F4F2",
+  "backgroundColor": "#F5F4F2",
   "onReachBottomDistance": 120,
   "enablePullDownRefresh": true
 }

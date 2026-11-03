@@ -1,0 +1,71 @@
+@import "../storage/index.wxss";
+.pickup-section-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-bottom: 20rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+.pickup-section-title > text {
+  color: #746a63;
+  font-size: 23rpx;
+  font-weight: 400;
+}
+.qx.pickup-page {
+  padding: 24rpx 24rpx calc(64rpx + env(safe-area-inset-bottom));
+}
+.qx.pickup-page .storage-card {
+  padding: 28rpx;
+  border: 0;
+  background: #fff;
+}
+.pickup-product-item + .pickup-product-item {
+  border-top: 1rpx solid #eee9e4;
+  margin-top: 12rpx;
+  padding-top: 28rpx;
+}
+.pickup-page .pickup-order-link {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12rpx;
+  color: #7b5643;
+  font-size: 22rpx;
+  text-align: right;
+}
+.pickup-fee-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20rpx;
+  font-size: 26rpx;
+}
+.pickup-fee-row text:last-child {
+  color: #7a1c1c;
+}
+.pickup-review {
+  margin-top: 20rpx;
+  color: #962c32;
+  font-size: 26rpx;
+}
+.pickup-tracking {
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #eee6df;
+}
+.pickup-tracking .storage-outline {
+  margin-top: 24rpx;
+}
+.pickup-actions {
+  margin-top: 32rpx;
+}
+.pickup-actions .storage-outline {
+  width: 100%;
+}
+.pickup-action-note {
+  margin-top: 20rpx;
+  text-align: center;
+}

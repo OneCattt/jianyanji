@@ -122,4 +122,10 @@ Page({
       url: "/pages/product/index?id=" + e.currentTarget.dataset.id,
     });
   },
+  onShareAppMessage() {
+    return {
+      title: "清欣简妍肌 · 臻选商城",
+      path: "/pages/mall/index",
+    };
+  },
 });

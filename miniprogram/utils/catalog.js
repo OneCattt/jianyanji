@@ -12,6 +12,7 @@ function decorate(product) {
   return {
     ...product,
     imageCard: imageUrl(product.image, "card"),
+    imageHero: imageUrl(product.image, "detail"),
     detailImageDisplay: imageUrl(product.detailImage, "detail"),
     skus,
     priceText: first ? first.priceText : "价格待配置",

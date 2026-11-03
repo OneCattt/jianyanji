@@ -6,6 +6,8 @@ Component({
   properties: {
     title: String,
     brand: Boolean,
+    original: Boolean,
+    overlay: Boolean,
   },
   data: {
     statusBarHeight,

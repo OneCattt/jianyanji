@@ -14,7 +14,7 @@
           ><view
             >{{order.shipments.length?'查看包裹物流':'品牌仓履约进度'}}</view
           ><text
-            >{{order.shipments.length?'查看物流公司和运单号':'核款或积分扣减成功后由品牌仓安排发货'}}</text
+            >{{order.shipments.length?'查看物流公司和运单号':order.paid?'查看品牌仓配送安排与包裹进度':'积分扣减成功后由品牌仓安排发货'}}</text
           ></view
         ><image class="jy-arrow" src="assets/detail-imgIcon3.png"
       /></view>
@@ -28,12 +28,84 @@
           ></view
         ></view
       >
+      <view wx:if="{{hasCombined}}" class="jy-card jy-combined">
+        <view class="jy-store"
+          >本次合并提货商品<text wx:if="{{combinedPickup}}">
+            · 共 {{combinedPickup.count}} 件</text
+          ></view
+        >
+        <view wx:if="{{combinedLoading}}" class="jy-combined-note"
+          >正在读取合并提货商品…</view
+        >
+        <view
+          wx:elif="{{combinedError}}"
+          class="jy-combined-error"
+          role="alert"
+        >
+          <text>{{combinedError}}</text>
+          <button bindtap="retryCombined" hover-class="jy-pressed">
+            重新查询
+          </button>
+          <button bindtap="storage" hover-class="jy-pressed">
+            查看我的寄存
+          </button>
+        </view>
+        <block wx:elif="{{combinedPickup}}">
+          <view class="jy-combined-note"
+            >{{combinedPickup.statusText}} · 商品货款按原购买订单结算</view
+          >
+          <view
+            wx:for="{{combinedPickup.lines}}"
+            wx:key="id"
+            class="jy-combined-line"
+          >
+            <view class="jy-combined-cover">
+              <image
+                wx:if="{{item.imageThumb}}"
+                src="{{item.imageThumb}}"
+                mode="aspectFit"
+                lazy-load
+                aria-label="{{item.name}}"
+              />
+              <image
+                wx:else
+                class="jy-combined-placeholder"
+                src="/assets/figma/profile-storage.png"
+                mode="aspectFit"
+                aria-hidden="true"
+              />
+            </view>
+            <view class="jy-combined-copy"
+              ><view
+                >{{item.name}}<text wx:if="{{item.is_gift}}"
+                  >（赠品）</text
+                ></view
+              ><text>{{item.sku_name}} · {{item.sourceText}}</text></view
+            >
+            <text>×{{item.quantity}}</text>
+          </view>
+          <button
+            class="jy-pickup-link"
+            data-id="{{combinedPickup.id}}"
+            bindtap="pickup"
+            hover-class="jy-pressed"
+          >
+            <view
+              ><view>查看本次提货单</view
+              ><text>{{combinedPickup.number}}</text></view
+            ><text aria-hidden="true">›</text>
+          </button>
+        </block>
+      </view>
       <view class="jy-card"
         ><view class="jy-store"
           ><image src="assets/detail-imgIcon5.png" /><text
-            >清欣简妍肌品牌仓</text
+            >原订单商品 · 共 {{order.count}} 件</text
           ></view
-        ><view wx:for="{{order.displayLines}}" wx:key="skuId" class="jy-product"
+        ><view
+          wx:for="{{order.displayLines}}"
+          wx:key="lineKey"
+          class="jy-product"
           ><image src="{{item.imageThumb}}" mode="aspectFill" /><view
             class="jy-product-copy"
             ><view>{{item.name}}</view><text>{{item.skuName}}</text></view
@@ -51,7 +123,9 @@
         ><view><text>款项状态</text><text>{{order.receiptText}}</text></view
         ><view
           ><text>收款流水</text
-          ><text>{{payment.receipt.transaction_id||'尚无已确认流水'}}</text></view
+          ><text
+            >{{payment.receipt.transaction_id||'尚无已确认流水'}}</text
+          ></view
         ><view><text>配送方式</text><text>品牌仓快递</text></view
         ><view><text>商品合计</text><text>{{order.goodsText}}</text></view
         ><view><text>运费</text><text>{{order.shippingText}}</text></view
@@ -63,20 +137,43 @@
         ></view
       >
       <view wx:if="{{order.status==='pending'}}" class="jy-card jy-transfer">
-        <view class="jy-store">线下付款与财务核款</view>
-        <view>付款用途：{{order.kind==='package'?'产品包款':'普通商品货款'}} · {{order.amountText}}</view>
-        <view>订单号：{{order.number}} <button bindtap="copy">复制</button></view>
-        <block wx:if="{{transferConfigured}}">
-          <view>户名：{{transfer.companyName}}</view>
-          <view>开户行：{{transfer.bankName}}</view>
-          <view><text user-select>账号：{{transfer.bankAccount}}</text></view>
-        </block>
-        <view wx:else>公司收款资料尚未配置，请联系品牌方核实后付款。</view>
-        <view wx:if="{{transfer.transferNotes}}">{{transfer.transferNotes}}</view>
-        <view wx:if="{{transfer.customerService}}">{{transfer.customerService}}</view>
-        <view>{{order.locked?'原交易待核查，请先联系品牌方，勿重复转款。':'请按订单号和付款用途线下转款，保留流水并联系财务核款。提交订单或转款截图不代表已核款。'}}</view>
-        <view>{{order.kind==='package'?'产品包款不发积分，财务核款后激活身份并安排交付。':'普通货款不发积分；积分充值须单独注明用途。同身份线下付款与积分订货同价。'}}</view>
+        <view class="jy-store">积分支付与充值说明</view>
+        <view>本次应付 {{order.amountText}}，所有客户均使用积分。</view>
+        <view
+          >订单号：{{order.number}} <button bindtap="copy">复制</button></view
+        >
+        <view
+          >积分不足时联系总部微信充值，核款增加积分后，再回到本单一次支付。</view
+        >
+        <view wx:if="{{transfer.transferNotes}}"
+          >{{transfer.transferNotes}}</view
+        ><view wx:if="{{transfer.customerService}}"
+          >{{transfer.customerService}}</view
+        >
+        <view
+          >{{order.locked?'历史交易结果尚未确认，请联系总部核查，勿重复操作。':order.kind==='package'?'固定权益包不可换货，成功扣积分后开通身份；充值本身不会开通。':'在下方确认积分支付后，品牌仓才安排发货或建立寄存。'}}</view
+        >
       </view>
+      <view wx:if="{{order.storageRemainingQty>0}}" class="jy-card jy-pickups">
+        <view class="jy-store">剩余寄存 {{order.storageRemainingQty}} 件</view>
+        <button class="jy-pickup-link" bindtap="storage">
+          查看寄存与申请提货 ›
+        </button>
+      </view>
+      <view wx:if="{{order.pickups.length}}" class="jy-card jy-pickups"
+        ><view class="jy-store">分次配送记录</view
+        ><button
+          wx:for="{{order.pickups}}"
+          wx:key="id"
+          class="jy-pickup-link"
+          data-id="{{item.id}}"
+          bindtap="pickup"
+          hover-class="jy-pressed"
+        >
+          <view><view>查看配送单</view><text>{{item.number}}</text></view
+          ><text aria-hidden="true">›</text>
+        </button></view
+      >
       <view class="jy-contact"
         ><image src="assets/detail-imgIcon6.png" /><text
           >订单有疑问？联系专属顾问协助处理</text
@@ -85,11 +182,24 @@
     </view>
     <view class="jy-actions">
       <block wx:if="{{order.status==='pending'}}">
-        <button class="jy-outline" bindtap="cancel" disabled="{{busy||!order.canPay}}">
+        <button
+          class="jy-outline"
+          bindtap="cancel"
+          disabled="{{busy||!order.canPay}}"
+        >
           取消订单
         </button>
-        <button wx:if="{{canUsePoints}}" class="jy-outline" bindtap="points" disabled="{{busy}}">积分订货</button>
-        <button class="jy-solid" bindtap="load" disabled="{{busy}}">刷新核款进度</button>
+        <button
+          wx:if="{{canUsePoints}}"
+          class="jy-outline"
+          bindtap="points"
+          disabled="{{busy}}"
+        >
+          积分订货
+        </button>
+        <button class="jy-solid" bindtap="load" disabled="{{busy}}">
+          刷新核款进度
+        </button>
       </block>
       <block wx:else
         ><button

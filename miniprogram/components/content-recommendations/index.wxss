@@ -1,8 +1,10 @@
 .recommendations {
-  margin: 40rpx 32rpx 0;
-  color: #46332a;
-  padding: 16rpx 24rpx 0;
-  background: #fffdfa;
+  margin: 10px 8px 0;
+  color: #2c221e;
+  padding: 18px 16px;
+  border-top: 0;
+  border-radius: 12px;
+  background: #fff;
 }
 button {
   box-sizing: border-box;
@@ -24,8 +26,12 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
-  font-size: 30rpx;
+  margin-bottom: 16rpx;
+  font-family: -apple-system, "PingFang SC", sans-serif;
+  font-size: 18px;
   font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
 }
 .heading button {
   display: flex;
@@ -35,42 +41,70 @@ button {
   flex-shrink: 0;
   min-height: 44px;
   font-size: 24rpx;
+  font-family: -apple-system, "PingFang SC", sans-serif;
   font-weight: 400;
-  color: #786a62;
+  letter-spacing: 0;
+  color: #796f68;
 }
 .recommendation {
   display: flex;
-  gap: 24rpx;
+  align-items: flex-start;
+  gap: 12px;
   width: 100%;
   text-align: left;
   white-space: normal;
-  padding: 24rpx 0;
+  padding: 16px 0;
   font-size: 28rpx;
   line-height: 1.6;
 }
-.recommendation image {
-  width: 140rpx;
-  height: 140rpx;
-  flex-shrink: 0;
-  border-radius: 12rpx;
+.recommendation + .recommendation {
+  border-top: 1rpx solid #eee9e4;
 }
-.recommendation text {
-  font-size: 24rpx;
-  color: #8e8178;
+.recommendation image {
+  width: 80px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: #f0eae2;
 }
 .recommendation-copy {
   flex: 1;
   min-width: 0;
   overflow-wrap: break-word;
 }
+.recommendation-type {
+  color: #a68b7c;
+  font-size: 20rpx;
+  line-height: 1.6;
+  letter-spacing: 2rpx;
+}
+.recommendation-title {
+  margin-top: 8rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.recommendation-summary {
+  margin-top: 12rpx;
+  color: #796f68;
+  font-size: 24rpx;
+  line-height: 1.8;
+}
+.recommendation-title,
+.recommendation-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
 .empty {
-  color: #8e8178;
+  color: #796f68;
   padding: 24rpx 0 32rpx;
   font-size: 26rpx;
 }
 .empty button {
   min-height: 44px;
-  color: #8d1724;
+  color: #7a1c1c;
 }
 .entry-arrow {
   width: 12rpx;

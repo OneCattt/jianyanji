@@ -1,0 +1,224 @@
+<view class="qx storage-page offers-page">
+  <view class="storage-head">
+    <view class="storage-eyebrow">积分套餐</view>
+    <view class="storage-title"
+      >{{selectedOfferId ? '确认套餐' : '活动套餐'}}</view
+    >
+    <view class="storage-subtitle"
+      >{{selectedOfferId ? '确认地址与发货数量，未发部分可寄存。' :
+      '精选护理组合，按需发货或寄存。'}}</view
+    >
+  </view>
+  <view wx:if="{{error}}" class="storage-error" role="alert"
+    >{{error}}<button bindtap="onShow" hover-class="storage-pressed">
+      重新查询
+    </button></view
+  >
+  <view wx:if="{{loading&&!offers.length}}" class="storage-empty"
+    >正在读取活动套餐…</view
+  >
+  <view wx:if="{{!selectedOfferId}}" class="offer-catalog">
+    <view wx:for="{{offers}}" wx:key="id" class="offer-product-card">
+      <view
+        class="offer-product-gallery"
+        data-id="{{item.id}}"
+        bindtap="selectOffer"
+        hover-class="storage-pressed"
+        aria-role="link"
+        aria-label="{{item.name+'，查看套餐'}}"
+      >
+        <view class="offer-product-label"
+          >{{item.giftCount ? '买赠套餐' : '组合套餐'}}</view
+        >
+        <view class="offer-product-stage">
+          <view
+            wx:for="{{item.previewLines}}"
+            wx:for-item="product"
+            wx:key="lineKey"
+            class="offer-product-shot"
+          >
+            <image
+              wx:if="{{product.imageCard}}"
+              class="offer-product-image"
+              src="{{product.imageCard}}"
+              mode="aspectFit"
+              lazy-load
+            />
+            <view wx:else class="offer-product-placeholder"
+              >{{product.name}}</view
+            >
+            <view class="offer-product-image-note"
+              ><text wx:if="{{product.isGift}}" class="offer-shot-gift"
+                >赠品</text
+              ><text>×{{product.quantity}}</text></view
+            >
+          </view>
+        </view>
+        <text wx:if="{{item.extraKinds}}" class="offer-product-more"
+          >另含{{item.extraKinds}}款</text
+        >
+      </view>
+      <view class="offer-product-body">
+        <view class="offer-product-heading"
+          ><view class="offer-product-name">{{item.name}}</view
+          ><text class="offer-product-count"
+            >{{item.mainCount}}件主品<text wx:if="{{item.giftCount}}">
+              · {{item.giftCount}}件赠品</text
+            ></text
+          ></view
+        >
+        <view class="offer-product-contents">
+          <view
+            wx:for="{{item.lines}}"
+            wx:for-item="product"
+            wx:key="lineKey"
+            class="offer-product-item"
+          >
+            <text wx:if="{{product.isGift}}" class="offer-gift-label">赠</text
+            ><view class="offer-product-item-name"
+              >{{product.name}}<text
+                wx:if="{{product.skuName}}"
+                class="offer-product-item-spec"
+                >{{product.skuName}}</text
+              ></view
+            ><text class="offer-product-item-quantity"
+              >×{{product.quantity}}</text
+            >
+          </view>
+        </view>
+        <view class="offer-product-footer">
+          <view class="offer-product-price"
+            ><text class="offer-product-price-label">套餐价</text
+            ><view
+              ><text class="offer-product-amount">{{item.amountText}}</text
+              ><text class="offer-product-unit">积分</text></view
+            ></view
+          >
+          <button
+            class="offer-product-buy"
+            data-id="{{item.id}}"
+            bindtap="selectOffer"
+            hover-class="storage-pressed"
+            disabled="{{busy}}"
+            aria-label="{{'选购'+item.name}}"
+          >
+            立即选购<text aria-hidden="true">›</text>
+          </button>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{offers.length}}" class="offer-shopping-note"
+      >固定组合不可调换 · 支持分次发货<view
+        >未发货品及赠品可寄存12个月</view
+      ></view
+    >
+  </view>
+  <block wx:if="{{selectedOfferId}}">
+    <view wx:for="{{offers}}" wx:key="id" class="storage-card offer-card">
+      <view class="storage-card-title">{{item.name}}</view
+      ><view class="offer-price">{{item.amountText}}<text> 积分</text></view>
+      <view
+        wx:for="{{item.lines}}"
+        wx:for-item="line"
+        wx:key="lineKey"
+        class="offer-line"
+        ><view class="offer-line-name"
+          >{{line.name}}<text wx:if="{{line.isGift}}" class="storage-gift"
+            >赠品</text
+          ></view
+        ><view class="storage-muted"
+          >{{line.skuName}} · 共{{line.quantity}}件</view
+        ><label wx:if="{{selectedOfferId}}" class="storage-quantity"
+          ><text>本次发货</text
+          ><input
+            type="number"
+            value="{{line.shipQuantity}}"
+            data-offer="{{item.id}}"
+            data-index="{{index}}"
+            bindblur="quantity"
+            disabled="{{busy}}"
+            aria-label="{{line.name+'本次发货数量'}}" /></label
+      ></view>
+      <view class="storage-muted offer-fixed-note"
+        >套餐货品固定不可调换，未发部分寄存12个月。</view
+      >
+    </view>
+  </block>
+  <view
+    wx:if="{{selectedOfferId && offers.length}}"
+    class="storage-card offer-delivery"
+  >
+    <button
+      class="storage-link-row"
+      bindtap="addresses"
+      hover-class="storage-pressed"
+    >
+      <view class="offer-address-copy"
+        ><view
+          >{{address ? address.recipient+' · '+address.phone :
+          '选择收货地址'}}</view
+        ><view class="storage-muted"
+          >{{address ?
+          address.province+address.city+address.district+address.detail :
+          '购买前请确认本人的收货信息'}}</view
+        ></view
+      ><text class="storage-link-arrow" aria-hidden="true">›</text>
+    </button>
+    <button
+      class="storage-link-row"
+      bindtap="chooseStored"
+      hover-class="storage-pressed"
+    >
+      <view
+        >合并寄存提货<view class="storage-muted"
+          >{{storedItems.length ? '已选'+storedItems.length+'个寄存批次' :
+          '可与本次新购商品一起配送'}}</view
+        ></view
+      ><text class="storage-link-arrow" aria-hidden="true">›</text>
+    </button>
+    <view class="offer-section-label">配送方式</view>
+    <radio-group class="storage-options" bindchange="mode"
+      ><label
+        class="storage-option {{delivery==='ship'?'storage-option-selected':''}}"
+        ><radio
+          value="ship"
+          color="#7a1c1c"
+          checked="{{delivery==='ship'}}"
+        /><text>按下方数量发货</text></label
+      ><label
+        class="storage-option {{delivery==='store'?'storage-option-selected':''}}"
+        ><radio
+          value="store"
+          color="#7a1c1c"
+          checked="{{delivery==='store'}}"
+        /><text>全部寄存</text></label
+      ></radio-group
+    >
+    <view class="storage-muted offer-delivery-note"
+      >可在上方按商品调整本次发货数量，未发部分自动寄存。</view
+    >
+  </view>
+  <button
+    wx:if="{{selectedOfferId && offers.length}}"
+    class="storage-primary"
+    data-id="{{selectedOfferId}}"
+    bindtap="buy"
+    disabled="{{busy || loading}}"
+    loading="{{busy}}"
+    hover-class="storage-pressed"
+  >
+    确认套餐并下单
+  </button>
+  <view wx:if="{{!offers.length&&!loading&&!error}}" class="storage-empty"
+    ><view class="storage-empty-icon"
+      ><image
+        src="/assets/figma/profile-gift.png"
+        mode="aspectFit"
+        aria-hidden="true" /></view
+    ><view class="storage-empty-title">暂无上架活动套餐</view
+    ><view class="storage-empty-copy"
+      >新的护理组合上架后，会显示在这里。</view
+    ></view
+  >
+</view>
+<brand-dialog id="brand-dialog" />

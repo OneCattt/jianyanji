@@ -1,6 +1,6 @@
 .refund-line {
   padding: 24rpx 0;
-  border-bottom: 1rpx solid #eee6dd;
+  border-bottom: 1rpx solid #eee9e4;
 }
 .refund-line label,
 .refund-reason {
@@ -8,17 +8,20 @@
   margin-top: 16rpx;
 }
 .refund-line input {
-  min-height: 88rpx;
+  min-height: 44px;
   padding: 12rpx 20rpx;
-  border: 1rpx solid #d8cec4;
-  border-radius: 12rpx;
+  border: 1rpx solid #eee9e4;
+  border-radius: 8px;
+  height: 44px;
 }
 .refund-reason textarea {
   width: 100%;
   min-height: 180rpx;
   margin-top: 16rpx;
   padding: 20rpx;
-  border: 1rpx solid #d8cec4;
-  border-radius: 12rpx;
+  border: 1rpx solid #eee9e4;
+  border-radius: 8px;
   box-sizing: border-box;
+  background: #f5f4f2;
+  font-size: 14px;
 }
