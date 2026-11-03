@@ -178,6 +178,34 @@ class MembershipMysqlTest {
                 "verified",
                 true);
     }
+    /** 真实积分充值入账，用于验证产品包积分支付链路。 */
+    private long creditPoints(long uid, long amount) {
+        return l(
+                wallet.confirmReceipt(
+                        obj(
+                                "userId",
+                                uid,
+                                "purpose",
+                                "points",
+                                "sourceChannel",
+                                "bank",
+                                "accountRef",
+                                "测试账户",
+                                "externalTransactionId",
+                                "points-" + id(),
+                                "amountCents",
+                                amount,
+                                "receivedAt",
+                                "2020-01-01T00:00:00Z",
+                                "evidence",
+                                "到账凭证",
+                                "reason",
+                                "积分充值",
+                                "verified",
+                                true),
+                        1),
+                "id");
+    }
     /** 本次身份。 */
     private String role(long uid) {
         return s(db.one("SELECT identity FROM users WHERE id=? AND is_deleted=0", uid), "identity");
@@ -287,6 +315,66 @@ class MembershipMysqlTest {
                         db.one("SELECT principal_id FROM users WHERE id=? AND is_deleted=0", child),
                         "principal_id"));
         assertEquals(uid, l(membership.application(l(newer, "id"), child), "principal_id"));
+        assertEquals(0, l(wallet.walletView(uid), "balanceCents"));
+    }
+
+    @Test
+    void pointsUpgradeFromCToBKeepsOldQualificationAndChargesOnce() {
+        long uid = newUser();
+        ObjectNode first = apply(uid, "C", principal);
+        membership.confirmReceipt(l(first, "id"), receipt(298000), 1);
+        long oldOrderId =
+                l(
+                        membership.applicationView(
+                                membership.application(l(first, "id"), uid)),
+                        "order_id");
+        assertEquals("C", role(uid));
+        ObjectNode upgrade = apply(uid, "B", principal);
+        ObjectNode order = membership.preparePayment(l(upgrade, "id"), uid);
+        assertEquals(1980000, l(order, "total_cents"));
+        assertEquals("C", role(uid));
+        creditPoints(uid, 1980000);
+        wallet.payWithPoints(uid, l(order, "id"));
+        assertEquals("B", role(uid));
+        ObjectNode old =
+                membership.applicationView(membership.application(l(first, "id"), uid));
+        assertEquals("approved", s(old, "status"));
+        assertEquals(
+                "paid",
+                s(
+                        db.one(
+                                "SELECT * FROM orders WHERE id=? AND is_deleted=0",
+                                oldOrderId),
+                        "payment_state"));
+        assertEquals(
+                1,
+                l(
+                        db.one(
+                                "SELECT COUNT(*) AS n FROM qualifications WHERE user_id=? AND identity='C' AND active=1 AND is_deleted=0",
+                                uid),
+                        "n"));
+        assertEquals(
+                1,
+                l(
+                        db.one(
+                                "SELECT COUNT(*) AS n FROM qualifications WHERE user_id=? AND identity='B' AND active=1 AND is_deleted=0",
+                                uid),
+                        "n"));
+        wallet.payWithPoints(uid, l(order, "id"));
+        assertEquals(
+                1,
+                l(
+                        db.one(
+                                "SELECT COUNT(*) AS n FROM payments WHERE order_id=? AND is_deleted=0",
+                                l(order, "id")),
+                        "n"));
+        assertEquals(
+                1,
+                l(
+                        db.one(
+                                "SELECT COUNT(*) AS n FROM wallet_spend_allocations WHERE order_id=? AND is_deleted=0",
+                                l(order, "id")),
+                        "n"));
         assertEquals(0, l(wallet.walletView(uid), "balanceCents"));
     }
 

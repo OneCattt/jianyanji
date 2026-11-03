@@ -355,22 +355,28 @@ public class MembershipService {
                 Input.bool(raw, "relationshipsConfirmed") && Input.bool(raw, "conditionsMet"),
                 "须在付款前确认邀请归属和入驻资格");
         Input.require(initialRelation != null || inviterId != null, "普通入驻必须有有效邀请人");
-        ObjectNode relation =
-                initialRelation != null
-                        ? initialRelation
-                        : invitations.candidate(
-                                raw.has("shareCode") ? Input.text(raw, "shareCode", 0, 64) : "",
-                                inviterId,
-                                target,
-                                userId);
-        Input.require(l(relation, "principalId") == entity(raw, "principalId"), "归属已变化，请重新确认");
-        Input.require(
-                initialRelation != null || l(relation, "inviterId") == inviterId.longValue(),
-                "邀请候选已变化，请重新确认");
         Input.require(Input.bool(raw, "agreementAccepted"), "必须确认入驻协议");
         long applicationId =
                 db.tx(
                         () -> {
+                            // 获得业务事务锁后重验，避免等待期间邀请资格或归属变化。
+                            ObjectNode relation =
+                                    initialRelation != null
+                                            ? initialRelation
+                                            : invitations.candidate(
+                                                    raw.has("shareCode")
+                                                            ? Input.text(raw, "shareCode", 0, 64)
+                                                            : "",
+                                                    inviterId,
+                                                    target,
+                                                    userId);
+                            Input.require(
+                                    l(relation, "principalId") == entity(raw, "principalId"),
+                                    "归属已变化，请重新确认");
+                            Input.require(
+                                    initialRelation != null
+                                            || l(relation, "inviterId") == inviterId.longValue(),
+                                    "邀请候选已变化，请重新确认");
                             ObjectNode old =
                                     db.one(
                                             "SELECT * FROM onboardings WHERE user_id=? AND request_key=? AND is_deleted=0",
@@ -418,10 +424,6 @@ public class MembershipService {
                                             "SELECT id FROM onboardings WHERE user_id=? AND status='submitted' AND is_deleted=0",
                                             userId)
                                     != null) throw conflict("已有办理中的入驻申请");
-                            if (inviterId != null) {
-                                if (inviterId == userId) throw conflict("不能邀请自己");
-                                wallet.requireAgent(inviterId);
-                            }
                             ObjectNode p = findPackage(target);
                             JsonNode policy = aftersales();
                             ObjectNode address =
