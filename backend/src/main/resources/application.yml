@@ -34,6 +34,9 @@ spring:
     resources:
       add-mappings: false
 logging:
+  # 微信请求含一次性凭证及服务端密钥，仅保留专用表中的脱敏请求响应。
+  level:
+    org.springframework.web.client.RestTemplate: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{requestId}] %logger{36} - %msg%n"
 jianyanji:

@@ -12,10 +12,7 @@ import java.util.stream.Collectors;
 import javax.servlet.http.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
 /** 微信身份、工作人员账号与审计接口，保持前端原有接口及权限边界。 */
 @RestController
@@ -29,10 +26,8 @@ public class IdentityController {
     private final boolean production;
     /** 仅本地显式启用的开发登录开关。 */
     private final boolean devAuth;
-    /** 微信小程序标识。 */
-    private final String appId;
-    /** 微信服务端密钥，不进入响应和日志。 */
-    private final String appSecret;
+    /** 微信身份与手机号接口，统一保存脱敏请求响应。 */
+    private final WechatIdentityClient wechatClient;
     /** 按可信入口解析后的客户端地址计算的十五分钟登录限流窗口。 */
     private final Map<String, Window> attempts = new ConcurrentHashMap<>();
     /** 不存在账号时仍执行同样的密码推导，避免直接暴露账号存在性。 */
@@ -43,15 +38,13 @@ public class IdentityController {
             Access access,
             @Value("${jianyanji.production}") boolean production,
             @Value("${jianyanji.dev-auth}") boolean devAuth,
-            @Value("${jianyanji.wechat-app-id}") String appId,
-            @Value("${jianyanji.wechat-app-secret}") String appSecret,
+            WechatIdentityClient wechatClient,
             org.springframework.core.env.Environment env) {
         this.db = db;
         this.access = access;
         this.production = production || "production".equals(env.getProperty("NODE_ENV"));
         this.devAuth = devAuth;
-        this.appId = appId;
-        this.appSecret = appSecret;
+        this.wechatClient = wechatClient;
         if (this.production && devAuth) throw new IllegalStateException("生产环境禁止开启调试登录");
     }
 
@@ -63,7 +56,7 @@ public class IdentityController {
                 "devAuth",
                 devAuth,
                 "wechatConfigured",
-                !appId.isEmpty() && !appSecret.isEmpty());
+                wechatClient.configured());
     }
 
     @PostMapping("/auth/dev")
@@ -79,40 +72,40 @@ public class IdentityController {
     @PostMapping("/auth/wechat")
     public Object wechat(@RequestBody JsonNode body) {
         limit();
-        Input.strict(body, "code");
+        Input.strict(body, "code", "phoneCode");
         String code = Input.text(body, "code", 1, 256);
-        if (appId.isEmpty() || appSecret.isEmpty())
-            throw new BusinessException(502, "WECHAT_LOGIN_FAILED", "微信登录尚未配置，请联系品牌方");
-        String openid;
-        try {
-            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(8000);
-            factory.setReadTimeout(8000);
-            String raw =
-                    new RestTemplate(factory)
-                            .getForObject(
-                                    UriComponentsBuilder.fromHttpUrl(
-                                                    "https://api.weixin.qq.com/sns/jscode2session")
-                                            .queryParam("appid", appId)
-                                            .queryParam("secret", appSecret)
-                                            .queryParam("js_code", code)
-                                            .queryParam("grant_type", "authorization_code")
-                                            .build()
-                                            .encode()
-                                            .toUri(),
-                                    String.class);
-            JsonNode result = parse(raw);
-            openid = s(result, "openid");
-            if (l(result, "errcode") != 0 || openid.isEmpty())
-                throw new IllegalArgumentException("微信凭证无效");
-        } catch (Exception e) {
-            access.audit("user.login", "user", "wechat", "微信登录失败，请重新登录", "failure");
-            throw new BusinessException(502, "WECHAT_LOGIN_FAILED", "微信登录失败，请重新登录");
-        }
-        return loginUser(openid);
+        String phoneCode = body.has("phoneCode") ? Input.text(body, "phoneCode", 1, 256) : "";
+        String openid = wechatClient.openid(code);
+        String phone = phoneCode.isEmpty() ? null : wechatClient.phone(phoneCode,
+                "openid:" + Access.hash(openid).substring(0, 16));
+        return loginUser(openid, phone);
+    }
+
+    @PostMapping("/me/wechat-phone")
+    public Object bindPhone(@RequestBody JsonNode body) {
+        ObjectNode user = access.user();
+        limit();
+        Input.strict(body, "code");
+        long uid = l(user, "id");
+        String phone = wechatClient.phone(Input.text(body, "code", 1, 256), "user:" + uid);
+        return db.tx(() -> {
+            savePhone(uid, phone);
+            access.audit("profile.phone.bind", "user", uid, "本人通过微信授权绑定手机号");
+            return publicUser(db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", uid));
+        });
+    }
+
+    private void savePhone(long uid, String phone) {
+        db.update("UPDATE users SET phone=?,phone_verified_at=CURRENT_TIMESTAMP(3),"
+                        + "update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                phone, uid, uid);
     }
 
     private Object loginUser(String openid) {
+        return loginUser(openid, null);
+    }
+
+    private Object loginUser(String openid, String phone) {
         return db.tx(
                 () -> {
                     ObjectNode user =
@@ -120,6 +113,10 @@ public class IdentityController {
                     if (user == null) {
                         long id = db.insert("INSERT INTO users(openid) VALUES(?)", openid);
                         user = db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", id);
+                    }
+                    if (phone != null) {
+                        savePhone(l(user, "id"), phone);
+                        user = db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", l(user, "id"));
                     }
                     access.setIdentity("user", user);
                     String token = access.issueSession("user", l(user, "id"));
@@ -140,21 +137,22 @@ public class IdentityController {
         ObjectNode user = access.user();
         own(user, id);
         Input.strict(body, "nickname", "phone");
-        String name = Input.text(body, "nickname", 1, 30), phone = Input.text(body, "phone", 0, 11);
-        Input.require(phone.matches("|1[3-9]\\d{9}"), "请填写正确的联系电话");
+        Input.require(body.has("nickname") || body.has("phone"), "请选择需要更新的资料");
+        String name = body.has("nickname") ? Input.text(body, "nickname", 1, 30) : null;
+        String phone = body.has("phone") ? Input.text(body, "phone", 0, 11) : null;
+        Input.require(phone == null || phone.matches("|1[3-9]\\d{9}"), "请填写正确的联系电话");
         long uid = l(user, "id");
-        return db.tx(
-                () -> {
-                    db.update(
-                            "UPDATE users SET nickname=?,phone=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
-                            name,
-                            phone,
-                            uid,
-                            uid);
-                    access.audit("profile.update", "user", uid, "本人更新昵称及联系电话");
-                    return publicUser(
-                            db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", uid));
-                });
+        return db.tx(() -> {
+            if (name != null)
+                db.update("UPDATE users SET nickname=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) "
+                        + "WHERE id=? AND is_deleted=0", name, uid, uid);
+            if (phone != null)
+                db.update("UPDATE users SET phone_verified_at=CASE WHEN phone=? THEN phone_verified_at ELSE NULL END,"
+                        + "phone=?,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                        phone, phone, uid, uid);
+            access.audit("profile.update", "user", uid, "本人更新已提交的个人资料，未提交字段保持不变");
+            return publicUser(db.one("SELECT * FROM users WHERE id=? AND is_deleted=0", uid));
+        });
     }
 
     private void own(ObjectNode user, Long id) {

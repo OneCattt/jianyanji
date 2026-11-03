@@ -97,6 +97,8 @@ public final class J {
                 s(row, "nickname"),
                 "phone",
                 s(row, "phone"),
+                "phoneVerified",
+                !s(row, "phone_verified_at").isEmpty(),
                 "identity",
                 role,
                 "identityName",
