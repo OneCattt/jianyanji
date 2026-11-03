@@ -9,3 +9,5 @@ Status: ready-for-human
 ## Comments
 
 2026-11-03 发布前：JDK 1.8.0_452 Maven verify共208项，193通过、15环境条件跳过；定向单元和隔离MySQL共38项全部通过（其中32项使用真实MySQL）。扩大集成283项中35项失败；同环境发布前HEAD基线275项也有完全相同的35项失败，无新增失败，详见artifacts/backend-release-20261103/baseline-comparison.json。失败涉及仍依赖旧直接核款、旧折扣/运费、旧报价返回结构的用例，以及并发充值旧断言；保留报告，不宣称全套集成通过。
+
+2026-11-03 19:37:54（上海时间）：后端按`0329f9ba66451e0037fe1a4317071e96d7f0d436`从干净源码打包并发布，已推送origin/main；最终单元verify和38项定向MySQL/单元verify通过，35个扩大集成既有失败已用基线证实。应用/Nginx、产物哈希、公网HTTPS、业务行数/资金/价格及V1～V15一致性核对通过。备份`/var/backups/jianyanji/20261103T193738+0800-backend-update-0329f9b`。无迁移或配置变化，小程序未上传或发布，真实客户/资金/微信验收保留ready-for-human。详细发布和回退记录：docs/development/backend-release-20261103.md。
