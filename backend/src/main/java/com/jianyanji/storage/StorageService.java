@@ -57,7 +57,7 @@ public class StorageService {
                 .keyword("p.name", "s.name", "o.number", "u.nickname")
                 .select(
                         db,
-                        "l.*,l.remaining_qty-l.held_qty-l.refund_held_qty AS available_qty,p.name,s.name AS sku_name,s.unit,o.number AS order_number,o.kind AS source_kind,COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(o.snapshot,'$.bundleName')),''),JSON_UNQUOTE(JSON_EXTRACT(o.snapshot,'$.name')),'普通商品订单') AS package_name,ol.is_gift,ol.quantity AS purchased_qty,ol.shipped_qty AS total_shipped_qty,ol.received_qty,u.nickname,o.snapshot AS source_snapshot",
+                        "l.*,l.remaining_qty-l.held_qty-l.refund_held_qty AS available_qty,p.name,p.image,s.name AS sku_name,s.unit,o.number AS order_number,o.kind AS source_kind,COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(o.snapshot,'$.bundleName')),''),JSON_UNQUOTE(JSON_EXTRACT(o.snapshot,'$.name')),'普通商品订单') AS package_name,ol.is_gift,ol.quantity AS purchased_qty,ol.shipped_qty AS total_shipped_qty,ol.received_qty,u.nickname,o.snapshot AS source_snapshot",
                         "l.id DESC",
                         r -> {
                             historicalName(r);
@@ -83,7 +83,7 @@ public class StorageService {
                 "lines",
                 json(
                         db.list(
-                                "SELECT pl.*,ol.order_id,ol.sku_id,ol.is_gift,ol.unit_cents,p.name,s.name AS sku_name,s.unit,o.snapshot AS source_snapshot FROM pickup_lines pl JOIN order_lines ol ON ol.id=pl.line_id AND ol.is_deleted=0 JOIN orders o ON o.id=ol.order_id AND o.is_deleted=0 LEFT JOIN skus s ON s.id=ol.sku_id AND s.is_deleted=0 LEFT JOIN products p ON p.id=s.product_id AND p.is_deleted=0 WHERE pl.pickup_id=? AND pl.is_deleted=0 ORDER BY pl.id",
+                                "SELECT pl.*,ol.order_id,ol.sku_id,ol.is_gift,ol.unit_cents,p.name,p.image,s.name AS sku_name,s.unit,o.snapshot AS source_snapshot FROM pickup_lines pl JOIN order_lines ol ON ol.id=pl.line_id AND ol.is_deleted=0 JOIN orders o ON o.id=ol.order_id AND o.is_deleted=0 LEFT JOIN skus s ON s.id=ol.sku_id AND s.is_deleted=0 LEFT JOIN products p ON p.id=s.product_id AND p.is_deleted=0 WHERE pl.pickup_id=? AND pl.is_deleted=0 ORDER BY pl.id",
                                 l(pickup, "id"))));
         for (JsonNode line : result.path("lines")) historicalName((ObjectNode) line);
         long fresh = 0, stored = 0;
@@ -95,13 +95,14 @@ public class StorageService {
         result.put("storedGoodsQuantity", stored);
         return result;
     }
-    /** 按原成交快照展示历史名称，商品下架或逻辑删除不隐藏提货记录。 */
+    /** 优先展示原成交快照的名称与图片；旧快照无图时沿用关联商品图，不增加查询。 */
     private void historicalName(ObjectNode row) {
         for (JsonNode item : parse(s(row, "source_snapshot")).path("lines")) {
             if (l(item, "skuId") == l(row, "sku_id") && b(item, "isGift") == b(row, "is_gift")) {
                 row.put("name", s(item, "name"));
                 row.put("sku_name", s(item, "skuName"));
                 row.put("unit", s(item, "unit"));
+                if (!s(item, "image").isEmpty()) row.put("image", s(item, "image"));
                 break;
             }
         }
