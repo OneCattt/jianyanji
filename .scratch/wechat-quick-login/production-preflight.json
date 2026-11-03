@@ -1,0 +1,30 @@
+{
+  "frontendCommit": "a828c83ecc882b46363dee7c064c0dcff16459d1",
+  "backendCommit": "a828c83ecc882b46363dee7c064c0dcff16459d1",
+  "backendSha256": "d1c56cf12c5e36223c71f6e52d826a5572e5cc8c631bc4ab7dbbd41d38a8eb05",
+  "services": [
+    "active",
+    "active"
+  ],
+  "apiPaused": false,
+  "migrationVersions": "1,2,3,4,5,6,7,8,9,10,11,12,13,14",
+  "failedMigrations": "0",
+  "migrations": {
+    "V10__preserve_qualification_history.sql": "eca1b960e9fcaa213d4dddd137b6aded8f0ba88cd9edc66cd5df6fce749e7abf",
+    "V4__fixed_role_prices_and_welfare.sql": "c533f21326add164bcda0dc2ca03ccb852c81e476ee04f467012bc19966df30f",
+    "V14__independent_price_initial_values.sql": "d3e3b92387eabd8baea9be3d8a413c91ae9fc54bd61a115551a10e9a7b322eb3",
+    "V12__customer_points_storage.sql": "76ae35a5e19edbd98c4e881c0995f6dfbcfa42bc53489b4c4f0fc583f6d684d9",
+    "V6__brand_content.sql": "21d704fcb6e8ab56f1302a6d105abc053db1855f9244160072ed1bcbbeb30f26",
+    "V3__catalog_image_capacity.sql": "45570dc88b39f83ff4861121a59c24f29c62d6b00171461cbdada5a367d304cc",
+    "V5__qualification_sources.sql": "c05af15376bf6c7a2ec5bb543036fd29bc2d719137cbb8508a86f63bc43d7fb3",
+    "V11__offline_order_receipts.sql": "b473f336c9ecbc47ee03bf1bf79c4597e37edd24fa409c252f7912007c847978",
+    "V9__retail_commission.sql": "d4e3a937b3b77e4a492ca9f33b71b44e1010be471342e58c7680228006e44fbe",
+    "V7__invitation_confirmation.sql": "b913a3ae817fb9fecf79248849ce41d5e2fd6b5aa79f66814f73fffe534e373e",
+    "V1__initial.sql": "8da8aaad0200cb53d858b66127afd2e7b823e285ad3da48e578326fe01e6d805",
+    "V2__business_field_capacity.sql": "d5f65c9202470f6d4f4ddbde5bd12b65114fef284f62a9e161ef76a4b722899f",
+    "V13__storage_logical_unique_keys.sql": "a8a2c057c03992696f195578f3f7c98e4e2194594c968fedbc9e74479471171e",
+    "V8__reward_recipient_uniqueness.sql": "93db076be54a33cc880bb219aa54d5eba2c8bcc9c567fb6773a6ed80861d66da"
+  },
+  "java8": true,
+  "distIndexSha256": "fe795b64b2d7325f53dfb8898481a12fe6d8dfe8c865a10ad6d93bc5d417bf64"
+}

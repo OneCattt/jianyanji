@@ -1,0 +1,14 @@
+{
+  "javaVersion": "1.8.0_452",
+  "workspaceJava": {
+    "tests": 204,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 13
+  },
+  "frontTestsPassed": 157,
+  "native": true,
+  "mysql": "本机隔离MySQL，微信HTTP替身",
+  "productionVerified": false,
+  "miniprogramPublished": false
+}

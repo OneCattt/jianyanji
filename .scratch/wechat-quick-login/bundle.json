@@ -1,0 +1,29 @@
+{
+  "commit": "b2e99437523f7ef0d8a726a56c2110426d110386",
+  "archive": "/Users/jiangruliang/Documents/ChatGPT/jianyanji/artifacts/jianyanji-wechat-login-b2e9943.tar.gz",
+  "archiveSha256": "88cede8d1229c49d86e0576421d1322de0f95fa13721050ac245bc379f150c72",
+  "files": {
+    "dist/index.html": "800de2c33fb71180e1c461908e5981130e05d50ad616051666db3ca1e68e0e72",
+    "dist/brand/logo-horizontal-red.svg": "cfe315e54330cb0cb4cde5af9110c9a46f610f9af06b7087e060011500386c8d",
+    "dist/brand/app-icon.png": "60d9c1b6091b14e950a8bceab0601dbe7f08cd3400b4cd2f151b7552ffac9615",
+    "dist/brand/app-icon.svg": "e06f5104361b1a0f2972af5fd683778554600c8b55e06542e51f861b2b3a0d43",
+    "dist/assets/index-B75jnXvV.css": "c818b2beedfc12a7a76f178460998aa405e01584c59f375e2d1d8aae929cc7f2",
+    "dist/assets/index-B86Nn-Zo.js": "462ba0cf11e4bdfff5b8b73552022bd6881982b751886a153008ded19d127d47",
+    "backend/jianyanji-api-0.1.0.jar": "00138a13e9769f10d0b4f37d64af76addc3033d13ea18c66a6830da774ab5bc3"
+  },
+  "verification": {
+    "javaVersion": "1.8.0_452",
+    "java": {
+      "tests": 201,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 13
+    },
+    "mysqlPhoneAndLogTests": 1,
+    "frontendPassed": 38,
+    "typecheck": "passed",
+    "viteBuild": "passed",
+    "packagedBrowserChecks": 3,
+    "realWechatPhoneAuthorization": false
+  }
+}

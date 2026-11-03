@@ -280,7 +280,8 @@ try:
     diagnostic = {"requestId": trace, "status": 502, "logPersisted": True,
             "wechatErrcode": json.loads(response_body).get("errcode"), "phoneAuthorizationVerified": False}
     assert fingerprints() == original_fingerprints and financial_totals() == money
-    assert all(counts()[t] == n for t, n in before.items() if t != "flyway_schema_history")
+    post_probe_counts = counts()
+    assert all(post_probe_counts[t] == n for t, n in before.items() if t != "flyway_schema_history")
     # 新绑定接口匿名访问必须被拦截，不能把缺少权限误当作接口不存在。
     binding = urllib.request.Request("http://127.0.0.1:3100/api/me/wechat-phone", data=b"{}",
             headers={"Content-Type":"application/json"}, method="POST")

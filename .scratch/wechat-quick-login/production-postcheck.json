@@ -1,0 +1,45 @@
+{
+  "commit": "b2e99437523f7ef0d8a726a56c2110426d110386",
+  "publishedAt": "2026-11-03T17:31:05.831977+08:00",
+  "backup": "/var/backups/jianyanji/20261103T173021+0800-wechat-login-b2e9943",
+  "services": [
+    "active",
+    "active"
+  ],
+  "filesVerified": true,
+  "businessRowsAndOriginalValuesUnchanged": true,
+  "financialTotalsUnchanged": true,
+  "skuPricesUnchanged": true,
+  "migrationVersions": "V1-V15",
+  "apiPaused": false,
+  "diagnostic": {
+    "requestId": "cb4783a89bd54ea99a9643500b71664e",
+    "status": 502,
+    "logPersisted": true,
+    "wechatErrcode": 40029,
+    "phoneAuthorizationVerified": false
+  },
+  "httpsChecks": [
+    {
+      "path": "/admin",
+      "status": 200
+    },
+    {
+      "path": "/api/public/context",
+      "status": 200
+    },
+    {
+      "path": "/api/me",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/me",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-options",
+      "status": 401
+    }
+  ],
+  "miniprogramPublished": false
+}

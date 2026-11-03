@@ -1,0 +1,27 @@
+{
+  "checks": [
+    {
+      "width": 1440,
+      "height": 900,
+      "linkVerified": true,
+      "overflow": false,
+      "overlap": false
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "linkVerified": true,
+      "overflow": false,
+      "overlap": false
+    },
+    {
+      "width": 320,
+      "height": 568,
+      "linkVerified": true,
+      "overflow": false,
+      "overlap": false
+    }
+  ],
+  "errors": [],
+  "api": "匿名API替身"
+}

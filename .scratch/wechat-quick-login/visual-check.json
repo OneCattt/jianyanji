@@ -1,0 +1,113 @@
+{
+  "environment": "微信编译模板的浏览器模拟，非微信真机",
+  "results": [
+    {
+      "stage": "consent",
+      "width": 320,
+      "height": 568,
+      "overflow": false,
+      "top": 95.875,
+      "bottom": 568,
+      "scrollable": false
+    },
+    {
+      "stage": "consent",
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "top": 418.65625,
+      "bottom": 844,
+      "scrollable": false
+    },
+    {
+      "stage": "consent",
+      "width": 430,
+      "height": 932,
+      "overflow": false,
+      "top": 506.65625,
+      "bottom": 932,
+      "scrollable": false
+    },
+    {
+      "stage": "consent",
+      "width": 812,
+      "height": 375,
+      "overflow": false,
+      "top": 38,
+      "bottom": 375,
+      "scrollable": true
+    },
+    {
+      "stage": "login",
+      "width": 320,
+      "height": 568,
+      "overflow": false,
+      "top": 155.265625,
+      "bottom": 568,
+      "scrollable": false
+    },
+    {
+      "stage": "login",
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "top": 454.65625,
+      "bottom": 844,
+      "scrollable": false
+    },
+    {
+      "stage": "login",
+      "width": 430,
+      "height": 932,
+      "overflow": false,
+      "top": 566.046875,
+      "bottom": 932,
+      "scrollable": false
+    },
+    {
+      "stage": "login",
+      "width": 812,
+      "height": 375,
+      "overflow": false,
+      "top": 38,
+      "bottom": 375,
+      "scrollable": true
+    },
+    {
+      "stage": "profile",
+      "width": 320,
+      "height": 568,
+      "overflow": false,
+      "top": 88.4375,
+      "bottom": 568,
+      "scrollable": false
+    },
+    {
+      "stage": "profile",
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "top": 387.828125,
+      "bottom": 844,
+      "scrollable": false
+    },
+    {
+      "stage": "profile",
+      "width": 430,
+      "height": 932,
+      "overflow": false,
+      "top": 475.828125,
+      "bottom": 932,
+      "scrollable": false
+    },
+    {
+      "stage": "profile",
+      "width": 812,
+      "height": 375,
+      "overflow": false,
+      "top": 38,
+      "bottom": 375,
+      "scrollable": true
+    }
+  ]
+}

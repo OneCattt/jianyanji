@@ -1,0 +1,84 @@
+{
+  "commit": "b2e99437523f7ef0d8a726a56c2110426d110386",
+  "release": "/opt/jianyanji/releases/wechat-login-b2e9943",
+  "backup": "/var/backups/jianyanji/20261103T173021+0800-wechat-login-b2e9943",
+  "publishedAt": "2026-11-03T17:31:05.831977+08:00",
+  "migrations": [
+    15
+  ],
+  "diagnostic": {
+    "requestId": "cb4783a89bd54ea99a9643500b71664e",
+    "status": 502,
+    "logPersisted": true,
+    "wechatErrcode": 40029,
+    "phoneAuthorizationVerified": false
+  },
+  "previousMigrationsUnchanged": true,
+  "businessRowsPreserved": true,
+  "financialTotalsPreserved": true,
+  "files": {
+    "dist/index.html": "800de2c33fb71180e1c461908e5981130e05d50ad616051666db3ca1e68e0e72",
+    "dist/brand/logo-horizontal-red.svg": "cfe315e54330cb0cb4cde5af9110c9a46f610f9af06b7087e060011500386c8d",
+    "dist/brand/app-icon.png": "60d9c1b6091b14e950a8bceab0601dbe7f08cd3400b4cd2f151b7552ffac9615",
+    "dist/brand/app-icon.svg": "e06f5104361b1a0f2972af5fd683778554600c8b55e06542e51f861b2b3a0d43",
+    "dist/assets/index-B75jnXvV.css": "c818b2beedfc12a7a76f178460998aa405e01584c59f375e2d1d8aae929cc7f2",
+    "dist/assets/index-B86Nn-Zo.js": "462ba0cf11e4bdfff5b8b73552022bd6881982b751886a153008ded19d127d47",
+    "backend/jianyanji-api-0.1.0.jar": "00138a13e9769f10d0b4f37d64af76addc3033d13ea18c66a6830da774ab5bc3"
+  },
+  "servicesActive": true,
+  "httpsArtifactHashesVerified": true,
+  "apiPaused": false,
+  "checks": [
+    {
+      "path": "/api/mini/storage",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/storage",
+      "status": 401
+    },
+    {
+      "path": "/api/pickups/1",
+      "status": 401
+    },
+    {
+      "path": "/api/wallet",
+      "status": 401
+    },
+    {
+      "path": "/api/offers",
+      "status": 200
+    },
+    {
+      "path": "/api/admin/product-options?kind=sku",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/product-options?kind=lot&userId=1",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-options",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-labels?ids=1",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/users/1/address-options",
+      "status": 401
+    },
+    {
+      "path": "/api/admin/user-options?identity=B",
+      "status": 401
+    },
+    {
+      "path": "/api/me",
+      "status": 401
+    }
+  ],
+  "devAuth": false,
+  "wechatConfigured": true,
+  "miniprogramPublished": false
+}
