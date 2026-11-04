@@ -97,6 +97,123 @@ const form = ref({
   reason: "",
 });
 const menuExpanded = ref(false);
+interface WorkbenchTodo {
+  key: string;
+  count: number | null;
+  unit: string;
+}
+interface LandingIntent {
+  tab?: string;
+  status?: string;
+  todo?: string;
+  fulfillment?: string;
+  expiring?: boolean;
+  openReceipt?: boolean;
+}
+const todos = ref<WorkbenchTodo[]>([]);
+const todosLoading = ref(false);
+const todosError = ref("");
+const todosAsOf = ref("");
+let todoRevision = 0;
+/** 账号变化立即清理待办，并废弃此前账号或旧刷新请求。 */
+function clearTodos() {
+  todoRevision++;
+  todos.value = [];
+  todosAsOf.value = "";
+  todosError.value = "";
+  todosLoading.value = false;
+}
+watch(() => me.value?.id, clearTodos, { flush: "sync" });
+const landing = ref<LandingIntent>({});
+const todoMeta: Record<
+  string,
+  {
+    label: string;
+    description: string;
+    section: string;
+    landing: LandingIntent;
+  }
+> = {
+  receipt: {
+    label: "核款发积分",
+    description: "核实真实到账后登记",
+    section: "wallet",
+    landing: { openReceipt: true },
+  },
+  pickup_review: {
+    label: "待审核提货",
+    description: "审核客户提交的提货申请",
+    section: "storage",
+    landing: { tab: "pickups", status: "review" },
+  },
+  pending_shipping: {
+    label: "待发货订单",
+    description: "含待审核配送与部分发货仍有待发余量",
+    section: "orders",
+    landing: { fulfillment: "pending_shipping" },
+  },
+  refund_review: {
+    label: "待审核售后",
+    description: "客户已提交、等待审核",
+    section: "aftersales",
+    landing: { todo: "review" },
+  },
+  refund_finance: {
+    label: "待退款 / 核查",
+    description: "已审核待退款、处理中或结果待核实",
+    section: "orderrefunds",
+    landing: { todo: "refund" },
+  },
+  storage_expiring: {
+    label: "到期寄存",
+    description: "30天内到期及已逾期，按批次",
+    section: "storage",
+    landing: { tab: "lots", expiring: true },
+  },
+};
+const todoOrder = Object.keys(todoMeta);
+const visibleTodos = computed(() =>
+  [...todos.value].sort(
+    (a, b) => todoOrder.indexOf(a.key) - todoOrder.indexOf(b.key),
+  ),
+);
+function todoLabel(key: string) {
+  return todoMeta[key]?.label || key;
+}
+function todoDescription(key: string) {
+  return todoMeta[key]?.description || "";
+}
+async function loadTodos() {
+  if (!me.value) return;
+  const staffId = me.value.id;
+  const revision = ++todoRevision;
+  todosLoading.value = true;
+  todosError.value = "";
+  try {
+    const result = await api<{ asOf: string; items: WorkbenchTodo[] }>(
+      "/admin/workbench/todos",
+    );
+    if (revision !== todoRevision || me.value?.id !== staffId) return;
+    todos.value = result.items || [];
+    todosAsOf.value = result.asOf;
+  } catch (e) {
+    if (revision !== todoRevision || me.value?.id !== staffId) return;
+    if (e instanceof ApiError && e.status === 401) {
+      report(e);
+      return;
+    }
+    todosError.value = e instanceof Error ? e.message : "待办读取失败，请重试";
+  } finally {
+    if (revision === todoRevision && me.value?.id === staffId)
+      todosLoading.value = false;
+  }
+}
+function openTodo(item: WorkbenchTodo) {
+  const meta = todoMeta[item.key];
+  if (!meta) return;
+  landing.value = { ...meta.landing };
+  void navigate(meta.section, true);
+}
 watch(filterType, () => {
   filterId.value = "";
 });
@@ -324,6 +441,7 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+  if (me.value) await loadTodos();
 });
 async function login() {
   busy.value = true;
@@ -335,6 +453,8 @@ async function login() {
     });
     password.value = "";
     section.value = "overview";
+    landing.value = {};
+    await loadTodos();
   } catch (e) {
     report(e);
   } finally {
@@ -384,12 +504,18 @@ async function load() {
     busy.value = false;
   }
 }
-async function navigate(key: string) {
+async function navigate(key: string, keepLanding = false) {
+  // 普通导航清除待办落地条件；待办点击在调用前先写入 landing。
+  if (!keepLanding) landing.value = {};
   section.value = key;
   menuExpanded.value = false;
   page.value = 1;
   notice.value = "";
   error.value = "";
+  if (key === "overview") {
+    await Promise.all([load(), loadTodos()]);
+    return;
+  }
   await load();
 }
 function open(mode: "create" | "edit" | "remove", value?: Staff) {
@@ -665,6 +791,51 @@ async function changePage(value: number) {
       </a-layout-header>
       <a-layout-content class="admin-content">
         <template v-if="section === 'overview'">
+          <a-card title="待办事项" class="workbench-todos" :bordered="false">
+            <template #extra>
+              <span class="todo-updated">{{
+                todosAsOf
+                  ? "更新于 " +
+                    new Date(todosAsOf).toLocaleString("zh-CN", {
+                      hour12: false,
+                    })
+                  : ""
+              }}</span>
+              <a-button size="small" :loading="todosLoading" @click="loadTodos"
+                >刷新待办</a-button
+              >
+            </template>
+            <div v-if="todosLoading && !visibleTodos.length" class="todo-state">
+              正在读取待办…
+            </div>
+            <div v-else-if="todosError" class="todo-state todo-state-error">
+              <span>{{ todosError }}</span>
+              <a-button size="small" @click="loadTodos">重试</a-button>
+            </div>
+            <div v-else-if="!visibleTodos.length" class="todo-state">
+              当前账号没有待处理事项。
+            </div>
+            <div v-else class="todo-grid">
+              <button
+                v-for="item in visibleTodos"
+                :key="item.key"
+                type="button"
+                class="todo-card"
+                @click="openTodo(item)"
+              >
+                <span class="todo-copy">
+                  <strong>{{ todoLabel(item.key) }}</strong>
+                  <small>{{ todoDescription(item.key) }}</small>
+                </span>
+                <span class="todo-count">
+                  <template v-if="item.count === null">核款</template>
+                  <template v-else
+                    >{{ item.count }}<small>{{ item.unit }}</small></template
+                  >
+                </span>
+              </button>
+            </div>
+          </a-card>
           <a-card
             v-if="quickEntries.length"
             title="常用工作"
@@ -914,7 +1085,14 @@ async function changePage(value: number) {
           :disabled="busy"
           @change="changePage"
         />
-        <StorageOperations v-if="section === 'storage'" :staff="me" />
+        <StorageOperations
+          v-if="section === 'storage'"
+          :key="'storage:' + refreshKey + ':' + JSON.stringify(landing)"
+          :staff="me"
+          :initial-tab="landing.tab"
+          :initial-status="landing.status"
+          :initial-expiring="landing.expiring"
+        />
         <CommerceConfiguration v-if="section === 'commerce'" :staff="me" />
         <OrderOperations
           v-if="section === 'shipping'"
@@ -923,20 +1101,23 @@ async function changePage(value: number) {
         />
         <PaymentOperations
           v-if="['orders', 'receipts'].includes(section)"
-          :key="section + ':' + refreshKey"
+          :key="section + ':' + refreshKey + ':' + JSON.stringify(landing)"
           :finance-only="section === 'receipts'"
           :can-finance="me.permissions.includes('finance:manage')"
           :can-operate="
             section === 'orders' && me.permissions.includes('orders:manage')
           "
+          :initial-todo="landing.fulfillment || landing.todo"
         />
         <AfterSalesOperations
           v-if="['aftersales', 'orderrefunds'].includes(section)"
-          :key="section + ':' + refreshKey"
+          :key="section + ':' + refreshKey + ':' + JSON.stringify(landing)"
           :can-manage="
             section === 'aftersales' && me.permissions.includes('orders:manage')
           "
           :canFinance="me.permissions.includes('finance:manage')"
+          :initial-status="landing.status"
+          :initial-todo="landing.todo"
         />
         <CashRefundOperations
           v-if="section === 'cashrefunds'"
@@ -953,7 +1134,8 @@ async function changePage(value: number) {
         />
         <WalletOperations
           v-if="section === 'wallet'"
-          :key="'wallet:' + refreshKey"
+          :key="'wallet:' + refreshKey + ':' + landing.openReceipt"
+          :initial-open-receipt="landing.openReceipt"
         />
         <BrandContentOperations
           v-if="section === 'posts'"

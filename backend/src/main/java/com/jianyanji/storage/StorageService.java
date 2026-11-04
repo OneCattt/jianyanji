@@ -50,8 +50,16 @@ public class StorageService {
                 LocalDate date = date(q.get(key));
                 from += " AND l.starts_on" + ("from".equals(key) ? ">=" : "<=") + "'" + date + "'";
             }
+        // 旧缓存只保存批次与数量时，按明确选中的批次补读展示信息；仍强制本人归属。
+        String ids = q.getOrDefault("ids", "").trim();
+        if (!ids.isEmpty()) {
+            Input.require(
+                    ids.matches("[0-9]+(?:,[0-9]+){0,99}"), "寄存批次编号无效或超过100项");
+            from += " AND l.id IN (" + ids + ")";
+        }
         return new PageQuery(q, from)
                 .eq("userId", "l.user_id")
+                .eq("orderId", "l.order_id")
                 .eq("skuId", "l.sku_id")
                 .eq("kind", "o.kind")
                 .keyword("p.name", "s.name", "o.number", "u.nickname")
@@ -340,8 +348,20 @@ public class StorageService {
         if (!supported) throw conflict("该地区暂不支持配送");
         ObjectNode check = stored(input.path("storedItems"), uid, admin);
         Input.require(check.path("items").size() > 0, "请选择提货货品");
-        long fee = shippingFee(effectiveIdentity(user), 0, l(check, "amount"), true),
+        String identity = effectiveIdentity(user);
+        long fee = shippingFee(identity, 0, l(check, "amount"), true),
                 available = new PointsService(db).available(uid);
+        String reasonCode, reason;
+        if ("B".equals(identity) && fee > 0) {
+            reasonCode = "principal_below_threshold";
+            reason = "主理人原寄存提货金额未满1000元，本次收取10积分运费；赠品不凑额。";
+        } else if ("B".equals(identity)) {
+            reasonCode = "principal_threshold";
+            reason = "主理人原寄存提货金额满1000元，本次免运费；赠品不凑额。";
+        } else {
+            reasonCode = "customer_free";
+            reason = "普通顾客和2980店主的寄存提货免运费。";
+        }
         return obj(
                 "address",
                 address,
@@ -350,13 +370,17 @@ public class StorageService {
                 "storedGoodsCents",
                 l(check, "amount"),
                 "identity",
-                effectiveIdentity(user),
+                identity,
                 "shippingCents",
                 fee,
                 "availableCents",
                 available,
                 "shortfallCents",
-                Math.max(0, fee - available));
+                Math.max(0, fee - available),
+                "shippingReasonCode",
+                reasonCode,
+                "shippingReason",
+                reason);
     }
     /** 纯寄存提货占用、扣运费和提交审核同一事务，重试必须与原内容相同。 */
     public ObjectNode submit(JsonNode input, ObjectNode user, boolean admin, long actor) {

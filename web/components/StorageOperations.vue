@@ -80,15 +80,19 @@ interface Row {
 const props = defineProps<{
   staff: Staff;
   pickup?: { id: number; number: string };
+  initialTab?: string;
+  initialStatus?: string;
+  initialExpiring?: boolean;
 }>();
 const pickupFilter = ref(props.pickup?.number || "");
 const sourceKind = ref("");
-const tab = ref(props.pickup ? "pickups" : "lots"),
+const tab = ref(props.initialTab || (props.pickup ? "pickups" : "lots")),
   userId = ref(""),
   skuId = ref(0),
   from = ref(""),
   to = ref(""),
-  expiring = ref(false),
+  pickupStatus = ref(props.initialStatus || ""),
+  expiring = ref(!!props.initialExpiring),
   error = ref(""),
   notice = ref(""),
   busy = ref(false),
@@ -149,6 +153,7 @@ const filters = () => ({
   from: tab.value === "lots" ? from.value : "",
   to: tab.value === "lots" ? to.value : "",
   expiring: tab.value === "lots" && expiring.value ? "true" : "",
+  status: tab.value === "pickups" ? pickupStatus.value : "",
 });
 const { rows, total, pagination, loading, load } = useAdminList<Row>(
   () => paths[tab.value],
@@ -418,6 +423,33 @@ function stateColor(value?: string) {
       <a-tab-pane v-if="canIdentity" key="consumption" tab="权益包消耗" />
       <a-tab-pane key="messages" tab="到期与消息" />
     </a-tabs>
+    <div
+      v-if="
+        (tab === 'pickups' && (pickupStatus || pickupFilter)) ||
+        (tab === 'lots' && expiring)
+      "
+      class="todo-filter-note"
+    >
+      <span
+        >当前筛选：{{
+          tab === "pickups"
+            ? pickupStatus
+              ? states[pickupStatus] || pickupStatus
+              : "指定提货单"
+            : "30天内到期及已到期"
+        }}</span
+      >
+      <a-button
+        size="small"
+        @click="
+          pickupStatus = '';
+          pickupFilter = '';
+          expiring = false;
+          reload();
+        "
+        >查看全部{{ tab === "pickups" ? "提货" : "寄存" }}</a-button
+      >
+    </div>
     <AdminFilterBar @submit="reload">
       <a-button
         v-if="tab === 'pickups' && pickupFilter"
@@ -456,6 +488,19 @@ function stateColor(value?: string) {
           >30天内到期及已到期</a-checkbox
         ></template
       >
+      <label v-if="tab === 'pickups'"
+        >处理状态<ASelect
+          v-model:value="pickupStatus"
+          :options="[
+            { value: '', label: '全部状态' },
+            { value: 'review', label: '待审核' },
+            { value: 'approved', label: '待发货' },
+            { value: 'shipped', label: '已发货' },
+            { value: 'received', label: '已收货' },
+            { value: 'rejected', label: '已驳回' },
+            { value: 'cancelled', label: '已取消' },
+          ]"
+      /></label>
       <label v-if="tab === 'pickups'" class="storage-pickup-search"
         >提货单号<a-input
           v-model:value="pickupFilter"

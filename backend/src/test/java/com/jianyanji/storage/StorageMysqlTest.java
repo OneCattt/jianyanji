@@ -1146,6 +1146,72 @@ class StorageMysqlTest {
     }
 
     @Test
+    void workbenchTotalsMatchLandingListsAndHistoricalSearchAcrossPages() {
+        credit(2000000, id());
+        List<Long> bought = new ArrayList<>();
+        List<Long> pickups = new ArrayList<>();
+        for (int i = 0; i < 41; i++) {
+            long orderId = l(purchase(3, 0), "id");
+            bought.add(orderId);
+            pickups.add(l(submit(arr(obj("lotId", lot(orderId), "quantity", 1))), "id"));
+        }
+        ship(pickups.get(0));
+        submit(arr(obj("lotId", lot(bought.get(0)), "quantity", 1)));
+        ObjectNode mixed = orders.view(orders.owned(bought.get(0), user));
+        assertTrue(l(mixed, "pendingShipQuantity") > 0);
+        assertTrue(l(mixed, "inTransitQuantity") > 0);
+        Map<String, String> pending = new HashMap<>();
+        pending.put("page", "1");
+        pending.put("pageSize", "1");
+        pending.put("todo", "pending_shipping");
+        String firstNumber = "workbench-first-" + id();
+        tagOrder(bought.get(0), firstNumber);
+        pending.put("q", firstNumber);
+        assertEquals(1, l(orders.adminPage(pending), "total"), "部分发货仍待配送不能遗漏");
+        pending.remove("q");
+        LocalDate today = LocalDate.now(StorageService.ZONE);
+        for (int i = 0; i < 4; i++) {
+            int days = new int[] {0, 30, 31, -1}[i];
+            db.update("UPDATE storage_lots SET expires_on=?,update_user_id=1,update_time=CURRENT_TIMESTAMP(3) WHERE order_id=? AND is_deleted=0", today.plusDays(days).toString(), bought.get(i));
+        }
+        Map<String, String> expiring = new HashMap<>();
+        expiring.put("expiring", "true");
+        assertEquals(3, l(storage.lots(user, expiring), "total"));
+        long refundable = l(purchase(1, 0), "id");
+        ObjectNode refundOrder = orders.view(orders.owned(refundable, user));
+        ObjectNode refund = aftersales.request(obj("orderId", refundable, "items", arr(obj("lineId", l(refundOrder.path("lines").get(0), "id"), "quantity", 1)), "shippingCents", 0, "reason", "工作台独立核验", "requestKey", "refund-" + id()), obj("id", 1, "permissions", "[]"));
+        assertWorkbenchLandingTotals(pending, expiring);
+        aftersales.review(l(refund, "id"), obj("approve", true, "identityDecision", null, "reason", "核验待退款"));
+        assertWorkbenchLandingTotals(pending, expiring);
+        com.jianyanji.mobile.MiniListService lists = new com.jianyanji.mobile.MiniListService(db, catalog, orders, aftersales, membership, null, wallet);
+        db.update("UPDATE products SET name='当前新商品名',update_user_id=1,update_time=CURRENT_TIMESTAMP(3) WHERE id=(SELECT product_id FROM skus WHERE id=?)", sku);
+        assertEquals(20, lists.mine("orders", buyer(), 1, 20, 0, null, "寄存测试商品").path("items").size());
+        assertEquals(2, lists.mine("orders", buyer(), 3, 20, 0, null, "寄存测试商品").path("items").size());
+        assertEquals(0, lists.mine("orders", buyer(), 1, 20, 0, null, "%_").path("items").size());
+        Map<String, String> source = new HashMap<>();
+        source.put("orderId", String.valueOf(bought.get(0)));
+        assertEquals(1, l(storage.lots(user, source), "total"));
+        assertEquals(0, l(storage.lots(principal, source), "total"), "来源筛选不能绕过本人归属");
+    }
+
+    /** 对比真实全范围聚合与首屏分页列表总数，包含在途兼待发、两种售后及到期批次。 */
+    private void assertWorkbenchLandingTotals(Map<String, String> pending, Map<String, String> expiring) {
+        ObjectNode result = new com.jianyanji.workbench.WorkbenchService(db).todos(obj("permissions", stringify(arr("orders:manage", "finance:manage"))));
+        Map<String, Long> counts = new HashMap<>();
+        for (JsonNode item : result.path("items")) if (!item.path("count").isNull()) counts.put(s(item, "key"), l(item, "count"));
+        Map<String, String> review = new HashMap<>();
+        review.put("status", "review");
+        assertEquals(l(storage.pickups(null, review), "total"), counts.get("pickup_review").longValue());
+        assertEquals(l(orders.adminPage(pending), "total"), counts.get("pending_shipping").longValue());
+        assertEquals(l(storage.lots(null, expiring), "total"), counts.get("storage_expiring").longValue());
+        for (String todo : new String[] {"review", "refund"}) {
+            Map<String, String> filter = new HashMap<>();
+            filter.put("todo", todo);
+            assertEquals(l(aftersales.adminPage(filter), "total"), counts.get("review".equals(todo) ? "refund_review" : "refund_finance").longValue());
+        }
+    }
+
+    @Test
     void freightBoundaryAndCalendarExpiry() {
         assertEquals(1000, StorageService.shippingFee("B", 99999, 99999, true));
         assertEquals(0, StorageService.shippingFee("B", 100000, 1, true));

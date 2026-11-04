@@ -35,9 +35,17 @@ public class MiniListController {
             @RequestParam(defaultValue="1") int page,
             @RequestParam(defaultValue="20") int limit,
             @RequestParam(defaultValue="0") int tab,
-            @RequestParam(required=false) Long orderId) {
+            @RequestParam(required=false) Long orderId,
+            @RequestParam(defaultValue="") String keyword) {
         String path = request.getRequestURI();
-        return lists.mine(path.substring(path.lastIndexOf('/') + 1), access.user(), page, limit, tab, orderId);
+        return lists.mine(
+                path.substring(path.lastIndexOf('/') + 1),
+                access.user(),
+                page,
+                limit,
+                tab,
+                orderId,
+                keyword);
     }
 
     @GetMapping("/address")

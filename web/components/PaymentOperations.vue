@@ -3,7 +3,7 @@ import AdminPickupDrawer from "./AdminPickupDrawer.vue";
 import AdminUserName from "./AdminUserName.vue";
 import { useAdminList } from "../useAdminList";
 import FeedbackToast from "./FeedbackToast.vue";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { api } from "../client";
 import AdminDialog from "./AdminDialog.vue";
 import AdminDrawer from "./AdminDrawer.vue";
@@ -18,9 +18,11 @@ const props = withDefaults(
     financeOnly?: boolean;
     canFinance?: boolean;
     canOperate?: boolean;
+    initialTodo?: string;
   }>(),
-  { financeOnly: false, canFinance: false, canOperate: false },
+  { financeOnly: false, canFinance: false, canOperate: false, initialTodo: "" },
 );
+const todoFilter = ref(props.initialTodo || "");
 const pickupId = ref<number | null>(null);
 const fulfillmentStale = ref(false);
 interface OrderLine {
@@ -124,6 +126,18 @@ const selected = ref<Order | null>(null),
   notice = ref(""),
   busy = ref(false),
   reason = ref("");
+watch(
+  () => props.initialTodo,
+  (value) => {
+    if (value) {
+      todoFilter.value = value;
+      status.value = "";
+    }
+  },
+);
+watch(status, (value) => {
+  if (value) todoFilter.value = "";
+});
 const dialog = ref<"" | "ship" | "receipt">("");
 const receipt = ref({
   sourceChannel: "bank",
@@ -174,6 +188,7 @@ const listFilters = () => ({
   q: query.value,
   status: props.financeOnly ? status.value : "",
   fulfillment: props.financeOnly ? "" : status.value,
+  todo: !props.financeOnly && !status.value ? todoFilter.value : "",
   kind: props.financeOnly ? "goods" : "",
 });
 const {
@@ -590,16 +605,21 @@ function statusColor(value: string) {
             >查询订单</a-button
           >
           <a-button
-            v-if="query || status"
+            v-if="query || status || todoFilter"
             :disabled="busy"
             @click="
               query = '';
               status = '';
+              todoFilter = '';
             "
             >重置</a-button
           >
         </template>
       </AdminFilterBar>
+      <div v-if="todoFilter" class="todo-filter-note">
+        <span>当前筛选：待发货待办</span>
+        <a-button size="small" @click="todoFilter = ''">查看全部订单</a-button>
+      </div>
       <template v-if="!props.financeOnly">
         <div class="order-grid-heading" aria-hidden="true">
           <span>商品 / 购买者</span><span>订单金额</span><span>履约与支付</span

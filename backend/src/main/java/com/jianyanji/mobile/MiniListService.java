@@ -122,7 +122,13 @@ public class MiniListService {
     }
 
     /** 本人业务列表；筛选先于分页执行，不能在前端只过滤已读到的一页。 */
-    public ObjectNode mine(String kind, JsonNode user, int page, int limit, int tab, Long orderId) {
+    public ObjectNode mine(
+            String kind, JsonNode user, int page, int limit, int tab, Long orderId) {
+        return mine(kind, user, page, limit, tab, orderId, "");
+    }
+
+    public ObjectNode mine(
+            String kind, JsonNode user, int page, int limit, int tab, Long orderId, String keyword) {
         long uid = l(user, "id");
         List<Object> args = new ArrayList<>(Collections.singletonList(uid));
         String sql;
@@ -142,6 +148,20 @@ public class MiniListService {
                                     " AND " + OrderFulfillment.condition(5)
                                 }
                                 [tab];
+                // 历史成交快照同样参与搜索，商品改名、下架或删除后仍能按原成交名称找回。
+                String term = keyword == null ? "" : keyword.trim();
+                Input.require(term.length() <= 200, "搜索内容不能超过200字");
+                if (!term.isEmpty()) {
+                    String pattern =
+                            "%" + term.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+                    sql +=
+                            " AND (number LIKE ? ESCAPE '!' OR JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.bundleName')) LIKE ? ESCAPE '!' OR JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.name')) LIKE ? ESCAPE '!' OR JSON_EXTRACT(snapshot,'$.lines[*].name') LIKE ? ESCAPE '!' OR JSON_EXTRACT(snapshot,'$.lines[*].skuName') LIKE ? ESCAPE '!')";
+                    args.add(pattern);
+                    args.add(pattern);
+                    args.add(pattern);
+                    args.add(pattern);
+                    args.add(pattern);
+                }
                 sql += " ORDER BY id DESC";
                 view = orders::view;
                 break;

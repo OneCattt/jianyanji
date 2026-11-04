@@ -13,6 +13,9 @@ import AdminForm from "./AdminForm.vue";
 import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
+const props = withDefaults(defineProps<{ initialOpenReceipt?: boolean }>(), {
+  initialOpenReceipt: false,
+});
 const purposeNames: Record<string, string> = {
   points: "积分充值",
   package: "入驻产品包",
@@ -228,7 +231,11 @@ async function correct() {
     notice.value = "纠正记录已保存，原收款和历史流水仍可追溯";
   });
 }
-onMounted(() => run(refresh));
+onMounted(async () => {
+  await run(refresh);
+  // 待办入口只打开现有收款登记表单，不自动填写、勾选或提交。
+  if (props.initialOpenReceipt) openReceipt();
+});
 
 const pointLotColumns = [
   { title: "批次 / 原收款", key: "c0", width: 220 },

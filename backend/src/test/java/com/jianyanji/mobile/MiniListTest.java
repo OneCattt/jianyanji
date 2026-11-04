@@ -307,4 +307,33 @@ class MiniListTest {
         assertFalse(b(page, "hasMore"));
         assertTrue(page.path("nextPage").isNull());
     }
+
+    @Test
+    void orderKeywordFiltersHistoricalSnapshotBeforePaginationWithEscapedLike() {
+        List<String> queries = new ArrayList<>();
+        List<Object[]> arguments = new ArrayList<>();
+        Db db =
+                mock(
+                        Db.class,
+                        call -> {
+                            if (!call.getMethod().getName().equals("list")) return null;
+                            queries.add(call.getArgument(0));
+                            arguments.add(
+                                    Arrays.copyOfRange(
+                                            call.getArguments(), 1, call.getArguments().length));
+                            return Collections.emptyList();
+                        });
+        MiniListService service = service(db, mock(OrderService.class));
+        service.mine("orders", obj("id", 7), 2, 20, 0, null, "精华_100%");
+        assertEquals(1, queries.size());
+        String sql = queries.get(0);
+        assertTrue(sql.contains("number LIKE ? ESCAPE '!'"));
+        assertTrue(sql.contains("JSON_EXTRACT(snapshot,'$.lines[*].name') LIKE ? ESCAPE '!'"));
+        assertTrue(sql.contains("JSON_EXTRACT(snapshot,'$.lines[*].skuName') LIKE ? ESCAPE '!'"));
+        Object[] values = arguments.get(0);
+        assertEquals(7L, values[0]);
+        assertEquals("%精华!_100!%%", values[1]);
+        assertEquals(21, values[6]);
+        assertEquals(20, values[7]);
+    }
 }

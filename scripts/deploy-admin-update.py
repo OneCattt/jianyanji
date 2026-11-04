@@ -104,9 +104,16 @@ with zipfile.ZipFile(str(jar)) as old:
         Path(path).name: hashlib.sha256(old.read(path)).hexdigest()
         for path in old.namelist() if path.startswith(prefix) and path.endswith(".sql")
     }
-assert len(migrations) == 14 and len(manifest["migrations"]) == 14
-assert all(manifest["migrations"].get(k) == v for k, v in migrations.items()), "历史迁移发生变化"
-assert sql("SELECT GROUP_CONCAT(version ORDER BY installed_rank) FROM flyway_schema_history WHERE success=1") == ",".join(str(i) for i in range(1, 15))
+assert len(migrations) == 15 and manifest["migrations"] == migrations, "历史迁移发生变化"
+assert manifest["scope"] == ["backend", "admin-frontend"]
+assert digest(base / "dist/index.html") == manifest["expectedFrontendIndexSha256"], "线上后台已变化"
+with zipfile.ZipFile(str(stage / "backend/jianyanji-api-0.1.0.jar")) as built:
+    embedded = {
+        Path(path).name: hashlib.sha256(built.read(path)).hexdigest()
+        for path in built.namelist() if path.startswith(prefix) and path.endswith(".sql")
+    }
+assert embedded == migrations, "新JAR与线上迁移不一致"
+assert sql("SELECT GROUP_CONCAT(version ORDER BY installed_rank) FROM flyway_schema_history WHERE success=1") == ",".join(str(i) for i in range(1, 16))
 assert sql("SELECT COUNT(*) FROM flyway_schema_history WHERE success=0") == "0"
 version = subprocess.check_output(["/opt/java8/bin/java", "-version"], stderr=subprocess.STDOUT, universal_newlines=True)
 assert 'version "1.8.' in version, "服务器必须使用JDK 8"
@@ -215,7 +222,8 @@ try:
                            ("/api/admin/user-options", 401),
                            ("/api/admin/user-labels?ids=1", 401),
                            ("/api/admin/users/1/address-options", 401),
-                           ("/api/admin/user-options?identity=B", 401)]:
+                           ("/api/admin/user-options?identity=B", 401),
+                           ("/api/admin/workbench/todos", 401)]:
         try:
             with urllib.request.urlopen("http://127.0.0.1:3100" + path, timeout=5) as response:
                 status = response.status
@@ -225,6 +233,11 @@ try:
         checks.append({"path": path, "status": status})
     for service in ["jianyanji", "nginx"]:
         run(["systemctl", "is-active", "--quiet", service])
+    assert counts() == before, "启动后业务记录数量发生变化"
+    assert financial_totals() == money, "启动后历史资金汇总发生变化"
+    assert sql("SELECT id,retail_cents,store_cents,principal_cents FROM skus WHERE product_type='regular' AND is_deleted=0 ORDER BY id") == prices, "原三档价格发生变化"
+    assert sql("SELECT GROUP_CONCAT(version ORDER BY installed_rank) FROM flyway_schema_history WHERE success=1") == ",".join(str(i) for i in range(1, 16))
+    assert sql("SELECT COUNT(*) FROM flyway_schema_history WHERE success=0") == "0"
     result = dict(previous)
     result.update(manifest)
     result.update({

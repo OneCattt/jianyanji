@@ -41,6 +41,13 @@ public class OrderService {
     /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
     public ObjectNode adminPage(java.util.Map<String, String> query) {
         String fulfillment = OrderFulfillment.adminCondition(query.get("fulfillment"));
+        String todo = query.getOrDefault("todo", "").trim();
+        if (!todo.isEmpty()) {
+            // 待办筛选与普通履约筛选互斥，避免两个条件叠加造成空结果。
+            if (!fulfillment.isEmpty()) throw invalid("待办筛选不能与履约筛选同时使用");
+            if (!"pending_shipping".equals(todo)) throw invalid("不支持的订单待办筛选");
+            fulfillment = OrderFulfillment.condition(2);
+        }
         expire();
         return new PageQuery(
                         query,

@@ -49,7 +49,18 @@ public class AftersalesService {
 
     /** 后台按页查询全部有效记录，筛选和计数在数据库执行。 */
     public ObjectNode adminPage(java.util.Map<String, String> query) {
-        return new PageQuery(query, "FROM refunds WHERE is_deleted=0")
+        String from = "FROM refunds WHERE is_deleted=0";
+        String todo = query.getOrDefault("todo", "").trim();
+        if (!todo.isEmpty()) {
+            // 工作台待办与手选状态互斥，避免组合条件导致列表为空。
+            if (!query.getOrDefault("status", "").trim().isEmpty())
+                throw invalid("待办筛选不能与状态筛选同时使用");
+            if ("review".equals(todo)) from += " AND status='requested'";
+            else if ("refund".equals(todo))
+                from += " AND status IN ('approved','processing','unknown','failed')";
+            else throw invalid("不支持的售后待办筛选");
+        }
+        return new PageQuery(query, from)
                 .eq("status", "status")
                 .keyword("number", "CAST(order_id AS CHAR)", "reason", "(SELECT CONCAT(JSON_EXTRACT(o.snapshot,'$.lines[*].name'),JSON_EXTRACT(o.snapshot,'$.lines[*].skuName')) FROM orders o WHERE o.id=refunds.order_id AND o.is_deleted=0)")
                 .select(db, "*", "id DESC", this::view);

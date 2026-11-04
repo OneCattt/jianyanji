@@ -581,6 +581,7 @@ test("订单分类按履约查询并包含寄存，财务查询保留原状态�
     q: "精华",
     status: "",
     fulfillment: "stored",
+    todo: "",
     kind: "",
   });
   p.state.status.value = "awaiting_shipment";
@@ -592,7 +593,23 @@ test("订单分类按履约查询并包含寄存，财务查询保留原状态�
     q: "",
     status: "paid",
     fulfillment: "",
+    todo: "",
     kind: "goods",
   });
   finance.stop();
+});
+
+test("工作台待发货入口首个筛选生效，手选状态后清除待办条件", async () => {
+  const p = setup("PaymentOperations", {
+    financeOnly: false,
+    initialTodo: "pending_shipping",
+  });
+  assert.equal(p.state.listFilters().todo, "pending_shipping");
+  assert.equal(p.state.listFilters().fulfillment, "");
+  p.state.status.value = "stored";
+  await vue.nextTick();
+  assert.equal(p.state.todoFilter.value, "");
+  assert.equal(p.state.listFilters().todo, "");
+  assert.equal(p.state.listFilters().fulfillment, "stored");
+  p.stop();
 });

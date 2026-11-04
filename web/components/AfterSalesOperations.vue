@@ -13,8 +13,13 @@ import AdminFilterBar from "./AdminFilterBar.vue";
 import AdminSelect from "./AdminSelect.vue";
 import AdminDatePicker from "./AdminDatePicker.vue";
 const props = withDefaults(
-  defineProps<{ canFinance: boolean; canManage?: boolean }>(),
-  { canManage: true },
+  defineProps<{
+    canFinance: boolean;
+    canManage?: boolean;
+    initialStatus?: string;
+    initialTodo?: string;
+  }>(),
+  { canManage: true, initialStatus: "", initialTodo: "" },
 );
 const busy = ref(false),
   error = ref(""),
@@ -345,7 +350,11 @@ function statusColor(value: string) {
 }
 
 const refundQuery = ref("");
-const refundStatus = ref("");
+const refundStatus = ref(props.initialStatus || "");
+const refundTodo = ref(props.initialTodo || "");
+watch(refundStatus, (value) => {
+  if (value) refundTodo.value = "";
+});
 const {
   rows: refunds,
   total: refundTotal,
@@ -354,9 +363,18 @@ const {
   load: loadRefunds,
 } = useAdminList<any>(
   "/admin/refunds",
-  () => ({ q: refundQuery.value, status: refundStatus.value }),
+  () => ({
+    q: refundQuery.value,
+    status: refundTodo.value ? "" : refundStatus.value,
+    todo: refundTodo.value,
+  }),
   error,
 );
+function clearRefundTodo() {
+  refundTodo.value = "";
+  refundStatus.value = "";
+  void loadRefunds();
+}
 const filteredRefunds = computed(() => refunds.value);
 
 const refundColumns = [
@@ -402,6 +420,14 @@ const actionNames: Record<string, string> = {
         <span class="list-count">共 {{ refundTotal }} 笔记录</span>
       </header>
 
+      <div v-if="refundTodo" class="todo-filter-note">
+        <span
+          >当前筛选：{{
+            refundTodo === "review" ? "待审核售后" : "待退款 / 核查售后"
+          }}</span
+        >
+        <a-button size="small" @click="clearRefundTodo">查看全部售后</a-button>
+      </div>
       <AdminFilterBar @submit="() => {}">
         <label class="field"
           >搜索售后 / 原订单<a-input

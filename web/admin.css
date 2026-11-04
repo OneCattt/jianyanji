@@ -1045,3 +1045,101 @@
     padding: 14px 16px;
   }
 }
+
+.workbench-todos {
+  margin-bottom: 20px;
+}
+.workbench-todos .ant-card-extra {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.todo-updated {
+  color: #7a7f8a;
+  font-size: 12px;
+}
+.todo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.todo-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 78px;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.todo-card:hover,
+.todo-card:focus-visible {
+  border-color: var(--admin-accent);
+  box-shadow: 0 6px 18px rgba(122, 28, 28, 0.08);
+}
+.todo-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.todo-copy strong {
+  color: #251d1a;
+  font-size: 15px;
+}
+.todo-copy small {
+  color: #7a7f8a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.todo-count {
+  flex-shrink: 0;
+  color: var(--admin-accent);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+}
+.todo-count small {
+  margin-left: 2px;
+  font-size: 12px;
+  font-weight: 400;
+}
+.todo-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #7a7f8a;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.todo-state-error {
+  color: #a52b37;
+}
+.todo-filter-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #f7eeeb;
+  color: #7a1c1c;
+  font-size: 13px;
+}
+@media (max-width: 900px) {
+  .todo-grid {
+    grid-template-columns: 1fr;
+  }
+  .workbench-todos .ant-card-extra {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
