@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 # 07 后端接口及后台管理界面推送、打包与发布
 
@@ -13,3 +13,7 @@ Status: ready-for-agent
 ## Comments
 
 2026-11-04：发布准备中；当前Java8工作台测试fixture已改为生产Access使用的JSON文本，后台增加账号变化同步清理与请求版本校验，新增3项真实方法回归通过。其余发布证据完成后追加。
+
+2026-11-04 11:01:48（上海）：后端及后台按e419cb03f9a0d5fdcb7b24991753af24cc5cb67b干净构建并发布，已推送origin/main。32项后台回归、类型检查、完整JDK8 verify、同一源码16项定向（含真实MySQL）验证、六个入口及1280/390布局检查通过；服务器独立复核与公网HTTPS通过。备份/产物/迁移/数据/资金/价格及回退见docs/development/experience-backend-admin-release-20261104.md。没有数据库或运行配置变化；小程序未上传或发布，02/03问题仍待DS修正。保留ready-for-human用于真实工作人员业务与人工验收，不代表部署未完成。
+
+2026-11-04 发布后：已有会话读取生产工作台，待发货7→列表7、待审核提货1→列表1，筛选均一致；只查看页面，没有提交真实业务。保留production-workbench.jpg与production-browser-checks.json。

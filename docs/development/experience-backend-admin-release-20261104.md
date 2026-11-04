@@ -11,3 +11,18 @@
 更新前核对生产服务active、现有产物哈希及迁移；维护期间备份数据库、旧JAR、dist和配置，核对业务行数、资金汇总及三档价格，替换后再次核对，并验证HTTPS及匿名接口权限。保留旧静态哈希资源供已有页面使用。
 
 失败只回退JAR、dist与发布清单，不自动覆盖数据库。本次无迁移，应用可独立回退；如需恢复数据，必须先停写、保全发布后数据并核对新增交易，不能直接整库回灌。真实客户、实际资金及微信真机验收不包含在本次自动发布验证中。
+
+## 已发布结果
+
+- 上海时间2026-11-04 **11:01:48**发布成功，后端与后台实际构建提交均为 `e419cb03f9a0d5fdcb7b24991753af24cc5cb67b`，已推送origin/main。最终文档提交不改变本次构建来源。
+- 从上述提交git archive导出的干净源码执行JDK8完整verify、后台32项回归、类型检查和Vite构建，通过；同一源码额外执行16项定向测试（含真实MySQL工作台/列表一致性与历史查询）全部通过，无跳过。构建保留已有大chunk体积提示，非失败。
+- 实际构建在只读模拟API下检查六个待办入口：订单todo、提货review、两种售后todo、到期expiring与核款表单；查看实际请求参数，首个请求即带正确筛选。1280及390宽度无横向溢出、无控制台错误。模拟API不作为生产资金或真实工作人员业务验收。
+- 发布包SHA-256：`c083d2a8760668dd9f7a171ea1d8f5ea9f7c397f7f974250ff617b990b999441`；JAR SHA-256：`f67a1eaedf77c9cdf59f0fba38706c154da7dfbb456b832c0aa9a02805583901`。7个产物文件逐项校验通过。
+- 生产发布目录：`/opt/jianyanji/releases/admin-search-e419cb0`。备份目录：`/var/backups/jianyanji/20261104T110137+0800-admin-search-e419cb0`，包含数据库、旧应用、配置及发布前行数/资金/价格记录。数据库压缩备份完整性检查通过。
+- 部署后独立再次核对：应用及Nginx均active、API维护标记解除、devAuth=false；产物哈希、业务表行数、资金汇总、SKU三档价格及V1～V15均一致。公网HTTPS的/admin和/api/public/context均200，后台首页哈希等于本次构建；匿名访问待办等个人/管理接口均401。
+- 使用已有登录会话读取实际生产后台：新版待办卡片正常，待发货7单点击后列表为7笔且待办筛选生效，待审核提货1单点击后列表为1张且review筛选生效。只查看列表，没有提交核款、发货、退款或资格调整。上线截图为production-workbench.jpg，证据为production-browser-checks.json；这两项真实读取与上述模拟布局检查分别记录。
+- 无新增数据库迁移、无运行配置变化。**小程序未上传、未提审、未发布**。前次复核的02/03小程序问题仍待DS修复，不能将本次后台发布描述成全部六项体验已上线。
+
+证据保存在本机已忽略目录 `artifacts/experience-release-20261104/`：bundle.json、deployment-result.json、production-postcheck.json、public-https-result.json、browser-checks.json、实际构建截图及各层验证日志。未提交服务器配置、数据库或备份。
+
+如需应用回退，维护并停服务后，从上述备份application.tar.gz恢复旧JAR和release.json，并从备份目录dist恢复旧后台，再启动检查健康与Flyway；本次不需要回退数据库结构，也不自动回灌业务库。
