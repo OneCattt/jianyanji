@@ -2,15 +2,15 @@
   <view class="settings-eyebrow">MY QINGXIN</view><view class="settings-title">个人设置</view>
   <view class="settings-card">
     <view class="settings-identity"><view class="settings-avatar">{{avatarText}}</view><view class="settings-identity-text"><view class="settings-name">{{user ? user.nickname : '欢迎，新朋友'}}</view><view class="settings-role">{{user ? user.identityName : '尚未登录'}}</view></view></view>
-    <view class="settings-help">{{!user ? '使用微信登录后，查看订单并保存你的联系方式。' : user.identity === 'D' ? '当前为普通顾客，微信充值积分后可购物和寄存提货。成功扣积分购买权益包才开通店主身份。' : '你的店主身份已生效，下单使用对应身份价格，商品、权益包和运费全部使用积分支付。'}}</view>
+    <view class="settings-help">{{!user ? '登录清欣后，查看订单并保存你的联系方式。' : user.identity === 'D' ? '当前为普通顾客，微信充值积分后可购物和寄存提货。成功扣积分购买权益包才开通店主身份。' : '你的店主身份已生效，下单使用对应身份价格，商品、权益包和运费全部使用积分支付。'}}</view>
     <view wx:if="{{!user}}" class="settings-help">首次登录前将请你阅读并同意<button class="settings-inline" bindtap="openPrivacy">《隐私政策》</button>，不同意仍可浏览商品和品牌内容。</view>
-    <button wx:if="{{!user}}" class="settings-primary" bindtap="onLogin" loading="{{busy}}" disabled="{{busy}}">微信登录</button>
+    <button wx:if="{{!user}}" class="settings-primary" bindtap="onLogin" loading="{{busy}}" disabled="{{busy}}">登录清欣</button>
   </view>
   <form wx:if="{{user}}" class="settings-card" bindsubmit="onSave">
     <view class="settings-section-title">个人资料</view>
-    <view class="settings-label">昵称</view><input name="nickname" type="nickname" value="{{nickname}}" bindinput="onNickname" maxlength="30" placeholder="点此选用微信昵称，也可自行填写" disabled="{{busy}}" />
-    <view class="settings-label">联系电话</view><view class="settings-phone">{{phone || '暂未绑定'}}<text wx:if="{{user.phoneVerified}}"> · 微信授权</text></view>
-    <button class="settings-secondary" bindtap="bindPhone" disabled="{{busy}}">{{phone ? '通过微信更换手机号' : '通过微信绑定手机号'}}</button>
+    <view class="settings-label">昵称</view><input name="nickname" type="nickname" value="{{nickname}}" bindinput="onNickname" maxlength="30" placeholder="请填写或选择昵称" disabled="{{busy}}" />
+    <view class="settings-label">联系电话</view><view class="settings-phone">{{phone || '暂未绑定'}}<text wx:if="{{user.phoneVerified}}"> · 已验证</text></view>
+    <button class="settings-secondary" bindtap="bindPhone" disabled="{{busy}}">{{phone ? '更换手机号' : '绑定手机号'}}</button>
     <view class="settings-help">总部会同时核对昵称和手机号办理充值核款，请确认两项资料准确。</view>
     <button class="settings-primary" form-type="submit" loading="{{busy}}" disabled="{{busy}}">保存昵称</button>
     <button class="settings-logout" bindtap="onLogout" disabled="{{busy}}">退出登录</button>
@@ -18,7 +18,7 @@
   <view class="settings-card">
     <view class="settings-section-title">隐私保护</view>
     <view class="settings-help">{{privacyConsented ? '已同意当前版本。你可随时查看政策或撤回同意。' : '尚未同意当前版本；公开内容可继续浏览。'}}</view>
-    <button class="settings-secondary" bindtap="openPrivacy">查看隐私政策与微信指引</button>
+    <button class="settings-secondary" bindtap="openPrivacy">查看隐私政策与小程序指引</button>
     <button class="settings-secondary" bindtap="privacyRights">个人信息与账号注销申请</button>
     <button wx:if="{{privacyConsented}}" class="settings-logout" bindtap="withdrawPrivacy" disabled="{{busy}}">撤回同意并退出</button>
   </view>

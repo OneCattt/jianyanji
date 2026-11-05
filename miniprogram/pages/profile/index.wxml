@@ -90,7 +90,7 @@
           bindtap="onNavigate"
           disabled="{{navigating}}"
         >
-          {{user ? '代理入驻' : '微信登录'}}
+          {{user ? '代理入驻' : '登录清欣'}}
         </button></view
       >
     </view>

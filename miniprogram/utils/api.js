@@ -123,10 +123,10 @@ async function authenticateOnce(account, phoneCode, active) {
         success(value) {
           value.code
             ? resolve(value.code)
-            : reject(new Error("微信登录未完成，请重试"));
+            : reject(new Error("登录未完成，请重试"));
         },
         fail() {
-          reject(new Error("微信登录失败，请重试"));
+          reject(new Error("登录失败，请重试"));
         },
       }),
     );

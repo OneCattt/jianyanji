@@ -66,12 +66,12 @@ Component({
           request("/public/content"),
           new Promise((resolve, reject) => {
             if (typeof wx.getPrivacySetting !== "function") {
-              reject(new Error("请升级微信后再登录"));
+              reject(new Error("请更新客户端后再登录"));
               return;
             }
             wx.getPrivacySetting({
               success: resolve,
-              fail: () => reject(new Error("微信授权状态暂时无法读取，请重试")),
+              fail: () => reject(new Error("隐私授权状态暂时无法读取，请重试")),
             });
           }),
         ]);
@@ -232,7 +232,7 @@ Component({
       wx.openPrivacyContract({
         fail: () => {
           this._viewingPolicy = false;
-          this.setData({ error: "微信隐私指引暂未打开，请重试" });
+          this.setData({ error: "小程序隐私指引暂未打开，请重试" });
         },
       });
     },

@@ -24,7 +24,7 @@
       复制隐私联系方式
     </button>
     <button class="privacy-link" bindtap="openContract">
-      查看微信{{contractName}}
+      查看{{contractName}}
     </button>
     <button class="privacy-link" bindtap="contactRights">
       个人信息与账号申请
@@ -68,7 +68,7 @@
   </button>
   <view wx:if="{{consentMode}}" class="privacy-consent">
     <view wx:if="{{loading}}" class="privacy-note"
-      >正在确认主体与微信隐私授权状态…</view
+      >正在确认主体与隐私授权状态…</view
     >
     <view wx:elif="{{!configured}}" class="privacy-note"
       >运营主体与隐私联系方式尚未公布，暂不能同意并登录。你仍可匿名浏览。</view
@@ -81,7 +81,7 @@
           color="#7a1c1c"
           disabled="{{busy || loading || !configured || !platformReady}}"
         /><text
-          >我已阅读并同意本隐私政策及微信{{contractName}}，了解如何拒绝和撤回同意。</text
+          >我已阅读并同意本隐私政策及{{contractName}}，了解如何拒绝和撤回同意。</text
         ></label
       >
     </checkbox-group>
