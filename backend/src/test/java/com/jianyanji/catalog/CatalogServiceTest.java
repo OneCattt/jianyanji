@@ -358,4 +358,20 @@ class CatalogServiceTest {
         assertThrows(BusinessException.class, () -> service.saveProduct(1L, product, 1));
         verifyNoInteractions(db);
     }
+
+    @Test
+    void productSortRejectsOutOfRangeAndNonIntegerBeforeDatabaseWrite() {
+        Db db = mock(Db.class);
+        CatalogService service = new CatalogService(db, mock(Access.class));
+        ObjectNode sku = obj("name", "标准装", "unit", "瓶", "retailCents", 1000,
+                "productType", "regular", "welfareCents", null, "active", true);
+        ObjectNode product = obj("categoryId", 1, "name", "精华", "subtitle", "",
+                "description", "说明", "image", "/assets/product.png", "detailImage", "/assets/detail.png",
+                "active", true, "featured", false, "skus", arr(sku), "reason", "调整排序");
+        for (Object invalid : new Object[] {-1, 10000, 1.5, "1", null}) {
+            product.set("sort", json(invalid));
+            assertThrows(BusinessException.class, () -> service.saveProduct(null, product, 1));
+        }
+        verifyNoInteractions(db);
+    }
 }

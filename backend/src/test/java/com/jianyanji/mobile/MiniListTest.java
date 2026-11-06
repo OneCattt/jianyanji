@@ -93,6 +93,7 @@ class MiniListTest {
         assertEquals(2, l(result, "nextPage"));
         assertEquals(3500, l(result.path("items").get(0).path("skus").get(0), "priceCents"));
         assertEquals(2, queries.size());
+        assertTrue(queries.get(0).contains("ORDER BY p.sort ASC,p.id DESC LIMIT ? OFFSET ?"));
         assertTrue(queries.get(0).contains("p.category_id=?"));
         assertArrayEquals(new Object[] {3L, 21, 0}, parameters.get(0));
         assertTrue(queries.get(1).contains("product_id IN"));

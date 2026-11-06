@@ -74,7 +74,7 @@ public class MiniListService {
     public ObjectNode products(
             JsonNode user, int page, int limit, Long categoryId, boolean featured, String keyword) {
         String sql =
-                "SELECT p.id,p.category_id,p.name,p.subtitle,p.image,p.active,p.featured,p.version FROM products p JOIN categories c ON c.id=p.category_id AND c.is_deleted=0 AND c.active=1 WHERE p.is_deleted=0 AND p.active=1";
+                "SELECT p.id,p.category_id,p.name,p.subtitle,p.image,p.active,p.featured,p.sort,p.version FROM products p JOIN categories c ON c.id=p.category_id AND c.is_deleted=0 AND c.active=1 WHERE p.is_deleted=0 AND p.active=1";
         List<Object> args = new ArrayList<>();
         if (categoryId != null) {
             sql += " AND p.category_id=?";
@@ -91,7 +91,7 @@ public class MiniListService {
             args.add(pattern);
         }
         ObjectNode result =
-                page(sql + " ORDER BY p.id DESC", args, page, limit, Function.identity());
+                page(sql + " ORDER BY p.sort ASC,p.id DESC", args, page, limit, Function.identity());
         List<Long> ids = new ArrayList<>();
         for (JsonNode item : result.path("items")) ids.add(l(item, "id"));
         Map<Long, List<ObjectNode>> grouped = new HashMap<>();

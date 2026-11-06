@@ -44,16 +44,34 @@ class MiniListMysqlTest {
         long category=db.insert("INSERT INTO categories(name,active,sort) VALUES(?,1,0)",run);
         ObjectNode user=obj("id",uid,"identity","C"),owner=obj("id",principal,"identity","B");
         List<Long> skus=new ArrayList<>(),rewardIds=new ArrayList<>();
+        long firstProductId=0,firstSkuId=0;
         for(int i=0;i<41;i++) {
             long product=db.insert("INSERT INTO products(category_id,name,subtitle,description,image,detail_image,active,featured) VALUES(?,?,'说明','说明','/a.png','/a.png',1,?)",category,run+i,i==0?1:0);
             long sku=db.insert("INSERT INTO skus(product_id,name,unit,retail_cents,stock,active) VALUES(?,'规格','瓶',10000,99,1)",product);
             skus.add(sku);
+            if(i==0) { firstProductId=product; firstSkuId=sku; }
             db.insert("INSERT INTO cart_items(user_id,sku_id,quantity,selected) VALUES(?,?,1,1)",uid,sku);
             long order=db.insert("INSERT INTO orders(number,user_id,status,payment_state,payment_method,total_cents,goods_cents,shipping_cents,snapshot,expires_at,request_key) VALUES(?,?,?,'paid','points',7000,7000,0,?,'2099-01-01T00:00:00.000Z',?)",
                     run+"-order-"+i,uid,i<21?"paid":"shipped",stringify(obj("identity","C","principalId",principal,"lines",arr())),run+"-request-"+i);
             rewardIds.add(db.insert("INSERT INTO rewards(order_id,user_id,kind,amount_cents,snapshot,reason,request_id) VALUES(?,?,'margin',100,?,'隔离分页验证',?)",order,principal,stringify(obj("orderNumber",run+"-order-"+i)),run));
         }
         long hidden=db.insert("INSERT INTO products(category_id,name,subtitle,description,image,detail_image,active,is_deleted) VALUES(?,'已删除','说明','说明','/a.png','/a.png',1,1)",category);
+        // 最早创建的商品置前；其余默认值相同时仍保持新商品在前，分页不得漏项。
+        db.update("UPDATE products SET sort=1 WHERE category_id=? AND name=?",category,run+"40");
+        ObjectNode edit=obj("categoryId",category,"name",run+"0","subtitle","说明","description","说明",
+                "image","/a.png","detailImage","/a.png","active",true,"featured",true,"sort",2,
+                "skus",arr(obj("id",firstSkuId,"name","规格","unit","瓶","retailCents",10000,
+                        "productType","regular","welfareCents",null,"active",true)),"reason","调整商品排序");
+        catalog.saveProduct(firstProductId,edit,uid);
+        assertEquals(2,l(db.one("SELECT sort FROM products WHERE id=?",firstProductId),"sort"));
+        edit.remove("sort");
+        catalog.saveProduct(firstProductId,edit,uid);
+        assertEquals(2,l(db.one("SELECT sort FROM products WHERE id=?",firstProductId),"sort"),"旧请求省略排序不得覆盖现值");
+        ObjectNode firstProduct=lists.products(user,1,20,category,false,"");
+        assertEquals(run+"39",s(firstProduct.path("items").get(0),"name"));
+        assertEquals(run+"40",s(lists.products(user,2,20,category,false,"").path("items").get(19),"name"),"排序值为1的商品应在默认0的商品之后");
+        assertEquals(run+"0",s(lists.products(user,3,20,category,false,"").path("items").get(0),"name"));
+        assertEquals(run+"39",s(catalog.adminPage(Collections.singletonMap("q",run)).path("items").get(0),"name"));
         Set<Long> productIds=new HashSet<>();
         for(int page=1;page<=3;page++) {
             ObjectNode result=lists.products(user,page,20,category,false,"");

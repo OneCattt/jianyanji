@@ -115,6 +115,7 @@ interface Product {
   detailImage: string;
   active: boolean;
   featured: boolean;
+  sort: number;
   skus: Sku[];
 }
 interface ProductRecord extends Omit<Product, "skus" | "categoryId"> {
@@ -176,6 +177,7 @@ const blank = (): Product => ({
   detailImage: "",
   active: false,
   featured: false,
+  sort: 0,
   skus: [
     {
       name: "标准装",
@@ -324,6 +326,8 @@ function saveProduct() {
   if (uploadingImage.value) return;
   return act(async () => {
     const p = form.value;
+    if (!Number.isInteger(p.sort) || p.sort < 0 || p.sort > 9999)
+      throw new Error("商品排序须为 0 至 9999 的整数");
     if (
       p.skus.some(
         (sku) =>
@@ -342,6 +346,7 @@ function saveProduct() {
         detailImage: p.detailImage,
         active: p.active,
         featured: p.featured,
+        sort: p.sort,
         reason: reason.value,
         skus: p.skus.map((s) => {
           const stockChanged = !s.id || s.stock !== s.expectedStock;
@@ -369,6 +374,7 @@ function saveProduct() {
 
 const productColumns = [
   { title: "商品", key: "c0", width: 220 },
+  { title: "排序", key: "sort", width: 90 },
   { title: "状态", key: "c1", width: 160 },
   { title: "规格 / 可用库存", key: "c2", width: 160 },
   { title: "操作", key: "c3", width: 200 },
@@ -659,6 +665,14 @@ const productColumns = [
                     </option>
                   </AdminSelect></label
                 >
+                <label
+                  >排序<a-input-number
+                    v-model:value="form.sort"
+                    :min="0"
+                    :max="9999"
+                    :precision="0"
+                    style="width: 100%"
+                /></label>
                 <p v-if="!categories.length" class="field-help full-field">
                   请取消当前编辑，在「商品分类」中新增分类后再添加商品。
                 </p>
@@ -888,7 +902,7 @@ const productColumns = [
             row-key="id"
             size="middle"
             :loading="busy || loading || listLoading"
-            :scroll="{ x: 680 }"
+            :scroll="{ x: 770 }"
             :pagination="productPagination"
             ><template #emptyText>
               <div
@@ -950,6 +964,9 @@ const productColumns = [
                   </div>
                 </div></template
               >
+              <template v-else-if="column.key === 'sort'">{{
+                p.sort
+              }}</template>
               <template v-else-if="column.key === 'c1'"
                 ><div class="table-cell-content">
                   <a-tag :color="p.active ? 'green' : 'default'">{{

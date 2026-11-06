@@ -33,7 +33,7 @@ public class CatalogService {
                         "p.subtitle",
                         "(SELECT c.name FROM categories c WHERE c.id=p.category_id AND c.is_deleted=0)",
                         "(SELECT GROUP_CONCAT(s.name) FROM skus s WHERE s.product_id=p.id AND s.is_deleted=0)")
-                .select(db, "p.*", "p.id DESC", row -> productView(row, null, true));
+                .select(db, "p.*", "p.sort ASC,p.id DESC", row -> productView(row, null, true));
     }
 
     public CatalogService(Db db, Access access) {
@@ -151,6 +151,8 @@ public class CatalogService {
                 b(product, "active"),
                 "featured",
                 b(product, "featured"),
+                "sort",
+                product.get("sort"),
                 "version",
                 product.get("version"),
                 "skus",
@@ -280,9 +282,9 @@ public class CatalogService {
         List<ObjectNode> rows =
                 category == null
                         ? db.list(
-                                "SELECT p.* FROM products p JOIN categories c ON c.id=p.category_id AND c.is_deleted=0 AND c.active=1 WHERE p.is_deleted=0 AND p.active=1 ORDER BY p.id DESC LIMIT 200")
+                                "SELECT p.* FROM products p JOIN categories c ON c.id=p.category_id AND c.is_deleted=0 AND c.active=1 WHERE p.is_deleted=0 AND p.active=1 ORDER BY p.sort ASC,p.id DESC LIMIT 200")
                         : db.list(
-                                "SELECT p.* FROM products p JOIN categories c ON c.id=p.category_id AND c.is_deleted=0 AND c.active=1 WHERE p.is_deleted=0 AND p.active=1 AND p.category_id=? ORDER BY p.id DESC LIMIT 200",
+                                "SELECT p.* FROM products p JOIN categories c ON c.id=p.category_id AND c.is_deleted=0 AND c.active=1 WHERE p.is_deleted=0 AND p.active=1 AND p.category_id=? ORDER BY p.sort ASC,p.id DESC LIMIT 200",
                                 category);
         ArrayNode items = arr();
         for (ObjectNode row : rows) items.add(productView(row, user, false));
@@ -301,7 +303,7 @@ public class CatalogService {
     public ArrayNode adminProducts() {
         ArrayNode result = arr();
         for (ObjectNode row :
-                db.list("SELECT * FROM products WHERE is_deleted=0 ORDER BY id DESC LIMIT 200"))
+                db.list("SELECT * FROM products WHERE is_deleted=0 ORDER BY sort ASC,id DESC LIMIT 200"))
             result.add(productView(row, null, true));
         return result;
     }
@@ -319,7 +321,7 @@ public class CatalogService {
                         if (db.one("SELECT id FROM products WHERE id=? AND is_deleted=0", id)
                                 == null) throw notFound("商品不存在");
                         db.update(
-                                "UPDATE products SET category_id=?,name=?,subtitle=?,description=?,image=?,detail_image=?,active=?,featured=?,version=version+1,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
+                                "UPDATE products SET category_id=?,name=?,subtitle=?,description=?,image=?,detail_image=?,active=?,featured=?,sort=COALESCE(?,sort),version=version+1,update_user_id=?,update_time=CURRENT_TIMESTAMP(3) WHERE id=? AND is_deleted=0",
                                 l(value, "categoryId"),
                                 s(value, "name"),
                                 s(value, "subtitle"),
@@ -328,13 +330,14 @@ public class CatalogService {
                                 s(value, "detailImage"),
                                 b(value, "active") ? 1 : 0,
                                 b(value, "featured") ? 1 : 0,
+                                value.get("sort").isNull() ? null : l(value, "sort"),
                                 actor,
                                 id);
                         saved = id;
                     } else
                         saved =
                                 db.insert(
-                                        "INSERT INTO products(category_id,name,subtitle,description,image,detail_image,active,featured,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                                        "INSERT INTO products(category_id,name,subtitle,description,image,detail_image,active,featured,sort,create_user_id,update_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                                         l(value, "categoryId"),
                                         s(value, "name"),
                                         s(value, "subtitle"),
@@ -343,6 +346,7 @@ public class CatalogService {
                                         s(value, "detailImage"),
                                         b(value, "active") ? 1 : 0,
                                         b(value, "featured") ? 1 : 0,
+                                        value.get("sort").isNull() ? 0 : l(value, "sort"),
                                         actor,
                                         actor);
                     List<ObjectNode> existing =
@@ -490,6 +494,7 @@ public class CatalogService {
                 "detailImage",
                 "active",
                 "featured",
+                "sort",
                 "skus",
                 "reason");
         ObjectNode value =
@@ -510,6 +515,8 @@ public class CatalogService {
                         Input.bool(body, "active"),
                         "featured",
                         Input.bool(body, "featured"),
+                        "sort",
+                        body.has("sort") ? Input.integer(body, "sort", 0, 9999) : null,
                         "reason",
                         Input.reason(body));
         ArrayNode rows = Input.array(body, "skus", 1, 30), skus = arr();
