@@ -13,6 +13,10 @@ Page({
     navTop: 48,
     pendingAction: "",
     shareBusy: false,
+    identityReady: false,
+    identityLoading: false,
+    identityError: "",
+    canSalesShare: false,
   },
   onLoad(q) {
     this.productId = q.id;
@@ -27,8 +31,57 @@ Page({
     });
   },
   async onShow() {
-    if (this._shareSession !== session()) this.setData({ ownSalesCode: "" });
-    await Promise.all([this.loadProduct(), loadBadge(this, "cart")]);
+    if (this._shareSession !== session())
+      this.setData({ ownSalesCode: "", canSalesShare: false });
+    await Promise.all([
+      this.loadProduct(),
+      loadBadge(this, "cart"),
+      this.loadShareRole(),
+    ]);
+  },
+  /** 销售分享资格只看服务端当前身份；匿名不请求私有接口，读取失败不阻塞商品浏览。 */
+  async loadShareRole() {
+    const identity = session();
+    if (!identity) {
+      this._roleSession = undefined;
+      this.setData({
+        identityReady: true,
+        identityLoading: false,
+        identityError: "",
+        canSalesShare: false,
+        ownSalesCode: "",
+      });
+      return;
+    }
+    this.setData({
+      identityLoading: true,
+      identityError: "",
+      canSalesShare: false,
+    });
+    try {
+      const me = await request("/me");
+      if (session() !== identity) return;
+      this._roleSession = identity;
+      const allowed = ["B", "C"].includes(me.identity);
+      this.setData({
+        identityReady: true,
+        identityLoading: false,
+        canSalesShare: allowed,
+        ...(allowed ? {} : { ownSalesCode: "" }),
+      });
+      if (!allowed) this._shareSession = undefined;
+    } catch (error) {
+      if (session() !== identity) return;
+      this._roleSession = undefined;
+      this._shareSession = undefined;
+      this.setData({
+        identityReady: false,
+        identityLoading: false,
+        identityError: error.message || "销售身份暂不可用",
+        canSalesShare: false,
+        ownSalesCode: "",
+      });
+    }
   },
   async loadProduct() {
     try {
@@ -48,23 +101,30 @@ Page({
     }
   },
   async prepareSalesShare() {
-    if (this.data.shareBusy) return;
+    if (this.data.shareBusy || !this.data.canSalesShare) return;
     this.setData({ shareBusy: true, error: "" });
     try {
       if (!wx.getStorageSync("jyj_token")) await login();
       const share = await request("/invitations/mine");
+      if (!this.data.canSalesShare)
+        throw new Error("当前身份已变化，暂不可销售分享");
       this._shareSession = session();
       this.setData({ ownSalesCode: share.shareCode, error: "" });
       wx.showToast({ title: "请点击分享给顾客", icon: "none" });
     } catch (e) {
-      this.setData({ error: e.message });
+      this._shareSession = undefined;
+      this.setData({ ownSalesCode: "", error: e.message });
     } finally {
       this.setData({ shareBusy: false });
     }
   },
   onShareAppMessage() {
     const salesCode =
-      this._shareSession === session() ? this.data.ownSalesCode : "";
+      this.data.canSalesShare &&
+      this._shareSession === session() &&
+      this._roleSession === session()
+        ? this.data.ownSalesCode
+        : "";
     return {
       title: this.data.product ? this.data.product.name : "品牌商品",
       path:
@@ -112,7 +172,8 @@ Page({
       if (!wx.getStorageSync("jyj_token")) {
         await login();
         await this.onShow();
-        if (!this.data.product || !this.data.sku || !this.data.sku.available) return;
+        if (!this.data.product || !this.data.sku || !this.data.sku.available)
+          return;
       }
       wx.setStorageSync("jyj_checkout", [
         { skuId: this.data.sku.id, quantity: this.data.quantity },

@@ -112,3 +112,27 @@
   margin-right: 16px;
   color: #7a1c1c;
 }
+
+.jy-paid-result {
+  border: 1rpx solid rgba(141, 23, 36, 0.12);
+  background: #fff8f4;
+}
+.jy-paid-copy {
+  margin-top: 12rpx;
+  color: #5f544e;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.jy-paid-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+.qx .jy-paid-actions button {
+  flex: 1 1 40%;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 24px;
+  font-size: 13px;
+}

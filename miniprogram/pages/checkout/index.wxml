@@ -112,6 +112,20 @@
             ></view
           ><text aria-hidden="true">›</text>
         </button>
+        <view wx:if="{{combinedItems.length}}" class="checkout-combined">
+          <button class="checkout-combined-head" bindtap="toggleCombined" aria-expanded="{{showCombined}}">
+            本次合并寄存 {{combinedCount}} 件
+            <text>{{showCombined?'收起':'查看清单'}}</text>
+          </button>
+          <view wx:if="{{showCombined}}" class="checkout-combined-list">
+            <view wx:for="{{combinedItems}}" wx:key="lotId" class="checkout-combined-item">
+              <text>{{item.name || '寄存商品'}}{{item.isGift ? '（赠品）' : ''}}</text>
+              <text>{{item.skuName || ''}} · ×{{item.quantity}}</text>
+              <text wx:if="{{item.orderNumber}}" class="checkout-help">来源订单 {{item.orderNumber}}</text>
+            </view>
+            <view class="checkout-help">寄存商品按原成交价结算，本次不重复收取商品货款。</view>
+          </view>
+        </view>
         <view class="checkout-info-row"
           ><text class="checkout-info-label">配送方式</text
           ><text class="checkout-info-value"
@@ -128,7 +142,7 @@
       <view class="checkout-card checkout-notice"
         ><view class="checkout-section-title">下单说明</view
         ><view class="checkout-help"
-          >提交后生成待积分支付订单并预占库存，不会立即扣款或扣积分；请在订单页确认积分支付。所有客户均使用积分支付，余额不足请联系总部微信充值。寄存商品只收取一次货款，后续提货不重复收费。</view
+          >提交后生成待付款订单并预占库存，下一步由本人确认积分支付，提交本身不会扣款或扣积分。所有客户均使用积分支付，余额不足请联系总部微信充值。寄存商品只收取一次货款，后续提货不重复收费。</view
         ></view
       >
     </block>
@@ -137,7 +151,21 @@
     >
     <view wx:if="{{error}}" class="checkout-error" aria-live="polite"
       >{{error}}<button
-        wx:if="{{address}}"
+        wx:if="{{payNavigationFailed}}"
+        bindtap="continuePay"
+        disabled="{{busy}}"
+      >
+        继续付款
+      </button
+      ><button
+        wx:if="{{payNavigationFailed}}"
+        bindtap="viewCreatedOrder"
+        disabled="{{busy}}"
+      >
+        查看本单
+      </button
+      ><button
+        wx:elif="{{address}}"
         bindtap="retryQuote"
         disabled="{{quoting||busy}}"
       >
@@ -157,7 +185,7 @@
       loading="{{busy}}"
       hover-class="checkout-pressed"
     >
-      提交订单
+      提交订单，去付款
     </button>
   </view>
 </view>

@@ -19,7 +19,7 @@ function harness(name, request, initial = {}) {
     navigateBack() {},
     navigateTo: (options) => navigation.push(options),
     setNavigationBarTitle() {},
-    redirectTo() {},
+    redirectTo: (options) => navigation.push(options),
   };
   const entry = path.resolve(__dirname, `../pages/${name}/index.js`);
   const context = {
@@ -402,7 +402,7 @@ test("待支付合并单使用首发提货单，后续分次提货不混入本�
   });
   page.onLoad({ id: 91 });
   await page.load();
-  assert.equal(page.data.combinedPickup.statusText, "待积分支付");
+  assert.equal(page.data.combinedPickup.statusText, "待付款");
   assert.equal(page.data.combinedPickup.count, 3);
   assert.ok(!calls.includes("/pickups/12"));
 });
@@ -533,4 +533,84 @@ test("运输中只展示在途件数，同规格赠品独立计数且不会覆�
   assert.equal(row.displayLines[1].quantity, 2);
   assert.notEqual(row.displayLines[0].lineKey, row.displayLines[1].lineKey);
   assert.equal(row.stateText, "运输中");
+});
+
+test("结算建单成功后进入本单付款，重试导航不重复创建订单", async () => {
+  let creates = 0;
+  const { page, navigation } = harness("checkout", async (url) => {
+    if (url === "/orders") {
+      creates++;
+      return { id: 9 };
+    }
+    return { id: 5 };
+  });
+  page.items = [{ skuId: 1, quantity: 1 }];
+  page.setData({ address: { id: 1 }, quote: { id: 5 } });
+  page.requestKey = "order-key";
+  await page.submit();
+  assert.equal(creates, 1);
+  assert.equal(navigation.at(-1).url, "/pages/wallet/index?orderId=9");
+  await page.submit();
+  assert.equal(creates, 1);
+  assert.equal(navigation.at(-1).url, "/pages/wallet/index?orderId=9");
+});
+
+test("纯寄存提货先核对地址和运费，余额不足不提交", async () => {
+  const posts = [];
+  const { page } = harness("storage", async (url, method, body) => {
+    if (url === "/mini/address") return { address: { id: 1 } };
+    if (url === "/pickups/quote") {
+      posts.push({ url, method, body: structuredClone(body) });
+      return {
+        address: { id: 1 },
+        shippingCents: 1000,
+        availableCents: 500,
+        shortfallCents: 500,
+        shippingReason: "主理人未满1000元，收取10积分运费。",
+      };
+    }
+    if (url === "/pickups") {
+      posts.push({ url, method, body: structuredClone(body) });
+      return { id: 9 };
+    }
+    return { items: [], hasMore: false, nextPage: null };
+  });
+  page.setData({ selectMode: false });
+  page.selection = { 7: { lotId: 7, quantity: 2, name: "寄存商品" } };
+  page.updateSelection();
+  await page.openConfirm();
+  assert.equal(page.data.confirmOpen, true);
+  assert.equal(page.data.confirmFeeText, "10.00");
+  assert.equal(page.data.confirmShortfallText, "5.00");
+  assert.match(page.data.confirmShippingText, /10积分/);
+  posts.length = 0;
+  await page.confirmSubmit();
+  assert.equal(posts.length, 0, "余额不足不能提交");
+  page.setData({
+    confirmQuote: { shippingCents: 1000 },
+    confirmAvailableText: "20.00",
+    confirmShortfallText: "0.00",
+  });
+  await page.confirmSubmit();
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].url, "/pickups");
+  assert.deepEqual(posts[0].body.storedItems, [{ lotId: 7, quantity: 2 }]);
+  assert.equal(posts[0].body.expectedFeeCents, 1000);
+});
+
+test("订单搜索把关键词与当前状态一起传给服务端", async () => {
+  const urls = [];
+  const { page } = harness("orders", async (url) => {
+    urls.push(url);
+    return { items: [], hasMore: false, nextPage: null };
+  });
+  page.setData({ keywordInput: "精华_100%" });
+  await page.search();
+  assert.ok(urls.at(-1).includes("keyword=" + encodeURIComponent("精华_100%")));
+  page.setData({ tab: 2 });
+  await page.load();
+  assert.ok(urls.at(-1).includes("tab=2"));
+  assert.ok(urls.at(-1).includes("keyword=" + encodeURIComponent("精华_100%")));
+  page.clearSearch();
+  assert.ok(!urls.at(-1).includes("keyword="));
 });

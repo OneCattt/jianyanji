@@ -11,8 +11,6 @@ Page({
     loaded: false,
   },
   onShow() {
-    const tabBar = this.getTabBar && this.getTabBar();
-    if (tabBar) tabBar.setData({ selected: 2 });
     if (!isFresh(this)) return this.load(true);
   },
   async onPullDownRefresh() {

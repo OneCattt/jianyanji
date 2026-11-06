@@ -14,9 +14,12 @@ Page({
     combinedPickup: null,
     combinedLoading: false,
     combinedError: "",
+    justPaid: false,
+    identityActivated: false,
   },
   onLoad(options) {
     this.orderId = Number(options.id);
+    this.paidSource = options.justPaid === "1";
   },
   onShow() {
     this.load();
@@ -34,9 +37,15 @@ Page({
       if (revision !== this.loadRevision) return;
       const order = decorate(payment.order);
       const transfer = content.content;
+      // 成功提示必须以服务端付款状态为准，来源参数只决定是否强调结果。
+      const justPaid = this.paidSource && order.paid;
       this.setData({
         payment,
         order,
+        justPaid,
+        identityActivated:
+          order.kind === "package" &&
+          order.snapshot.onboardingApproved === true,
         transfer,
         transferConfigured: !!(
           transfer &&
@@ -93,7 +102,19 @@ Page({
     });
   },
   storage() {
-    wx.navigateTo({ url: "/pages/storage/index" });
+    wx.navigateTo({
+      url:
+        "/pages/storage/index" +
+        (this.data.order && this.data.order.storageRemainingQty > 0
+          ? "?orderId=" + this.orderId
+          : ""),
+    });
+  },
+  myOrders() {
+    wx.redirectTo({ url: "/pages/orders/index" });
+  },
+  toMall() {
+    wx.switchTab({ url: "/pages/mall/index" });
   },
   logistics() {
     wx.navigateTo({ url: "/pages/order/logistics?id=" + this.orderId });
@@ -103,7 +124,8 @@ Page({
   },
   points() {
     if (this.data.busy || !this.data.canUsePoints) return;
-    wx.navigateTo({ url: "/pages/wallet/index?orderId=" + this.orderId });
+    // 用付款页替换当前详情，避免形成“旧详情→付款→新详情”重复返回链。
+    wx.redirectTo({ url: "/pages/wallet/index?orderId=" + this.orderId });
   },
   async cancel() {
     if (this.data.busy || !this.data.order || !this.data.order.canPay) return;

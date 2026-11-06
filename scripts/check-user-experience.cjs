@@ -36,8 +36,8 @@ cp.execFileSync(
   { cwd: root, stdio: "pipe" },
 );
 const app = JSON.parse(fs.readFileSync(path.join(root, "app.json"), "utf8"));
-if (app.tabBar.list.map((t) => t.text).join(",") !== "首页,商城,种草空间,我的")
-  throw Error("四栏导航不符");
+if (app.tabBar.list.map((t) => t.text).join(",") !== "首页,商城,我的")
+  throw Error("三栏导航不符");
 for (const p of app.pages)
   for (const ext of ["js", "json", "wxml"])
     if (!fs.existsSync(path.join(root, p + "." + ext)))

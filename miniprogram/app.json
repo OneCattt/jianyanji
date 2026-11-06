@@ -48,10 +48,6 @@
         "text": "商城"
       },
       {
-        "pagePath": "pages/seeds/index",
-        "text": "种草空间"
-      },
-      {
         "pagePath": "pages/profile/index",
         "text": "我的"
       }

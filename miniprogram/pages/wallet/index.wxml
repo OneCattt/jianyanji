@@ -7,17 +7,23 @@
   >
   <block wx:if="{{paymentMode}}">
     <block wx:if="{{order}}">
+      <view wx:if="{{navigationFailed}}" class="payment-navigation-error">
+        <text>{{paid ? '付款成功，页面跳转失败' : '订单状态已更新，页面跳转失败'}}</text>
+        <view>
+          <button bindtap="retryNavigate" disabled="{{busy}}">
+            {{paid ? '查看订单与配送' : '查看订单状态'}}
+          </button>
+          <button bindtap="myOrders">我的订单</button>
+        </view>
+      </view>
       <view class="payment-summary">
-        <view class="payment-status"
-          >{{paid?'支付成功':canPay?'待支付':paymentLoading?'正在核对订单':order.receiptText}}</view
-        >
+        <view wx:if="{{isPackage}}" class="payment-kind">入驻权益包付款</view>
+        <view class="payment-status">{{paymentStatusText}}</view>
         <view class="payment-amount"
           ><text>{{order.totalText}}</text
           ><text class="payment-unit">积分</text></view
         >
-        <view class="payment-caption"
-          >{{paid?'本单积分已扣减，可查看订单与配送进度':canPay?'确认后从积分余额一次扣减':paymentLoading?'请稍候，核对完成后可继续操作':order.hint}}</view
-        >
+        <view class="payment-caption">{{paymentCaptionText}}</view>
       </view>
       <view class="payment-method">
         <view class="payment-card-heading"
@@ -53,11 +59,19 @@
           ><text>订单类型</text
           ><text>{{order.kind==='package'?'入驻权益包':'商品订单'}}</text></view
         >
+        <view
+          wx:if="{{isPackage && order.identityText}}"
+          class="payment-detail-row"
+          ><text>入驻身份</text><text>{{order.identityText}}</text></view
+        >
         <view class="payment-detail-row"
           ><text>订单编号</text
           ><text class="payment-order-number" user-select="true"
             >{{order.number}}</text
           ></view
+        >
+        <view wx:if="{{isPackage}}" class="payment-detail-row"
+          ><text>所需积分</text><text>{{order.totalText}}</text></view
         >
         <view class="payment-detail-row"
           ><text>商品积分</text><text>{{order.goodsPointsText}}</text></view
@@ -65,16 +79,32 @@
         <view class="payment-detail-row"
           ><text>运费积分</text><text>{{order.shippingPointsText}}</text></view
         >
+        <view wx:if="{{isPackage}}" class="payment-detail-row"
+          ><text>交付安排</text><text>{{order.deliveryText}}</text></view
+        >
+        <view
+          wx:if="{{isPackage && order.addressText}}"
+          class="payment-detail-row"
+          ><text>收货信息</text><text>{{order.addressText}}</text></view
+        >
+        <view wx:if="{{order.expiresText && !paid}}" class="payment-detail-row"
+          ><text>支付截止</text><text>{{order.expiresText}}</text></view
+        >
       </view>
-      <view class="payment-help"
-        >{{paid?'商品按本次配送与寄存安排履约，退款积分按原批次退回。':'付款后按本次配送与寄存安排履约，退款积分按原批次退回。'}}</view
-      >
+      <view class="payment-help">{{paymentHelpText}}</view>
       <button class="payment-ledger-link" bindtap="walletDetails">
         查看积分明细 ›
       </button>
+      <button
+        wx:if="{{paid && isPackage}}"
+        class="payment-back-link"
+        bindtap="back"
+      >
+        返回入驻页
+      </button>
       <view class="payment-dock">
         <button wx:if="{{paid}}" class="wallet-primary" bindtap="order">
-          查看订单与配送
+          {{isPackage?'查看商品交付订单':'查看订单与配送'}}
         </button>
         <button
           wx:elif="{{canPay&&insufficient}}"
@@ -182,7 +212,10 @@
       ><view wx:else class="wallet-bank"
         >公司收款资料尚未配置，请联系品牌方核实</view
       ><view class="wallet-transfer-notes"
-        ><view>核款昵称：{{user && user.nickname !== '微信用户' ? user.nickname : '待完善'}} · 联系电话：{{user.phone || '待绑定'}}</view>
+        ><view
+          >核款昵称：{{user && user.nickname !== '微信用户' ? user.nickname :
+          '待完善'}} · 联系电话：{{user.phone || '待绑定'}}</view
+        >
         <view>请向总部提供昵称、手机号和转账流水，双重核对后录入积分。</view>
         <button bindtap="completeProfile">查看或完善核款资料</button>
         {{wallet?wallet.transfer.transferNotes:''}}<view
@@ -190,6 +223,8 @@
         ><view
           >所有登录客户均可办理。1 元对应 1
           积分，不赠送、不过期。请保留微信转账流水，由总部核款录入；商品、权益包及运费均扣积分，充值本身不开通身份。</view
+        ><view wx:if="{{isPackage}}"
+          >请先由总部核款增加积分，再回到本单手动确认支付；充值本身不开通身份。</view
         ></view
       ><button class="wallet-primary" bindtap="closeTransfer">
         我已了解，联系品牌方核实

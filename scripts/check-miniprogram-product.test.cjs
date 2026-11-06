@@ -5,7 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { createRequire, setData } = require("./miniprogram-runtime.cjs");
 
-function runtime(token = "token", intercept) {
+function runtime(token = "token", intercept, options = {}) {
   const storage = new Map([["jyj_token", token]]),
     calls = [],
     navigation = [],
@@ -34,6 +34,10 @@ function runtime(token = "token", intercept) {
     if (intercept) await intercept(url, method);
     if (url === "/products/1") return structuredClone(product);
     if (url === "/mini/cart/count") return { count };
+    if (url === "/me") {
+      if (options.meFailure) throw Error("身份读取失败");
+      return { id: 7, identity: options.identity || "B" };
+    }
     if (url === "/invitations/mine") return { shareCode: "sales-1" };
     if (url.startsWith("/cart/")) {
       count += body.quantity;
@@ -144,4 +148,27 @@ test("匿名分享不登录，代理专属分享在退出或换号后不沿用�
   assert.ok(!agent.page.onShareAppMessage().path.includes("salesCode"));
   await agent.page.onShow();
   assert.equal(agent.page.data.ownSalesCode, "");
+});
+
+test("普通顾客与身份读取失败都不开放销售分享，普通分享无销售码", async () => {
+  const customer = runtime("token", null, { identity: "D" });
+  await customer.page.onShow();
+  assert.equal(customer.page.data.canSalesShare, false);
+  assert.ok(!customer.page.onShareAppMessage().path.includes("salesCode"));
+  const invitationCalls = customer.calls.filter((call) =>
+    call.url.startsWith("/invitations/mine"),
+  ).length;
+  await customer.page.prepareSalesShare();
+  assert.equal(
+    customer.calls.filter((call) => call.url.startsWith("/invitations/mine"))
+      .length,
+    invitationCalls,
+    "无销售资格不请求邀请码",
+  );
+  const failed = runtime("token", null, { meFailure: true });
+  await failed.page.onShow();
+  assert.equal(failed.page.data.canSalesShare, false);
+  assert.equal(failed.page.data.identityReady, false);
+  assert.match(failed.page.data.identityError, /身份读取失败/);
+  assert.ok(!failed.page.onShareAppMessage().path.includes("salesCode"));
 });

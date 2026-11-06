@@ -38,10 +38,14 @@
         </view>
         <view wx:if="{{!sku.available}}" class="product-unavailable">{{sku.priceCents === null ? '当前身份价格尚未配置，请联系品牌方' : '该规格暂不可售，请选择其他规格'}}</view>
       </view>
-      <view class="product-card product-agent-share">
+      <view wx:if="{{canSalesShare}}" class="product-card product-agent-share">
         <text>代理销售分享</text>
         <button wx:if="{{!ownSalesCode}}" bindtap="prepareSalesShare" disabled="{{shareBusy}}" loading="{{shareBusy}}" hover-class="product-pressed">生成专属分享 <text aria-hidden="true">›</text></button>
         <button wx:else open-type="share" hover-class="product-pressed">分享给顾客 <text aria-hidden="true">›</text></button>
+      </view>
+      <view wx:elif="{{identityError}}" class="product-card product-agent-share product-share-error">
+        <text>销售分享暂不可用</text>
+        <button bindtap="loadShareRole" disabled="{{identityLoading}}" hover-class="product-pressed">{{identityLoading ? '正在重试…' : '重试读取身份'}}</button>
       </view>
       <view class="product-card product-description">
         <view class="product-section-title">商品详情</view>

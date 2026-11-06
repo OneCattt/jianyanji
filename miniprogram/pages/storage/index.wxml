@@ -39,6 +39,31 @@
       消息提醒
     </button>
   </view>
+  <view wx:if="{{orderFilterText}}" class="storage-order-filter">
+    <text>{{orderFilterText}}</text>
+    <button bindtap="clearOrderFilter" hover-class="storage-pressed">查看全部寄存</button>
+  </view>
+  <view wx:if="{{selectedCount>0}}" class="storage-selected">
+    <button class="storage-selected-head" bindtap="toggleSelected" aria-expanded="{{showSelected}}" hover-class="storage-pressed">
+      <text>已选 {{selectedCount}} 件</text>
+      <text>{{showSelected?'收起清单':'展开清单'}}</text>
+    </button>
+    <view wx:if="{{showSelected}}" class="storage-selected-list">
+      <view wx:for="{{selectedItems}}" wx:key="lotId" class="storage-selected-item">
+        <view class="storage-product-cover">
+          <image wx:if="{{item.imageThumb}}" src="{{item.imageThumb}}" mode="aspectFit" lazy-load aria-label="{{item.name}}" />
+          <image wx:else class="storage-product-placeholder" src="/assets/figma/profile-storage.png" mode="aspectFit" aria-hidden="true" />
+        </view>
+        <view class="storage-product-copy">
+          <view class="storage-product-name">{{item.name || '寄存商品'}}<text wx:if="{{item.isGift}}" class="storage-gift">赠品</text></view>
+          <view class="storage-product-sku">{{item.skuName || '原寄存批次'}}</view>
+          <view class="storage-product-origin">{{item.orderNumber ? '来源订单 ' + item.orderNumber : '来源订单寄存'}}</view>
+        </view>
+        <view class="storage-selected-qty">×{{item.quantity}}</view>
+        <button class="storage-selected-remove" data-id="{{item.lotId}}" bindtap="removeSelected" aria-label="{{'移除'+(item.name||'寄存商品')}}">移除</button>
+      </view>
+    </view>
+  </view>
   <view wx:if="{{error}}" class="storage-error" role="alert"
     ><text>{{error}}</text
     ><button bindtap="load" hover-class="storage-pressed">
@@ -220,7 +245,7 @@
     >
       <view class="storage-selection"
         ><view>本次提货 <text>{{selectedCount}}</text> 件</view
-        ><view class="storage-muted">确认后可查看运费</view></view
+        ><view class="storage-muted">{{selectMode ? '选择后合并到本次购买' : '先核对地址、运费与积分'}}</view></view
       >
       <button
         class="storage-submit"
@@ -229,7 +254,7 @@
         loading="{{busy}}"
         hover-class="storage-pressed"
       >
-        {{selectMode?'合并到本次购买':'提交提货申请'}}
+        {{selectMode?'合并到本次购买':'下一步，确认提货'}}
       </button>
     </view>
   </block>
@@ -330,5 +355,53 @@
       ></view
     >
   </block>
+  <view wx:if="{{confirmOpen}}" class="storage-mask" bindtap="closeConfirm">
+    <view class="storage-confirm" catchtap="stopConfirm">
+      <view class="storage-confirm-head">
+        <view>
+          <view class="storage-confirm-title">核对本次提货</view>
+          <view class="storage-muted">确认后占用货品、扣除本次运费并等待总部审核。</view>
+        </view>
+        <button bindtap="closeConfirm" aria-label="关闭核对">×</button>
+      </view>
+      <view class="storage-confirm-address">
+        <view wx:if="{{confirmAddress}}" class="storage-confirm-address-copy">
+          <view>{{confirmAddressText}}</view>
+        </view>
+        <view wx:else class="storage-confirm-address-copy">
+          <view>请选择收货地址</view>
+        </view>
+        <button bindtap="addresses" disabled="{{confirmBusy}}">{{confirmAddress?'更换地址':'选择地址'}}</button>
+      </view>
+      <view class="storage-confirm-lines">
+        <view wx:for="{{selectedItems}}" wx:key="lotId" class="storage-selected-item">
+          <view class="storage-product-cover">
+            <image wx:if="{{item.imageThumb}}" src="{{item.imageThumb}}" mode="aspectFit" lazy-load aria-label="{{item.name}}" />
+            <image wx:else class="storage-product-placeholder" src="/assets/figma/profile-storage.png" mode="aspectFit" aria-hidden="true" />
+          </view>
+          <view class="storage-product-copy">
+            <view class="storage-product-name">{{item.name || '寄存商品'}}<text wx:if="{{item.isGift}}" class="storage-gift">赠品</text></view>
+            <view class="storage-product-sku">{{item.skuName || '原寄存批次'}}</view>
+            <view class="storage-product-origin">{{item.orderNumber ? '来源订单 ' + item.orderNumber : '来源订单寄存'}}</view>
+          </view>
+          <view class="storage-selected-qty">×{{item.quantity}}</view>
+        </view>
+      </view>
+      <view class="storage-confirm-fees">
+        <view><text>本次提货</text><text>{{selectedCount}} 件</text></view>
+        <view><text>本次运费</text><text>{{confirmFeeText}} 积分</text></view>
+        <view><text>可用积分</text><text>{{confirmAvailableText}}</text></view>
+        <view wx:if="{{confirmShortfallText && confirmShortfallText !== '0.00'}}" class="storage-confirm-shortfall"><text>还差积分</text><text>{{confirmShortfallText}}</text></view>
+        <view wx:if="{{confirmShippingText}}" class="storage-confirm-reason">{{confirmShippingText}}</view>
+        <view class="storage-confirm-note">商品货款按原购买订单结算，本次不再重复扣商品款。</view>
+      </view>
+      <view wx:if="{{confirmError}}" class="storage-confirm-error" role="alert">{{confirmError}}</view>
+      <view wx:if="{{confirmBusy}}" class="storage-muted">正在读取地址并核对运费…</view>
+      <view class="storage-confirm-actions">
+        <button class="storage-outline" bindtap="closeConfirm" disabled="{{busy}}">返回核对</button>
+        <button class="storage-submit" bindtap="confirmSubmit" disabled="{{busy||confirmBusy||!confirmQuote||(confirmShortfallText && confirmShortfallText !== '0.00')}}" loading="{{busy}}">确认提交提货申请</button>
+      </view>
+    </view>
+  </view>
 </view>
 <brand-dialog id="brand-dialog" />

@@ -5,53 +5,67 @@
   <view class="privacy-summary">{{policy.summary}}</view>
   <button
     wx:if="{{consentMode}}"
-    class="privacy-link"
+    class="privacy-link privacy-decline"
     bindtap="decline"
     disabled="{{busy}}"
   >
     暂不同意，返回继续浏览
   </button>
-  <view class="privacy-card">
-    <view class="privacy-label">运营主体</view>
-    <text class="privacy-value" user-select
-      >{{operator || '品牌方尚未公布运营主体'}}</text
-    >
-    <view class="privacy-label">隐私联系方式</view>
-    <text class="privacy-value" user-select
-      >{{contact || '品牌方尚未公布隐私联系方式'}}</text
-    >
-    <button wx:if="{{contact}}" class="privacy-link" bindtap="copyContact">
-      复制隐私联系方式
-    </button>
-    <button class="privacy-link" bindtap="openContract">
-      查看{{contractName}}
-    </button>
-    <button class="privacy-link" bindtap="contactRights">
-      个人信息与账号申请
-    </button>
+  <view class="privacy-card privacy-operator">
+    <view class="privacy-info">
+      <view class="privacy-label">运营主体</view>
+      <text class="privacy-value" user-select
+        >{{operator || '品牌方尚未公布运营主体'}}</text
+      >
+    </view>
+    <view class="privacy-info privacy-info-divided">
+      <view class="privacy-label">隐私联系方式</view>
+      <view class="privacy-contact-row">
+        <text class="privacy-value" user-select
+          >{{contact || '品牌方尚未公布隐私联系方式'}}</text
+        >
+        <button wx:if="{{contact}}" class="privacy-copy" bindtap="copyContact">
+          复制
+        </button>
+      </view>
+    </view>
+    <view class="privacy-actions">
+      <button class="privacy-action" bindtap="openContract">
+        <text class="privacy-action-label">查看{{contractName}}</text>
+        <text class="privacy-action-arrow">›</text>
+      </button>
+      <button
+        class="privacy-action privacy-action-divided"
+        bindtap="contactRights"
+      >
+        <text class="privacy-action-label">个人信息与账号申请</text>
+        <text class="privacy-action-arrow">›</text>
+      </button>
+    </view>
   </view>
   <view
     wx:for="{{policy.sections}}"
     wx:key="id"
-    id="{{item.id}}"
+    id="section-{{item.id}}"
     class="privacy-section"
   >
     <view class="privacy-heading">{{item.title}}</view>
     <text
       wx:for="{{item.paragraphs}}"
       wx:for-item="paragraph"
+      wx:for-index="paragraphIndex"
       wx:key="*this"
-      class="privacy-paragraph"
+      class="privacy-paragraph {{paragraphIndex === item.paragraphs.length - 1 ? 'privacy-paragraph-last' : ''}}"
       user-select
       >{{paragraph}}</text
     >
   </view>
-  <view class="privacy-card privacy-rights">
+  <view id="rights" class="privacy-card privacy-rights">
     <view class="privacy-heading">个人信息与账号申请</view>
-    <view class="privacy-paragraph"
+    <view class="privacy-paragraph privacy-paragraph-last"
       >联系隐私负责人，说明需要查阅、复制、更正、删除或注销账号，并提供必要业务编号。请勿发送密码、完整身份证或银行卡信息。</view
     >
-    <text class="privacy-value" user-select
+    <text class="privacy-value privacy-rights-contact" user-select
       >{{contact || '联系方式尚未配置，请通过品牌与服务联系品牌方'}}</text
     >
     <button wx:if="{{contact}}" class="privacy-secondary" bindtap="copyContact">

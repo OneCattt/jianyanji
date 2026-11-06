@@ -95,6 +95,76 @@ test("身份确认后，邀请与钱包并行，设置和订单无需等待这�
   assert.equal(calls.length, 5, "正常往返复用已读取资料、权益包进度和订单数量");
 });
 
+test("个人中心只把未收完的权益包并进我的寄存入口", async () => {
+  let items = [
+    {
+      id: 1,
+      target_identity: "B",
+      consumed_qty: 0,
+      total_qty: 1,
+      order_id: 11,
+      consumption_confirmed: 0,
+    },
+    {
+      id: 2,
+      target_identity: "C",
+      consumed_qty: 1,
+      total_qty: 1,
+      order_id: 12,
+      consumption_confirmed: 0,
+    },
+  ];
+  const { page } = runtime("profile", async (url) => {
+    if (url === "/me") return { id: 7, identity: "B" };
+    if (url === "/mini/orders/counts")
+      return { pending: 0, paid: 0, shipped: 0, completed: 0 };
+    if (url === "/mini/package-consumption?limit=100") return { items };
+    if (url === "/invitations/mine") return { shareCode: "code" };
+    if (url === "/mini/wallet")
+      return { availableCents: 1000, transfer: { configured: true } };
+    throw new Error("不应读取其他接口：" + url);
+  });
+  await page.onShow();
+  await tick();
+  assert.equal(page.data.packagePendingText, "19800权益包 0/1 件待收货");
+
+  items = [
+    {
+      id: 1,
+      target_identity: "B",
+      consumed_qty: 1,
+      total_qty: 1,
+      order_id: 11,
+      consumption_confirmed: 0,
+    },
+  ];
+  await page.refresh();
+  await tick();
+  assert.equal(page.data.packagePendingText, "");
+
+  items = [
+    {
+      id: 1,
+      target_identity: "B",
+      consumed_qty: 0,
+      total_qty: 1,
+      order_id: 11,
+      consumption_confirmed: 0,
+    },
+    {
+      id: 3,
+      target_identity: "C",
+      consumed_qty: 0,
+      total_qty: 2,
+      order_id: 13,
+      consumption_confirmed: 0,
+    },
+  ];
+  await page.refresh();
+  await tick();
+  assert.equal(page.data.packagePendingText, "2 个权益包待收货");
+});
+
 test("种草刷新保留原列表，默认请求二十条，失败后仍能阅读原内容", async () => {
   const pending = deferred();
   let url;
@@ -379,7 +449,7 @@ test("结算页直接读取本人选中地址，不依赖地址列表第一页",
   assert.deepEqual(calls, ["/mini/address?id=99", "/checkout/quote"]);
 });
 
-test("下单成功后清除本次结算商品缓存并跳转订单，不逐项调用购物袋接口", async () => {
+test("下单成功后清除本次结算商品缓存并进入本单付款，不逐项调用购物袋接口", async () => {
   const { page, storage, navigation } = runtime(
     "checkout",
     async (url, method, body) => {
@@ -394,7 +464,7 @@ test("下单成功后清除本次结算商品缓存并跳转订单，不逐项�
   page.requestKey = "order-cart-regression";
   await page.submit();
   assert.equal(storage.has("jyj_checkout"), false);
-  assert.deepEqual(navigation, ["/pages/order/index?id=9"]);
+  assert.deepEqual(navigation, ["/pages/wallet/index?orderId=9"]);
   assert.equal(page.data.error, "");
 });
 

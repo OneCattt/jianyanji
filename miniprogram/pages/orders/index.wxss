@@ -41,3 +41,72 @@
   height: 3.989rpx;
   background: #7a1c1c;
 }
+
+.jy-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 8px 0;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+.jy-search input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #f5f4f2;
+  font-size: 13px;
+  line-height: 40px;
+  color: #251d1a;
+}
+.jy-search button {
+  flex-shrink: 0;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 6px;
+  color: #7a1c1c;
+  font-size: 13px;
+  line-height: 40px;
+}
+.jy-order-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.jy-order-bottom .jy-order-actions button {
+  border: 0;
+  border-radius: 20px;
+  box-shadow: none;
+  line-height: 40px;
+  min-height: 40px;
+}
+.jy-order-bottom .jy-order-actions button::after {
+  border: 0;
+}
+.jy-order-actions .jy-action-link {
+  padding: 0 10px;
+  color: #796f68;
+  font-size: 12px;
+  background: transparent;
+}
+.jy-order-bottom .jy-order-actions .jy-action-primary {
+  padding: 0 18px;
+  border: 1.995rpx solid #7a1c1c;
+  background: transparent;
+  color: #7a1c1c;
+  font-size: 13px;
+}
+.jy-empty button {
+  display: block;
+  margin: 12px auto 0;
+  min-height: 40px;
+  color: #7a1c1c;
+}

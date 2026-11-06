@@ -16,10 +16,38 @@ const destinations = {
   courses: "/pages/courses/index",
   settings: "/pages/settings/index",
 };
+
+/** 只保留尚未收完的权益包；全部收货后不再占用个人中心版面。 */
+function pendingPackages(items) {
+  return (items || []).filter((item) => {
+    const consumed = Number(item.consumed_qty);
+    const total = Number(item.total_qty);
+    return (
+      Number.isFinite(consumed) && Number.isFinite(total) && consumed < total
+    );
+  });
+}
+
+/** 单个权益包展示具体进度，多个时只汇总数量；全部收货后返回空。 */
+function pendingPackageText(items) {
+  const pending = pendingPackages(items);
+  if (!pending.length) return "";
+  if (pending.length > 1) return pending.length + " 个权益包待收货";
+  const item = pending[0];
+  return (
+    (item.target_identity === "B" ? "19800" : "2980") +
+    "权益包 " +
+    item.consumed_qty +
+    "/" +
+    item.total_qty +
+    " 件待收货"
+  );
+}
+
 Page({
   data: {
     user: null,
-    packageProgress: [],
+    packagePendingText: "",
     avatarText: "妍",
     shareCode: "",
     isAgent: false,
@@ -35,7 +63,7 @@ Page({
     headerTop: 62,
     headerHeight: 250,
     orderShortcuts: [
-      { tab: 1, name: "待核款", icon: "pending" },
+      { tab: 1, name: "待付款", icon: "pending" },
       { tab: 2, name: "待发货", icon: "paid" },
       { tab: 3, name: "运输中", icon: "shipped" },
       { tab: 4, name: "已完成", icon: "completed" },
@@ -134,7 +162,7 @@ Page({
   },
   onShow() {
     const tabBar = this.getTabBar && this.getTabBar();
-    if (tabBar) tabBar.setData({ selected: 3 });
+    if (tabBar) tabBar.setData({ selected: 2 });
     const profile = !isFresh(this) ? this.refresh() : Promise.resolve();
     return Promise.all([profile, loadBadge(this, "orders")]);
   },
@@ -150,11 +178,26 @@ Page({
   },
   setUser(user) {
     const changed = !user || !this.data.user || user.id !== this.data.user.id;
+    const upgrade = !!user && user.identity === "C";
     this.setData({
       user,
-      ...(!user ? { orderCounts: null, packageProgress: [] } : {}),
+      ...(!user
+        ? {
+            orderCounts: null,
+            packagePendingText: "",
+          }
+        : {}),
       avatarText: Array.from(((user && user.nickname) || "").trim())[0] || "妍",
       isAgent: !!user && ["B", "C"].includes(user.identity),
+      menuItems: this.data.menuItems.map((item) =>
+        item.key === "onboarding"
+          ? {
+              ...item,
+              title: upgrade ? "升级19800店主" : "代理入驻",
+              hint: upgrade ? "另购完整19800权益包" : "身份权益与申请",
+            }
+          : item,
+      ),
       ...(changed
         ? {
             availablePoints: "—",
@@ -162,6 +205,7 @@ Page({
             transferConfigured: false,
             walletError: "",
             shareCode: "",
+            packagePendingText: "",
           }
         : {}),
     });
@@ -184,8 +228,12 @@ Page({
       this.setUser(user);
       request("/mini/package-consumption?limit=100")
         .then((result) => {
-          if (session() === identity)
-            this.setData({ packageProgress: result.items });
+          if (session() !== identity) return;
+          this.setData({
+            packagePendingText: pendingPackageText(
+              Array.isArray(result.items) ? result.items : [],
+            ),
+          });
         })
         .catch(() => {});
       // 身份已确认即可操作入口，邀请和积分独立加载。
@@ -285,6 +333,8 @@ Page({
       if (key === "settings") return;
     }
     if (key === "rewards" && !this.data.isAgent) return;
+    if (key === "onboarding" && this.data.user?.identity === "C")
+      url += "?target=B";
     this.setData({ navigating: true, error: "" });
     wx.navigateTo({
       url,
@@ -300,8 +350,16 @@ Page({
   },
   onShareAppMessage() {
     return this.data.isAgent && this.data.user && this.data.shareCode
-      ? { title: "邀你加入清欣简妍肌", path: this.invitePath() }
-      : { title: "清欣简妍肌 · 东方肌肤管理美学", path: "/pages/home/index" };
+      ? {
+          title: "邀你加入清欣简妍肌",
+          path: this.invitePath(),
+          imageUrl: "/assets/brand/invitation-cover-v1.jpg",
+        }
+      : {
+          title: "清欣简妍肌 · 东方肌肤管理美学",
+          path: "/pages/home/index",
+          imageUrl: "/assets/brand/app-icon.png",
+        };
   },
   copyInvite() {
     if (

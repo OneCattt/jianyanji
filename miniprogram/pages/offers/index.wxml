@@ -30,7 +30,9 @@
         <view class="offer-product-label"
           >{{item.giftCount ? '买赠套餐' : '组合套餐'}}</view
         >
-        <view class="offer-product-stage">
+        <view
+          class="offer-product-stage{{item.previewLines.length === 1 ? ' offer-product-stage-single' : ''}}"
+        >
           <view
             wx:for="{{item.previewLines}}"
             wx:for-item="product"

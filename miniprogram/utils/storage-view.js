@@ -1,7 +1,7 @@
 const { imageUrl } = require("./image");
 
 const statusNames = {
-  awaiting_payment: "待积分支付",
+  awaiting_payment: "待付款",
   review: "待审核",
   approved: "待发货",
   rejected: "已驳回",

@@ -8,7 +8,7 @@ function dateText(value) {
 }
 function decorateCombinedPickup(pickup) {
   const statusText = {
-    awaiting_payment: "待积分支付",
+    awaiting_payment: "待付款",
     review: "待审核配送",
     approved: "待发货",
     shipped: "已发货",
@@ -34,7 +34,7 @@ function decorate(order) {
   );
   const locked = !paid && !["unpaid", "failed"].includes(order.payment_state);
   const labels = {
-    pending: "待积分支付",
+    pending: "待付款",
     paid: "待发货",
     awaiting_shipment: "待发货",
     shipped: "运输中",
@@ -69,7 +69,7 @@ function decorate(order) {
             ? "待核查"
             : order.status === "closed"
               ? "已关闭"
-              : "待积分支付",
+              : "待付款",
     amountText: amount(order.total_cents),
     goodsText: amount(order.goods_cents),
     shippingText: amount(order.shipping_cents),
@@ -80,6 +80,14 @@ function decorate(order) {
         offline: "公司转款",
         company: "公司转款",
       }[order.payment_method] || "积分支付",
+    paymentStepText:
+      order.payment_method === "points" || !order.payment_method
+        ? "积分支付"
+        : {
+            wechat: "历史微信付款",
+            offline: "公司转款",
+            company: "公司转款",
+          }[order.payment_method] || "原方式付款",
     count: (snapshot.lines || []).reduce((n, l) => n + l.quantity, 0),
     displayLines: (snapshot.lines || []).map((line, index) => ({
       lineKey: line.skuId + ":" + Boolean(line.isGift) + ":" + index,
@@ -114,10 +122,29 @@ function decorate(order) {
     receivedText: dateText(order.received_at),
   };
 }
+// 列表主动作按真实状态和当前 tab 决定，只做导航，不在列表直接写资金或数量。
+function listAction(order, view, tab) {
+  const noAction =
+    view.locked ||
+    ["closed"].includes(order.status) ||
+    order.payment_state === "refunded";
+  if (noAction) return { actionKind: "detail", actionText: "查看详情" };
+  if (view.canPay) return { actionKind: "pay", actionText: "去付款" };
+  const stored = Number(order.storageRemainingQty) > 0;
+  const transit =
+    Number(order.inTransitQuantity) > 0 ||
+    (order.shipments || []).some((item) => !item.received_at);
+  if (tab === 5 && stored)
+    return { actionKind: "pickup", actionText: "申请提货" };
+  if (transit) return { actionKind: "logistics", actionText: "查看物流" };
+  if (stored) return { actionKind: "pickup", actionText: "申请提货" };
+  return { actionKind: "detail", actionText: "查看详情" };
+}
 // 待发货/运输中展示实际履约数量；原购买快照与详情始终保留原件数及成交金额。
 function decorateList(order, tab) {
   const view = decorate(order);
-  if (tab !== 2 && tab !== 3) return view;
+  const action = listAction(order, view, tab);
+  if (tab !== 2 && tab !== 3) return { ...view, ...action };
   const field = tab === 2 ? "pending_ship_qty" : "in_transit_qty";
   const snapshots = new Map();
   const key = (sku, gift) => sku + ":" + Boolean(gift);
@@ -140,6 +167,7 @@ function decorateList(order, tab) {
   const scopeText = tab === 2 ? "待发货" : "运输中";
   return {
     ...view,
+    ...action,
     displayLines,
     originalCount: view.count,
     count: displayLines.reduce((sum, line) => sum + line.quantity, 0),

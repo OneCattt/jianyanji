@@ -8,6 +8,32 @@
         ><view>{{order.stateText}}</view><text>{{order.hint}}</text></view
       ></view
     >
+    <view wx:if="{{justPaid}}" class="jy-card jy-paid-result">
+      <view class="jy-store"
+        >{{order.kind === 'package' ? (identityActivated ? '支付成功，身份已开通' : '付款成功，身份状态待核实') : '积分支付成功'}}</view
+      >
+      <view class="jy-paid-copy"
+        >{{order.kind === 'package' ? (identityActivated ? '身份已开通，商品按本次配送与寄存安排交付。' : '付款结果已保留，请勿重复支付，身份状态可稍后刷新核实。') : '本次积分已扣减，品牌仓将按本次配送与寄存安排履约。'}}</view
+      >
+      <view class="jy-paid-actions"
+        ><button
+          wx:if="{{order.storageRemainingQty>0}}"
+          class="jy-solid"
+          bindtap="storage"
+        >
+          查看我的寄存
+        </button>
+        <button
+          wx:elif="{{order.shipments.length}}"
+          class="jy-solid"
+          bindtap="logistics"
+        >
+          查看配送
+        </button>
+        <button class="jy-outline" bindtap="myOrders">我的订单</button>
+        <button class="jy-outline" bindtap="toMall">继续逛商城</button>
+      </view>
+    </view>
     <view class="jy-list">
       <view class="jy-card jy-logistics-link" bindtap="logistics"
         ><image src="assets/detail-imgIcon2.png" /><view
@@ -195,10 +221,10 @@
           bindtap="points"
           disabled="{{busy}}"
         >
-          积分订货
+          积分支付
         </button>
         <button class="jy-solid" bindtap="load" disabled="{{busy}}">
-          刷新核款进度
+          刷新付款状态
         </button>
       </block>
       <block wx:else

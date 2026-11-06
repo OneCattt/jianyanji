@@ -1,5 +1,18 @@
 <import src="../../templates/list-footer.wxml" />
 <view class="qx jy-orders">
+  <view class="jy-search">
+    <input
+      value="{{keywordInput}}"
+      placeholder="搜索商品或订单号"
+      maxlength="200"
+      confirm-type="search"
+      bindinput="keywordInput"
+      bindconfirm="search"
+      aria-label="搜索商品或订单号"
+    />
+    <button wx:if="{{keyword||keywordInput}}" bindtap="clearSearch">清空</button>
+    <button wx:else bindtap="search">搜索</button>
+  </view>
   <view class="jy-tabs"
     ><button
       wx:for="{{tabs}}"
@@ -21,7 +34,12 @@
     <view
       wx:elif="{{!orders.length && !error && !ordersLoading}}"
       class="jy-empty"
-      >暂无{{tab?tabs[tab]:''}}订单</view
+      >{{keyword ? '没有找到相关订单，试试清空搜索条件' :
+      '暂无' + (tab ? tabs[tab] : '') + '订单'}}<button
+        wx:if="{{keyword}}"
+        bindtap="clearSearch"
+        >清空搜索</button
+      ></view
     >
     <view wx:for="{{orders}}" wx:key="id" class="jy-card">
       <view class="jy-order-top"
@@ -51,7 +69,21 @@
           ><view wx:if="{{item.scopeText}}" class="jy-scope-count">{{item.scopeText}} {{item.count}} 件 · 原订单共 {{item.originalCount}} 件</view>
           <text wx:else>共 {{item.count}} 件 </text><text>{{item.scopeText?'原订单':''}}{{item.paid?'实付':'应付'}} </text>
           <text class="jy-total">{{item.amountText}}</text></view
-        ><button bindtap="detail" data-id="{{item.id}}">查看详情</button></view
+        ><view class="jy-order-actions"
+          ><button
+            wx:if="{{item.actionKind !== 'detail'}}"
+            class="jy-action-link"
+            bindtap="detail"
+            data-id="{{item.id}}"
+            >查看详情</button
+          ><button
+            class="jy-action-primary"
+            bindtap="primary"
+            data-id="{{item.id}}"
+            data-action="{{item.actionKind}}"
+            >{{item.actionText}}</button
+          ></view
+        ></view
       >
     </view>
   </view>

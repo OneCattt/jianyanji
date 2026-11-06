@@ -416,35 +416,6 @@ page {
   letter-spacing: 1.197rpx;
 }
 
-.mine-package-progress {
-  margin-top: 24rpx;
-  padding: 28rpx 32rpx;
-  background: #fffdfa;
-  color: #746a63;
-  font-size: 24rpx;
-  line-height: 1.8;
-}
-.mine-progress-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 12rpx;
-}
-.mine-progress-heading text:first-child {
-  color: #302824;
-  font-size: 26rpx;
-  font-weight: 500;
-}
-.mine-progress-heading text:last-child {
-  font-size: 22rpx;
-}
-.mine-progress-count {
-  margin-top: 12rpx;
-}
-.mine-progress-count text {
-  margin: 0 8rpx;
-  color: #7a1c1c;
-  font-family: Georgia, serif;
-  font-size: 36rpx;
+.mine-menu-hint-pending {
+  color: #8d1724;
 }

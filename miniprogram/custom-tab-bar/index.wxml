@@ -1,4 +1,4 @@
-<view class="tab-bar {{selected === 0 || selected === 1 || selected === 3 ? 'tab-bar-original' : ''}}">
+<view class="tab-bar tab-bar-original">
   <button wx:for="{{tabs}}" wx:key="path" class="tab-item {{selected === index ? 'tab-selected' : ''}}" data-index="{{index}}" bindtap="switchTab" disabled="{{switching}}" aria-label="{{item.label}}" aria-role="button">
     <view wx:if="{{selected === index}}" class="tab-indicator"></view>
     <image class="tab-icon" src="/assets/figma/tab-{{item.icon}}{{selected === index ? '-active' : ''}}.png" mode="aspectFit" />

@@ -83,6 +83,7 @@ test("订单付款独立展示本单金额与余额，单一主操作不混入�
     wallet: { availableText: "2,547.85" },
     canPay: true,
     afterPayText: "1,659.85",
+    paymentStatusText: "待支付",
     ledger: [{ id: 1, title: "历史扣减" }],
   };
   const pending = render("wallet", data);
@@ -103,7 +104,12 @@ test("订单付款独立展示本单金额与余额，单一主操作不混入�
   assert.ok(shortfall.text.includes("还差 20.00 积分"));
   assert.ok(shortfall.text.includes("联系总部充值"));
   assert.ok(!shortfall.text.includes("确认支付"));
-  const paid = render("wallet", { ...data, paid: true, canPay: false });
+  const paid = render("wallet", {
+    ...data,
+    paid: true,
+    canPay: false,
+    paymentStatusText: "支付成功",
+  });
   assert.ok(paid.text.includes("支付成功"));
   assert.ok(paid.text.includes("查看订单与配送"));
   assert.ok(!paid.text.includes("支付后剩余"));
@@ -126,6 +132,30 @@ test("个人中心新增菜单引用实际存在的图标，避免空白图标�
     if (src?.startsWith("/assets/"))
       assert.ok(fs.existsSync(path.join(root, src)), `图标缺失：${src}`);
   }
+});
+
+test("权益包待收货提示并入我的寄存入口，不单独占一行", () => {
+  const menuItems = [
+    {
+      key: "storage",
+      title: "我的寄存",
+      hint: "寄存货品、提货申请与记录",
+      icon: "storage",
+    },
+  ];
+  const pending = render("profile", {
+    menuItems,
+    packagePendingText: "19800权益包 0/1 件待收货",
+  });
+  assert.ok(pending.text.includes("我的寄存"));
+  assert.ok(pending.text.includes("19800权益包 0/1 件待收货"));
+  assert.ok(pending.hasClass("mine-menu-hint-pending"));
+  assert.ok(!pending.hasClass("mine-package-pending"));
+  assert.ok(!pending.hasClass("mine-package-progress"));
+  const completed = render("profile", { menuItems, packagePendingText: "" });
+  assert.ok(completed.text.includes("寄存货品、提货申请与记录"));
+  assert.ok(!completed.hasClass("mine-menu-hint-pending"));
+  assert.ok(!completed.text.includes("件待收货"));
 });
 
 test("寄存空状态提供商城引导，隐藏列表结束提示、提货栏和默认展开的长规则", () => {
@@ -444,7 +474,7 @@ test("提交订单展示地址、商品小计及运费，缺少报价时不显�
   assert.ok(ready.hasClass("checkout-dock"));
   assert.ok(ready.text.includes("共2件"));
   assert.ok(ready.text.includes("¥0.00"));
-  assert.ok(ready.text.includes("不会立即扣款或扣积分"));
+  assert.ok(ready.text.includes("提交本身不会扣款或扣积分"));
   assert.ok(
     ready.nodes.find((node) => node.attr?.class === "checkout-submit").attr
       .disabled,

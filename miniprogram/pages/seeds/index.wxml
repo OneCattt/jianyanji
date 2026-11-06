@@ -1,11 +1,7 @@
 <import src="../../templates/list-footer.wxml" />
-<tab-navigation title="种草空间" />
-<view class="qx qx-tabpage"
+<view class="qx"
   ><view class="qx-section"
-    ><view class="qx-caption">QINGXIN STORIES</view
-    ><view class="qx-h2">种草空间</view
-    ><view class="qx-about">品牌护理知识、产品使用与短视频</view>
-    <button
+    ><button
       wx:for="{{items}}"
       wx:key="id"
       class="seed-card"
@@ -27,9 +23,27 @@
     </button>
     <view
       wx:if="{{loaded && !items.length && !loading && !error}}"
-      class="qx-empty"
-      >品牌内容尚未发布</view
-    ><view wx:if="{{error}}" class="error"
+      class="seed-empty"
+    >
+      <view class="seed-empty-art" aria-hidden="true">
+        <view class="seed-empty-halo"></view>
+        <image
+          class="seed-empty-icon"
+          src="/assets/figma/tab-seed-active.png"
+          mode="aspectFit"
+        />
+      </view>
+      <view class="seed-empty-title">品牌内容正在准备中</view>
+      <view class="seed-empty-desc"
+        >护理知识、产品使用与短视频即将上线，稍后再来看看</view
+      >
+      <button
+        class="seed-empty-action"
+        bindtap="retry"
+        hover-class="seed-empty-action-pressed"
+        >刷新看看</button
+      >
+    </view><view wx:if="{{error}}" class="error"
       >{{error}}<button class="qx-text" bindtap="retry">重试</button></view
     >
     <template

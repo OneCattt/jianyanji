@@ -74,7 +74,7 @@
 }
 .login-agreement {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   margin-top: 20px;
   font-size: 13px;
@@ -83,12 +83,24 @@
 .login-agreement checkbox {
   flex-shrink: 0;
 }
+.login-agreement text {
+  flex: 1;
+  min-width: 0;
+}
 .login-links {
   display: flex;
   flex-wrap: wrap;
+  column-gap: 16px;
+  margin-top: 4px;
 }
 .login-panel .login-links button {
-  padding: 8px 10px;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  padding: 8px 0;
+  border-radius: 0;
+  text-align: left;
+  white-space: nowrap;
   background: transparent;
   color: #7a1c1c;
   font-size: 12px;

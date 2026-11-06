@@ -14,6 +14,7 @@ function harness() {
   const wx = {
     getStorageSync: (key) => cache[key],
     setStorageSync: (key, value) => (cache[key] = value),
+    removeStorageSync: (key) => delete cache[key],
     navigateBack: () => calls.push({ back: true }),
   };
   const entry = path.resolve(__dirname, "../pages/storage/index.js");

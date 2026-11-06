@@ -35,7 +35,7 @@
           >{{loading ? '正在确认隐私授权信息…' : operator}}</view
         >
         <view wx:if="{{contact}}" class="login-contact"
-          >隐私联系：{{contact}}</view
+          >隐私问题咨询：{{contact}}</view
         >
         <checkbox-group bindchange="toggleAgreement">
           <label class="login-agreement"

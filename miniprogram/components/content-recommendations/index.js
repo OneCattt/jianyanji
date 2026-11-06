@@ -36,7 +36,7 @@ Component({
       });
     },
     all() {
-      wx.switchTab({ url: "/pages/seeds/index" });
+      wx.navigateTo({ url: "/pages/seeds/index" });
     },
   },
 });

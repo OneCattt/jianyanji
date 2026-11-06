@@ -90,20 +90,11 @@
           bindtap="onNavigate"
           disabled="{{navigating}}"
         >
-          {{user ? '代理入驻' : '登录清欣'}}
+          {{user ? (user.identity === 'C' ? '升级19800店主' : '代理入驻') :
+          '登录清欣'}}
         </button></view
       >
     </view>
-    <view wx:for="{{packageProgress}}" wx:key="id" class="mine-package-progress"
-      ><view class="mine-progress-heading"
-        ><text>{{item.target_identity==='B'?'19800':'2980'}}店主权益包</text
-        ><text
-          >{{item.consumption_confirmed?'总部已确认完成':'收货进度'}}</text
-        ></view
-      ><view class="mine-progress-count"
-        >已收货 <text>{{item.consumed_qty}}</text> / {{item.total_qty}} 件</view
-      ></view
-    >
     <view wx:if="{{error}}" class="mine-error"
       ><text>{{error}}</text
       ><button bindtap="refresh" disabled="{{busy}}">重试</button></view
@@ -189,7 +180,10 @@
                 src="/assets/figma/profile-{{item.icon}}.png"
                 mode="aspectFit" /></view
             ><text class="mine-menu-title">{{item.title}}</text
-            ><text class="mine-menu-hint">{{item.hint}}</text
+            ><text
+              class="mine-menu-hint {{item.key === 'storage' && packagePendingText ? 'mine-menu-hint-pending' : ''}}"
+              >{{item.key === 'storage' && packagePendingText ?
+              packagePendingText : item.hint}}</text
             ><image
               class="mine-menu-arrow"
               src="/assets/figma/profile-arrow.png"

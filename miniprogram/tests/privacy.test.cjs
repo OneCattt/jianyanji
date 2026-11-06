@@ -482,6 +482,7 @@ test("商品加购、立即购买和生成分享三个快捷登录入口均遵�
     const r = runtime();
     const page = r.page("product");
     page.data.sku = { id: 1, available: true };
+    if (method === "prepareSalesShare") page.data.canSalesShare = true;
     const action = page[method]();
     const policy = await r.policy();
     policy.decline();
@@ -622,7 +623,7 @@ test("已同意且微信状态有效时，真实地址保存及订单提交仍�
     1,
   );
   assert.equal(r.navigation.at(-1).kind, "redirect");
-  assert.equal(r.navigation.at(-1).url, "/pages/order/index?id=8");
+  assert.equal(r.navigation.at(-1).url, "/pages/wallet/index?orderId=8");
 });
 
 test("等待微信会话检查期间换号，旧页面不能借用新账号提交资料或读取身份商品", async () => {

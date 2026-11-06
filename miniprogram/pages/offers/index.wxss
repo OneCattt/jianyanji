@@ -33,42 +33,58 @@ page {
 }
 .offer-product-gallery {
   position: relative;
-  padding: 72rpx 24rpx 32rpx;
-  background: #efeae3;
+  padding: 86rpx 28rpx 34rpx;
+  background: radial-gradient(
+    130% 100% at 50% 0%,
+    #f9f4ed 0%,
+    #f0e7db 58%,
+    #e8dccb 100%
+  );
 }
 .offer-product-label {
   position: absolute;
-  top: 22rpx;
-  left: 24rpx;
-  color: #795c4a;
-  font-size: 21rpx;
-  letter-spacing: 3rpx;
+  top: 24rpx;
+  left: 28rpx;
+  padding: 7rpx 18rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 253, 250, 0.72);
+  color: #8a6a52;
+  font-size: 19rpx;
+  letter-spacing: 2rpx;
 }
 .offer-product-stage {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: 16rpx;
+  gap: 20rpx;
 }
 .offer-product-shot {
   position: relative;
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
-  max-width: 260rpx;
+  padding: 12rpx;
+  border-radius: 14rpx;
+  background: rgba(255, 253, 250, 0.88);
+  box-shadow: 0 10rpx 30rpx rgba(93, 64, 40, 0.08);
+}
+.offer-product-stage-single .offer-product-shot {
+  flex: 0 1 300rpx;
 }
 .offer-product-image,
 .offer-product-placeholder {
   display: block;
   width: 100%;
   height: 220rpx;
+  border-radius: 8rpx;
 }
 .offer-product-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24rpx 12rpx;
-  border: 1rpx solid #d9cec1;
-  border-radius: 8rpx;
+  background: #f6efe6;
   color: #866b59;
   font-family: STSong, "Songti SC", serif;
   font-size: 26rpx;
@@ -80,16 +96,17 @@ page {
   align-items: center;
   justify-content: center;
   gap: 10rpx;
-  margin-top: 14rpx;
-  color: #796b62;
-  font-size: 22rpx;
+  margin-top: 10rpx;
+  padding-bottom: 4rpx;
+  color: #7d6c60;
+  font-size: 21rpx;
 }
 .offer-shot-gift {
   padding: 2rpx 10rpx;
-  border: 1rpx solid #cbb7a2;
   border-radius: 4rpx;
-  color: #795c4a;
-  font-size: 19rpx;
+  background: #f3e5e2;
+  color: #8d1724;
+  font-size: 18rpx;
 }
 .offer-product-more {
   display: block;

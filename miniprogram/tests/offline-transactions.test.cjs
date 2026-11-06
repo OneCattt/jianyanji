@@ -17,6 +17,26 @@ const pendingOrder = () => ({
   shipping_cents: 0,
   snapshot: { lines: [] },
   shipments: [],
+  expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+});
+
+const packageOrder = () => ({
+  ...pendingOrder(),
+  kind: "package",
+  snapshot: {
+    lines: [],
+    onboardingId: 5,
+    identity: "C",
+    deliveryMode: "ship",
+    address: {
+      recipient: "测试客户",
+      phone: "13800138000",
+      province: "广东省",
+      city: "深圳市",
+      district: "南山区",
+      detail: "测试路 1 号",
+    },
+  },
 });
 
 // 执行真实页面方法，仅替换微信宿主和网络，验证用户操作实际发出的请求。
@@ -54,6 +74,14 @@ function pageHarness(page, options = {}) {
       };
     if (url === "/me") return { identity: options.identity || "C" };
     if (url === "/public/content") return { content };
+    if (url === "/onboardings/5") {
+      if (options.activationQueryFailure) throw new Error("资格读取失败");
+      return {
+        id: 5,
+        status: options.activationMissing ? "submitted" : "approved",
+        qualification_snapshot: options.activationMissing ? null : {},
+      };
+    }
     if (url === "/orders/7") return order;
     if (url === "/orders/7/payment") return { order, receipt: null };
     if (url === "/orders/7/cancel") {
@@ -70,6 +98,14 @@ function pageHarness(page, options = {}) {
             status: "paid",
             payment_state: "paid",
             payment_method: "points",
+            ...(order.kind === "package" && !options.activationMissing
+              ? {
+                  snapshot: {
+                    ...order.snapshot,
+                    onboardingApproved: true,
+                  },
+                }
+              : {}),
           };
       return { order };
     }
@@ -82,6 +118,7 @@ function pageHarness(page, options = {}) {
     setClipboardData: (value) => clipboard.push(value.data),
     showToast: (toast) => toasts.push(toast),
     navigateTo: (route) => navigation.push(route),
+    redirectTo: (route) => navigation.push(route),
   };
   const modules = new Map();
   function load(filename) {
@@ -140,7 +177,11 @@ function pageHarness(page, options = {}) {
     assert.equal(selector, "#brand-dialog");
     return dialog;
   };
-  instance.onLoad({ id: 7, orderId: options.orderId ?? 7 });
+  instance.onLoad({
+    id: 7,
+    orderId: options.orderId ?? 7,
+    justPaid: options.justPaid ? "1" : undefined,
+  });
   return {
     page: instance,
     calls,
@@ -157,7 +198,7 @@ function pageHarness(page, options = {}) {
 test("新订单使用积分支付，历史线下订单保留真实核款状态", async () => {
   const { page, calls, view } = pageHarness("order", { identity: "D" });
   await page.load();
-  assert.equal(page.data.order.receiptText, "待积分支付");
+  assert.equal(page.data.order.receiptText, "待付款");
   assert.equal(page.data.order.methodText, "积分支付");
   assert.equal(page.data.canUsePoints, true);
   assert.equal(page.data.transfer.bankAccount, "123456");
@@ -249,7 +290,7 @@ test("付款视图只读取本单与余额，不加载积分流水，普通钱�
   assert.equal(payment.page.data.afterPayText, "80.00");
   assert.equal(payment.page.data.paymentLoading, false);
   assert.ok(!payment.calls.some((call) => call.url.includes("/ledger")));
-  assert.ok(payment.navigation.some((route) => route.title === "订单付款"));
+  assert.ok(payment.navigation.some((route) => route.title === "积分支付"));
   payment.page.walletDetails();
   assert.ok(
     payment.navigation.some((route) => route.url === "/pages/wallet/index"),
@@ -272,14 +313,21 @@ test("付款余额不足明确展示差额，付款成功后切换成功标题",
   assert.equal(paid.page.data.canPay, false);
 });
 
-test("付款成功后刷新失败仍保留付款结果及订单展示信息", async () => {
-  const { page, toasts } = pageHarness("wallet", { refreshFailure: true });
+test("付款成功后立即进入本单，余额刷新失败不阻塞成功结果", async () => {
+  const { page, toasts, navigation } = pageHarness("wallet", {
+    refreshFailure: true,
+  });
   await page.load();
   await page.pay();
   assert.equal(page.data.paid, true);
   assert.equal(page.data.canPay, false);
   assert.equal(page.data.order.goodsPointsText, "120.00");
-  assert.match(page.data.error, /付款已成功.*刷新失败/);
+  assert.equal(page.data.error, "");
+  assert.ok(
+    navigation.some(
+      (route) => route.url === "/pages/order/index?id=7&justPaid=1",
+    ),
+  );
   assert.equal(toasts[0].title, "积分付款成功");
 });
 
@@ -308,6 +356,71 @@ test("普通顾客和权益包都允许使用足额积分支付", async () => {
     assert.equal(calls.filter((call) => call.method === "POST").length, 1);
     assert.equal(page.data.paid, true);
   }
+});
+
+test("权益包付款展示身份与开通语义，支付后确认资格激活", async () => {
+  const { page, calls } = pageHarness("wallet", { order: packageOrder() });
+  await page.load();
+  assert.equal(page.data.isPackage, true);
+  assert.equal(page.data.order.identityText, "2980店主");
+  assert.equal(page.data.order.deliveryText, "按本次数量发货");
+  assert.match(page.data.order.addressText, /测试客户/);
+  assert.equal(page.data.paymentStatusText, "待付款");
+  assert.match(page.data.paymentCaptionText, /支付成功后开通对应身份/);
+  assert.match(page.data.paymentHelpText, /充值本身不开通身份/);
+  await page.pay();
+  assert.equal(page.data.paid, true);
+  assert.equal(page.data.activated, true);
+  assert.equal(page.data.activationPending, false);
+  assert.equal(page.data.paymentStatusText, "支付成功，身份已开通");
+  assert.equal(calls.filter((call) => call.method === "POST").length, 1);
+});
+
+test("权益包付款成功但资格暂不可查时保留成功事实并提示待核实", async () => {
+  const { page } = pageHarness("wallet", {
+    order: packageOrder(),
+    activationMissing: true,
+  });
+  await page.load();
+  await page.pay();
+  assert.equal(page.data.paid, true);
+  assert.equal(page.data.activated, false);
+  assert.equal(page.data.activationPending, true);
+  assert.equal(page.data.paymentStatusText, "付款成功，身份状态待核实");
+  assert.match(page.data.paymentCaptionText, /待核实/);
+});
+
+test("权益包付款响应未知时查询原订单，不换单也不新建申请", async () => {
+  const { page, calls } = pageHarness("wallet", {
+    order: packageOrder(),
+    failure: "无法连接服务，请检查网络后重试",
+  });
+  await page.load();
+  await page.pay();
+  assert.equal(page.data.paid, false);
+  assert.equal(page.data.canPay, true);
+  assert.match(page.data.error, /付款结果待确认.*核实/);
+  assert.equal(calls.filter((call) => call.method === "POST").length, 1);
+  assert.equal(calls.filter((call) => call.url === "/orders/7").length, 2);
+  assert.equal(
+    calls.some((call) => call.url === "/onboardings/5"),
+    false,
+  );
+});
+
+test("权益包订单过期后不允许支付并提示重新办理", async () => {
+  const order = packageOrder();
+  order.expires_at = new Date(Date.now() - 60 * 1000).toISOString();
+  const { page, calls } = pageHarness("wallet", { order });
+  await page.load();
+  assert.equal(page.data.expired, true);
+  assert.equal(page.data.canPay, false);
+  assert.equal(page.data.paymentStatusText, "本次购买已关闭，未开通");
+  await page.pay();
+  assert.equal(
+    calls.some((call) => call.method === "POST"),
+    false,
+  );
 });
 
 test("整单积分付款连续点击仅扣减一次，确认成功后才能显示成功", async () => {
@@ -459,37 +572,46 @@ test("订单详情的复制、物流、售后和顾问入口调用对应操作",
   assert.deepEqual(clipboard, ["O7", "品牌客服"]);
 });
 
-test("入驻确认取消时不提交申请或重新确认邀请关系", async () => {
-  for (const action of ["submit", "reconfirm"]) {
-    const { page, dialog, calls } = pageHarness("onboarding", {
-      deferModal: true,
-    });
-    page.setData({
-      user: {},
-      selected: {},
-      agreed: true,
-      address: { id: 1 },
-      inviterId: "2",
-      current: { id: 1, target_identity: "C" },
-    });
-    page.resolveInvitation = async () => ({
-      inviterName: "邀请人",
-      principalName: "归属主理人",
-      inviterId: 2,
-      principalId: 3,
-    });
-    const applying = page[action]();
-    // 邀请查询的 Promise 来自页面沙箱，等待这一轮微任务全部完成。
-    await new Promise(setImmediate);
-    assert.equal(dialog.data.visible, true, page.data.error);
-    dialog.cancel();
-    await applying;
-    assert.equal(page.data.busy, false);
-    assert.equal(
-      calls.some((call) => call.method === "POST"),
-      false,
-    );
-  }
+test("入驻未确认不能提交，重新确认归属取消时不写入", async () => {
+  const { page, dialog, calls } = pageHarness("onboarding", {
+    deferModal: true,
+  });
+  page._session = "token";
+  const relation = {
+    inviterName: "邀请人",
+    principalName: "归属主理人",
+    inviterId: 2,
+    principalId: 3,
+  };
+  page.setData({
+    user: { id: 7, identity: "D" },
+    selected: {},
+    agreed: true,
+    address: { id: 1 },
+    relation,
+    invitationStatus: "verified",
+  });
+  await page.submit();
+  assert.equal(
+    calls.some((call) => call.method === "POST"),
+    false,
+  );
+  assert.equal(page.data.canApply, false);
+  assert.match(page.data.applyHint, /确认邀请/);
+  page.setData({
+    current: { id: 1, status: "submitted", target_identity: "C" },
+    invitationStatus: "confirmed",
+  });
+  const applying = page.reconfirm();
+  await new Promise(setImmediate);
+  assert.equal(dialog.data.visible, true, page.data.error);
+  dialog.cancel();
+  await applying;
+  assert.equal(page.data.busy, false);
+  assert.equal(
+    calls.some((call) => call.method === "POST"),
+    false,
+  );
 });
 
 test("使用品牌弹层的页面均注册并挂载组件", () => {
@@ -563,4 +685,56 @@ test("所有小程序页面均不包含线上付款、查单或关单调用", ()
     }
   };
   scan(path.join(root, "pages"));
+});
+
+test("订单列表主动作按真实状态和来源选择，锁定或关闭不显示去付款", () => {
+  const { view } = pageHarness("order");
+  const base = pendingOrder();
+  const action = (order, tab = 0) =>
+    view.decorateList({ ...base, ...order }, tab).actionKind;
+  assert.equal(action({}), "pay");
+  for (const state of ["paying", "unknown", "review"])
+    assert.equal(action({ payment_state: state }), "detail");
+  assert.equal(action({ status: "closed", payment_state: "unpaid" }), "detail");
+  assert.equal(action({ status: "paid", payment_state: "refunded" }), "detail");
+  assert.equal(
+    action({ status: "paid", payment_state: "paid", storageRemainingQty: 2 }),
+    "pickup",
+  );
+  assert.equal(
+    action({
+      status: "shipped",
+      payment_state: "paid",
+      inTransitQuantity: 1,
+      storageRemainingQty: 2,
+    }),
+    "logistics",
+  );
+  assert.equal(
+    action(
+      {
+        status: "shipped",
+        payment_state: "paid",
+        inTransitQuantity: 1,
+        storageRemainingQty: 2,
+      },
+      5,
+    ),
+    "pickup",
+  );
+});
+
+test("支付成功进入详情强调结果，伪造来源参数不能显示成功", async () => {
+  const paidOrder = {
+    ...pendingOrder(),
+    status: "paid",
+    payment_state: "paid",
+    payment_method: "points",
+  };
+  const confirmed = pageHarness("order", { order: paidOrder, justPaid: true });
+  await confirmed.page.load();
+  assert.equal(confirmed.page.data.justPaid, true);
+  const forged = pageHarness("order", { justPaid: true });
+  await forged.page.load();
+  assert.equal(forged.page.data.justPaid, false);
 });
